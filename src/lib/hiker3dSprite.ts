@@ -392,7 +392,7 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
     setGroundSpeed(bodyHeightsPerS) {
       if (!(bodyHeightsPerS >= 0)) return
       groundSpeed = bodyHeightsPerS
-      walkRateTarget = Math.max(WALK_RATE_MIN, Math.min(WALK_RATE_MAX, (bodyHeightsPerS / clipSpeed) * CADENCE_SCALE))
+      walkRateTarget = Math.max(WALK_RATE_MIN, Math.min(WALK_RATE_MAX, (bodyHeightsPerS / clipSpeed) * CADENCE_SCALE * (def.cadence ?? 1)))
     },
     setProgress(fraction) {
       const gaits = def.gaits

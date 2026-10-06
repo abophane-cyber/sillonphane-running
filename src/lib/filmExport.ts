@@ -13,7 +13,7 @@ import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './t
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPoints } from './gpx'
 import { BASEMAP_BACKGROUND } from './tileSources'
-import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, ribbonAgeColor, ribbonHeadM } from './ribbon'
+import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
@@ -204,8 +204,10 @@ function drawTrack(
     const path = buildPath()
 
     // Liseré de contour très léger sous le ruban (comme TrackMap/track-done-halo).
-    ctx.strokeStyle = RIBBON_OUTLINE
-    ctx.lineWidth   = 6.5
+    // Course finie (arrivée, vue générale) : dégradé d'origine sur tout le parcours et liseré marqué, sans tête.
+    const finished = progress >= 1
+    ctx.strokeStyle = finished ? RIBBON_OUTLINE_FULL : RIBBON_OUTLINE
+    ctx.lineWidth   = finished ? 7 : 6.5
     ctx.globalAlpha = 1
     ctx.stroke(path)
 
@@ -224,11 +226,12 @@ function drawTrack(
       while (i < lo && distances[i + 1] <= until) { i++; const pt = project(points[i].lon, points[i].lat); seg.lineTo(pt.x, pt.y); n++ }
       if (c === CHUNKS) { seg.lineTo(tipPt.x, tipPt.y); n++ }
       if (!n) continue // tronçon plus court qu'un écart entre deux points : la couleur suivante prend le relais
-      ctx.strokeStyle = ribbonAgeColor(t - (t * (c - 0.5)) / CHUNKS, totalDistance)
+      ctx.strokeStyle = finished ? ribbonColorAt((c - 0.5) / CHUNKS) : ribbonAgeColor(t - (t * (c - 0.5)) / CHUNKS, totalDistance)
       ctx.stroke(seg)
     }
 
     // Tête du ruban (derniers mètres) par-dessus tout, avec un liseré : toujours visible sur une boucle.
+    if (finished) { ctx.restore(); return }
     const headFrom = t - ribbonHeadM(totalDistance)
     let h = lo
     while (h > 0 && distances[h] > headFrom) h--

@@ -40,6 +40,16 @@ export function ribbonGradient(coveredM: number, totalDistance: number): unknown
   return expr
 }
 
+/** Course terminée (vue générale de fin) : dégradé d'origine réparti sur tout le parcours (vert au départ, orange au
+ * milieu, crème à l'arrivée) et liseré plus marqué, pour bien lire le tracé entier. */
+export const RIBBON_FULL_GRADIENT = ['interpolate', ['linear'], ['line-progress'], 0, rgb(GREEN), 0.5, rgb(ORANGE), 1, rgb(CREAM)]
+export const RIBBON_OUTLINE_FULL = 'rgba(20,30,20,0.55)'
+/** Couleur du dégradé d'origine à la part `f` (0 = départ, 1 = arrivée) du parcours. */
+export function ribbonColorAt(f: number): string {
+  const x = Math.max(0, Math.min(1, f))
+  return rgb(x <= 0.5 ? mix(GREEN, ORANGE, x / 0.5) : mix(ORANGE, CREAM, (x - 0.5) / 0.5))
+}
+
 /** Longueur de la tête du ruban (m) : 2 % du parcours, entre 80 et 500 m. */
 export function ribbonHeadM(totalDistance: number): number {
   return Math.max(80, Math.min(500, totalDistance * 0.02))

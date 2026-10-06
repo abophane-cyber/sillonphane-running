@@ -18,7 +18,7 @@ import {
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
-import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
+import { RIBBON_FULL_GRADIENT, RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -715,14 +715,19 @@ export function TrackMap({
         : [],
     }
     ;(map.getSource('track-done') as maplibregl.GeoJSONSource | undefined)?.setData(doneFC)
+    // Pendant la course : crème au coureur, orange puis vert derrière lui ; course finie (vue générale) : dégradé
+    // d'origine sur tout le parcours et liseré plus marqué, sans tête de ruban.
+    const finished = progress >= 1
     if (map.getLayer('track-done-line') && covered > 0) {
-      map.setPaintProperty('track-done-line', 'line-gradient', ribbonGradient(covered, totalDistance) as maplibregl.ExpressionSpecification)
+      map.setPaintProperty('track-done-line', 'line-gradient', (finished ? RIBBON_FULL_GRADIENT : ribbonGradient(covered, totalDistance)) as maplibregl.ExpressionSpecification)
+      map.setPaintProperty('track-done-halo', 'line-color', finished ? RIBBON_OUTLINE_FULL : RIBBON_OUTLINE)
+      map.setPaintProperty('track-done-halo', 'line-width', finished ? 8 : 7.5)
     }
     // Tête du ruban : derniers mètres parcourus, au-dessus de tout (cf. ribbonHeadM).
-    const headFrom = covered - ribbonHeadM(totalDistance)
+    const headFrom = finished ? Infinity : covered - ribbonHeadM(totalDistance)
     let h0 = doneCoords.length - 1
     while (h0 > 0 && distances[h0 - 1] > headFrom) h0--
-    const headCoords = doneCoords.slice(Math.max(0, h0 - 1))
+    const headCoords = finished ? [] : doneCoords.slice(Math.max(0, h0 - 1))
     ;(map.getSource('track-head') as maplibregl.GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
       features: headCoords.length > 1

@@ -315,17 +315,35 @@ export function PanelWizard({
         {/* ── Ravitaillements : kilomètres saisis, placés automatiquement sur le tracé ── */}
         <div className="pwiz-section pwiz-section--ravitos">
           <span className="pwiz-section-label">💧 Ravitaillements</span>
+          <p className="pwiz-race-hint">
+            Tapez le kilomètre de chaque poste, séparés par « ; » (ex. 5 ; 9 ; 14 ; 18,5), ou collez la phrase de
+            l’organisateur. Chaque poste est placé tout seul sur le tracé, à ce kilomètre, et gardé avec le tracé.
+          </p>
           <input
-            className="pwiz-input" value={race.ravitos ?? ''} placeholder="Km : 5 ; 9 ; 14 ; 18,5"
+            className="pwiz-input" value={race.ravitos ?? ''} placeholder="5 ; 9 ; 14 ; 18,5"
             aria-label="Kilomètres des ravitaillements"
             onChange={e => onRaceChange({ ...race, ravitos: e.target.value })}
           />
-          {parseRavitoKms(race.ravitos).length > 0 && (
-            <p className="pwiz-race-hint">
-              {parseRavitoKms(race.ravitos).map(km => `km ${formatKm(km)}`).join(' · ')}
-              {ravitoCount < parseRavitoKms(race.ravitos).length && ' (au-delà de l’arrivée : ignorés)'}
-            </p>
-          )}
+          {(() => {
+            const kms = parseRavitoKms(race.ravitos)
+            if (!kms.length) return null
+            const placed = kms.slice(0, ravitoCount), beyond = kms.slice(ravitoCount)
+            return (
+              <div className="pwiz-ravito-ok" role="status">
+                <span className="pwiz-ravito-ok__title">
+                  ✓ {placed.length} ravitaillement{placed.length > 1 ? 's' : ''} placé{placed.length > 1 ? 's' : ''} sur le tracé
+                </span>
+                <span className="pwiz-ravito-chips">
+                  {placed.map(km => <span key={km} className="pwiz-ravito-chip">💧 km {formatKm(km)}</span>)}
+                </span>
+                {beyond.length > 0 && (
+                  <span className="pwiz-ravito-warn">
+                    Ignoré{beyond.length > 1 ? 's' : ''} (au-delà de l’arrivée) : {beyond.map(km => `km ${formatKm(km)}`).join(', ')}
+                  </span>
+                )}
+              </div>
+            )
+          })()}
         </div>
 
         {/* ── Panneaux ajoutés manuellement (après l'arrivée) ── */}
