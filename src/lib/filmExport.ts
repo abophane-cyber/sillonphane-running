@@ -18,7 +18,7 @@ import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
-import { borneNumber, borneReached, borneTimeLine, type Borne } from './raceSplits'
+import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -51,6 +51,8 @@ export interface FilmExportOptions {
   bornes?:           Borne[]
   /** Numéro inscrit sur le dossard du personnage (cf. Hiker3dSprite.setBibNumber). */
   bibNumber?:        string
+  /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
+  endCard?:          EndCard
   speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
   trackName:         string
   durationS:         number // Défaut: 30s (correspond à la Preview)
@@ -547,12 +549,15 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
 // Hauteur réservée au-dessus des pieds du randonneur pour éviter le cartel d'altitude (suivi caméra).
 const MARKER_H = 150
 
+/** Adresse du site, signée dans les films. */
+const SITE_ADDRESS = 'sillonphane.fr/running'
+
 // ─── Watermark de fin ─────────────────────────────────────────────────────────
 // Reprend le tracé du logo Sillonphane-Rando (AppLogoIcon.tsx) : même chemin, même dégradé,
 // même animation (le trait se dessine puis les deux points apparaissent), rejouée ici image par
 // image plutôt qu'en CSS puisqu'il s'agit d'une vidéo exportée en frames.
 // Affiché à la fin, CENTRÉ, juste au-dessus du kilométrage : le logo se déroule en filigrane,
-// puis « sillonphane.fr/rando » se révèle en balayage sous le logo (retirable à terme si l'appli
+// puis « sillonphane.fr/running » se révèle en balayage sous le logo (retirable à terme si l'appli
 // est achetée — un seul appel à supprimer).
 
 const SILLAGE_LOGO_D = 'M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60'
@@ -581,7 +586,7 @@ export function drawEndWatermark(
   const gap      = Math.round(ch * 0.016)
   const cx       = cw / 2
 
-  // Bloc : logo (filigrane) au-dessus, « sillonphane.fr/rando » en dessous ; bord bas du texte = bottomY.
+  // Bloc : logo (filigrane) au-dessus, « sillonphane.fr/running » en dessous ; bord bas du texte = bottomY.
   const textBaseY   = bottomY
   const logoBottomY = textBaseY - textSize - gap
   const logoTopY    = logoBottomY - logoSize
@@ -623,7 +628,7 @@ export function drawEndWatermark(
   }
   ctx.restore()
 
-  // ── « sillonphane.fr/rando » : révélé par balayage gauche → droite (fenêtre de clip qui s'ouvre) ──
+  // ── « sillonphane.fr/running » : révélé par balayage gauche → droite (fenêtre de clip qui s'ouvre) ──
   const textReveal = Math.max(0, Math.min(1, (revealT - 0.5) / 0.45))
   if (textReveal > 0) {
     ctx.save()
@@ -634,13 +639,81 @@ export function drawEndWatermark(
     ctx.shadowColor = 'rgba(0,0,0,0.6)'
     ctx.shadowBlur = 8
     ctx.fillStyle = '#fff'
-    const tw = ctx.measureText('sillonphane.fr/rando').width
+    const tw = ctx.measureText(SITE_ADDRESS).width
     ctx.beginPath()
     ctx.rect(cx - tw / 2 - 2, textBaseY - textSize * 1.1, tw * textReveal + 4, textSize * 1.6)
     ctx.clip()
-    ctx.fillText('sillonphane.fr/rando', cx, textBaseY)
+    ctx.fillText(SITE_ADDRESS, cx, textBaseY)
     ctx.restore()
   }
+}
+
+/** Carton de fin, bandeau bas (style générique TV) sur la vue d'ensemble : date dorée et intitulé en italique à
+ * gauche ; à droite, après un filet doré, distance, dénivelé, temps et moyenne ; adresse du site en petit au-dessus.
+ * Bleu nuit et or des médailles km. Fondu d'apparition (`opacity`) avec une légère montée. */
+export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: number, card: EndCard, opacity: number) {
+  if (opacity <= 0) return
+  const GOLD = '#ffd166', SOFT = '#c9cfdc'
+  const padX = cw * 0.04, baseY = ch - ch * 0.075 + (1 - opacity) * ch * 0.02
+  ctx.save()
+  ctx.globalAlpha = opacity
+  // Fond : dégradé sombre depuis le bas.
+  const top = ch * 0.62
+  const g = ctx.createLinearGradient(0, top, 0, ch)
+  g.addColorStop(0, 'rgba(8,12,20,0)'); g.addColorStop(0.4, 'rgba(8,12,20,0.82)'); g.addColorStop(1, 'rgba(8,12,20,0.94)')
+  ctx.fillStyle = g
+  ctx.fillRect(0, top, cw, ch - top)
+
+  // Chiffres, de droite à gauche.
+  const stats: [string, string, boolean][] = []
+  if (card.distance) stats.push([card.distance, 'DISTANCE', false])
+  if (card.elevGain) stats.push([card.elevGain, 'DÉNIVELÉ', false])
+  if (card.time) stats.push([card.time, card.timeLabel ?? 'TEMPS', true])
+  if (card.avgSpeed) stats.push([card.avgSpeed, 'MOYENNE', false])
+  const VAL = `700 ${Math.round(ch * 0.042)}px Arial, Helvetica, sans-serif`
+  const LAB = `700 ${Math.round(ch * 0.016)}px Arial, Helvetica, sans-serif`
+  const gap = ch * 0.045
+  ctx.textBaseline = 'alphabetic'
+  const widths = stats.map(([v, l]) => { ctx.font = VAL; const wv = ctx.measureText(v).width; ctx.font = LAB; return Math.max(wv, ctx.measureText(l).width + l.length * ch * 0.003) })
+  let x = cw - padX
+  const labY = baseY, valY = baseY - ch * 0.03
+  for (let i = stats.length - 1; i >= 0; i--) {
+    const [v, l, gold] = stats[i]
+    ctx.textAlign = 'right'
+    ctx.font = VAL; ctx.fillStyle = gold ? GOLD : '#fff'
+    ctx.fillText(v, x, valY)
+    ctx.font = LAB; ctx.fillStyle = SOFT
+    ctx.letterSpacing = `${ch * 0.003}px`
+    ctx.fillText(l, x, labY)
+    ctx.letterSpacing = '0px'
+    x -= widths[i] + gap
+  }
+  // Filet doré vertical entre l'intitulé et les chiffres.
+  const sepX = x + gap * 0.5
+  if (stats.length) {
+    ctx.fillStyle = GOLD
+    ctx.fillRect(sepX, valY - ch * 0.045, Math.max(1.5, ch * 0.0018), ch * 0.08)
+  }
+
+  // Intitulé (italique, ajusté à la place restante) et date dorée au-dessus.
+  const maxTitleW = (stats.length ? sepX - gap * 0.5 : cw - padX) - padX
+  let ts = Math.round(ch * 0.058)
+  do { ctx.font = `italic ${ts}px Georgia, "Times New Roman", serif`; ts -= 2 } while (ctx.measureText(card.title).width > maxTitleW && ts > 14)
+  ctx.textAlign = 'left'; ctx.fillStyle = '#fff'
+  ctx.fillText(card.title, padX, baseY)
+  const dateLine = [card.date?.toUpperCase(), 'ARRIVÉE'].filter(Boolean).join('  ·  ')
+  ctx.font = `700 ${Math.round(ch * 0.019)}px Arial, Helvetica, sans-serif`
+  ctx.fillStyle = GOLD
+  ctx.letterSpacing = `${ch * 0.004}px`
+  ctx.fillText(dateLine, padX, baseY - ts - ch * 0.012)
+  ctx.letterSpacing = '0px'
+
+  // Adresse du site, discrète, en haut à droite du bandeau.
+  ctx.textAlign = 'right'
+  ctx.font = `700 ${Math.round(ch * 0.018)}px Arial, Helvetica, sans-serif`
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'
+  ctx.fillText(SITE_ADDRESS, cw - padX, valY - ch * 0.07)
+  ctx.restore()
 }
 
 // Adresse discrète en bas à droite, affichée à la FIN du film (fondu simple, sans logo).
@@ -670,7 +743,7 @@ export function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: nu
   ctx.textBaseline = 'alphabetic'
   ctx.shadowColor = 'rgba(0,0,0,0.5)'
   ctx.shadowBlur = 6
-  ctx.fillText('sillonphane.fr/rando', cw - cw * 0.03, barBottom - barH * 0.35)
+  ctx.fillText(SITE_ADDRESS, cw - cw * 0.03, barBottom - barH * 0.35)
   ctx.restore()
 }
 
@@ -1119,7 +1192,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         title: openingTitle, date: openingDate, km: openingKm, gain: openingGain,
         alpha: s * s * (3 - 2 * s),
       })
-      // Signature : logo + « sillonphane.fr/rando » se déroulent sur l'écran-titre noir, puis
+      // Signature : logo + « sillonphane.fr/running » se déroulent sur l'écran-titre noir, puis
       // s'effacent avec la levée du voile. Même dispositif et même position que le film 3D
       // (bloc calé au tiers bas, cf. filmExport3d.ts).
       drawEndWatermark(
@@ -1650,7 +1723,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const framesFromEnd = (EASE_OV + HOLD_OV) - f
       if (framesFromEnd <= WATERMARK_FRAMES) {
         const intoWatermark = WATERMARK_FRAMES - framesFromEnd
-        drawEndAddress(ctx, OUT_W, OUT_H, Math.min(1, intoWatermark / WATERMARK_FADE_FRAMES))
+        const a = Math.min(1, intoWatermark / WATERMARK_FADE_FRAMES)
+        if (opts.endCard) drawEndCard(ctx, OUT_W, OUT_H, opts.endCard, a)
+        else drawEndAddress(ctx, OUT_W, OUT_H, a)
       }
 
       drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage

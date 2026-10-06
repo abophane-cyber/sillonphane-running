@@ -167,6 +167,32 @@ export function computeBornes(points: GpxPoint[], distances: number[], opts: Bor
   })
 }
 
+/** Carton de fin du film (bandeau bas) : intitulé, date, distance, dénivelé, temps mis et moyenne. */
+export interface EndCard {
+  title: string
+  date?: string
+  distance?: string
+  /** « +52 m ». */
+  elevGain?: string
+  /** « 1 h 45'12" » ; absent = temps inconnu (ni GPX enregistré ni vitesses prévues). */
+  time?: string
+  /** « TEMPS » (GPX enregistré) ou « TEMPS PRÉVU » (vitesses saisies). */
+  timeLabel?: string
+  /** « 12,0 km/h ». */
+  avgSpeed?: string
+}
+
+/** Temps du parcours (s) : réel (heures du GPX) ou prévu (vitesses saisies), sinon undefined. */
+export function raceDurationS(points: GpxPoint[], totalM: number, opts: { useRealTimes: boolean; speedsKmh?: number[] }): { s: number; planned: boolean } | undefined {
+  if (opts.useRealTimes) {
+    const t0 = points.find(p => p.time)?.time, t1 = [...points].reverse().find(p => p.time)?.time
+    if (t0 && t1 && t1 > t0) return { s: (t1.getTime() - t0.getTime()) / 1000, planned: false }
+    return undefined
+  }
+  if (opts.speedsKmh && hasPlannedSpeeds(opts.speedsKmh)) return { s: plannedElapsedS(totalM / 1000, opts.speedsKmh), planned: true }
+  return undefined
+}
+
 /** Une borne apparaît à l'approche (ce nombre de mètres avant elle), puis reste : sur une boucle, la borne des 20 km
  * passe près du départ et ne doit pas se montrer avant celle des 5 km. */
 export const BORNE_LEAD_M = 1000

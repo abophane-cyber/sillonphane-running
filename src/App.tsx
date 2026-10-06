@@ -29,7 +29,8 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, hasRealTimes, formatBannerDate, formatBannerDistance, DEFAULT_RACE_SETTINGS, type BannerText, type RaceSettings,
+  computeBornes, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, DEFAULT_RACE_SETTINGS,
+  type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ZOOMS, animSpeed } from './hooks/useAnimationSettings'
 import { useGpxSession } from './hooks/useGpxSession'
@@ -110,6 +111,20 @@ export default function App() {
     date: formatBannerDate(manualDate),
     distance: activeTrack ? formatBannerDistance(activeTrack.distance) : undefined,
   }), [customTitle, activeTrack, manualDate])
+  // Carton de fin du film : intitulé, date, distance, dénivelé, temps mis (réel ou prévu) et moyenne.
+  const endCard = useMemo<EndCard | undefined>(() => {
+    if (!activeTrack) return undefined
+    const dur = raceDurationS(points, activeTrack.distance, { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds })
+    return {
+      title: race.eventName?.trim() || bannerDefaults.title,
+      date: race.bannerDate?.trim() || bannerDefaults.date,
+      distance: (race.bannerDistance?.trim() || bannerDefaults.distance)?.replace(/ ?KM$/i, ' km'),
+      elevGain: activeTrack.elevGain > 0 ? `+${Math.round(activeTrack.elevGain)} m` : undefined,
+      time: dur ? formatElapsed(dur.s) : undefined,
+      timeLabel: dur ? (dur.planned ? 'TEMPS PRÉVU' : 'TEMPS') : undefined,
+      avgSpeed: dur && dur.s > 0 ? `${(activeTrack.distance / 1000 / (dur.s / 3600)).toFixed(1).replace('.', ',')} km/h` : undefined,
+    }
+  }, [activeTrack, points, realTimes, race, bannerDefaults])
   const { fitBoundsCount, seekCount, zoomToStartCount, bumpFitBounds, bumpSeek, bumpZoomToStart } = useMapTriggers()
   const [hasPlayedPreview, setHasPlayedPreview] = useState(false)
   const [previewFinished, setPreviewFinished] = useState(false)
@@ -431,6 +446,7 @@ export default function App() {
       characters,
       bornes,
       bibNumber: race.bibNumber?.trim() || undefined,
+      endCard,
       trackName: customTitle || activeTrack.name,
       speedLevel,
       activeSillonId,
