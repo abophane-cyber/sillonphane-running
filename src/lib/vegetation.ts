@@ -1,17 +1,20 @@
-// Végétation des vues aériennes poussée vers le vert sapin #006A4E (teinte ≈ 164°) : seuls les pixels verts (arbres,
+// Végétation des vues aériennes poussée vers le vert #2D8B6F (teinte 162°, saturation 68 %) : seuls les pixels verts (arbres,
 // pelouses, champs) changent de teinte et gagnent un peu de saturation ; toits, routes et eau gardent leurs couleurs.
 // Appliqué à chaque tuile au chargement — aperçu et film (MapLibre, protocole VEG_PROTOCOL) et mosaïque du film 2D
 // (filmMapMosaic.ts) — avant l'assombrissement général (BASEMAP_ADJUST).
 import type maplibregl from 'maplibre-gl'
 
 /** Teinte visée (°) et bornes des teintes considérées comme végétation. */
-const TARGET_HUE = 164
+const TARGET_HUE = 162
 const HUE_MIN = 50, HUE_MAX = 175
 /** Saturation minimale pour être considéré comme végétation (en dessous : gris, routes, toits ternes). */
 const SAT_MIN = 0.1
 /** Force du recoloriage (0 à 1) et saturation visée pour la végétation. */
-const STRENGTH = 0.85
-const SAT_TARGET = 0.5
+const STRENGTH = 1
+const SAT_TARGET = 0.68
+/** Éclaircissement de la végétation (× la luminosité) : les arbres des photos sont sombres, et le fond est ensuite
+ * assombri (BASEMAP_ADJUST) — sans lui, le vert reste éteint. */
+const VALUE_LIFT = 0.35
 
 /** Recolorie la végétation d'une image RGBA, en place. */
 export function recolorVegetation(d: Uint8ClampedArray): void {
@@ -34,7 +37,8 @@ export function recolorVegetation(d: Uint8ClampedArray): void {
     const nh = h + (TARGET_HUE - h) * w
     const ns = s + (Math.max(s, SAT_TARGET) - s) * w
     // HSV -> RGB
-    const cc = v * ns, x = cc * (1 - Math.abs(((nh / 60) % 2) - 1)), m = v - cc
+    const nv = Math.min(1, v * (1 + VALUE_LIFT * w))
+    const cc = nv * ns, x = cc * (1 - Math.abs(((nh / 60) % 2) - 1)), m = nv - cc
     let rr = 0, gg = 0, bb = 0
     if (nh < 60) { rr = cc; gg = x } else if (nh < 120) { rr = x; gg = cc } else if (nh < 180) { gg = cc; bb = x }
     else if (nh < 240) { gg = x; bb = cc } else if (nh < 300) { rr = x; bb = cc } else { rr = cc; bb = x }
