@@ -316,7 +316,8 @@ export function PanelWizard({
         <div className="pwiz-section pwiz-section--ravitos">
           <span className="pwiz-section-label">💧 Ravitaillements</span>
           <p className="pwiz-race-hint">
-            Tapez le kilomètre de chaque poste, séparés par « ; » (ex. 5 ; 9 ; 14 ; 18,5), ou collez la phrase de
+            Tapez le kilomètre de chaque poste, séparés par un point-virgule <kbd className="pwiz-key">;</kbd>
+            {' '}— par exemple <strong className="pwiz-example">5 ; 9 ; 14 ; 18,5</strong> — ou collez la phrase de
             l’organisateur.
           </p>
           <input

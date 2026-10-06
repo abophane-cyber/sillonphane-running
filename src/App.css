@@ -2324,6 +2324,15 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   background: rgba(31,122,224,0.09);
 }
 
+/* Consigne des ravitaillements : séparateur affiché comme une touche, exemple en gras (bien lisibles). */
+.pwiz-key {
+  display: inline-block; min-width: 18px; padding: 0 5px; margin: 0 1px;
+  font: 700 14px/18px ui-monospace, Consolas, monospace; text-align: center;
+  border: 1.5px solid rgba(128,128,128,0.55); border-bottom-width: 3px; border-radius: 5px;
+  background: rgba(255,255,255,0.6); color: inherit;
+}
+.pwiz-example { font: 700 13px ui-monospace, Consolas, monospace; white-space: nowrap; }
+
 /* Validation des ravitaillements : encadré vert, un jeton par poste placé. */
 .pwiz-ravito-ok {
   display: flex; flex-direction: column; gap: 6px;
