@@ -302,10 +302,10 @@ function buildGroundLabelSprite(name: string, style: SignStyle): LocSignSprite {
  * pointe sur le tracé — ancre = bout de la pointe. Même dessin que l'aperçu (.loc-sign--borne dans App.css). */
 function buildBorneMedalSprite(num: string, time?: string): LocSignSprite {
   const R = 30, RING = 4, MARGIN = 8, TIP = 9
-  const PILL_H = 17, PILL_FONT = `700 10.5px Arial, Helvetica, sans-serif`
+  const PILL_H = 22, PILL_FONT = `700 14px Arial, Helvetica, sans-serif`
   const m = document.createElement('canvas').getContext('2d')!
   m.font = PILL_FONT
-  const pillW = time ? m.measureText(time).width + 16 : 0
+  const pillW = time ? m.measureText(time).width + 20 : 0
   const W = Math.ceil(Math.max(2 * R, pillW) + MARGIN * 2)
   const pillY = MARGIN + 2 * R - 6 // la pastille chevauche le bas du jeton
   const H = Math.ceil((time ? pillY + PILL_H : MARGIN + 2 * R) + TIP + MARGIN)
@@ -333,6 +333,7 @@ function buildBorneMedalSprite(num: string, time?: string): LocSignSprite {
   if (time) {
     ctx.fillStyle = '#ffd166'
     ctx.beginPath(); ctx.roundRect(cx - pillW / 2, pillY, pillW, PILL_H, PILL_H / 2); ctx.fill()
+    ctx.strokeStyle = '#14213d'; ctx.lineWidth = 1.5; ctx.stroke() // liseré sombre : lisible sur la photo
     ctx.fillStyle = '#14213d'; ctx.font = PILL_FONT
     ctx.fillText(time, cx, pillY + PILL_H / 2 + 0.5)
   }
@@ -1149,7 +1150,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       if (!borneReached(b, coveredM)) continue
       const pt = project(b.lon, b.lat)
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, borneNumber(b), pt.x, pt.y, 'borne', undefined, alpha, scale, borneTimeLine(b) || undefined)
+        drawLocSign(ctx, locSignCache, borneNumber(b), pt.x, pt.y, 'borne', undefined, alpha, Math.max(1, scale), borneTimeLine(b) || undefined)
     }
   }
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))

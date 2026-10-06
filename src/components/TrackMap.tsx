@@ -888,6 +888,8 @@ export function TrackMap({
       if (el) el.style.visibility = all || borneReached(b, coveredM) ? '' : 'hidden'
     })
   }, [bornes, progress, distances])
+  // Course commencée (lecture, barre de lecture) : plus de coureur présenté en grand.
+  useEffect(() => { if (progress >= 0.01 && presentRef.current) removePresentation() }, [progress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Randonneur 3D : sa taille suit le zoom de la carte (plans serrés de départ et d'arrivée) ──
   useEffect(() => {
