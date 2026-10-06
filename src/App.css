@@ -746,6 +746,9 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   -webkit-text-stroke: 0; color: #fff; top: -4px; right: -8px;
 }
 
+/* Coureur présenté en grand par-dessus la carte avant la lecture (TrackMap, showPresentation). */
+.hiker-present { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
+
 /* Panneau de départ au premier plan : décalé vers le bas, devant la coureuse (40 px = START_SIGN_OFFSET_PX). */
 .loc-sign-anchor--depart .loc-sign {
   transform: translateY(calc(50% + 40px * var(--ground-scale, 1))) scale(var(--ground-scale, 1));

@@ -14,7 +14,7 @@ import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX, HIKER3D_FOLLOW_PX,
-  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_HEIGHT, HIKER3D_PRESENT_FEET, HIKER3D_PRESENT_MS, HIKER3D_MAX_SCALE, HIKER3D_SCALE_PER_ZOOM, hiker3dScaleForZoom, smoothEase, metersPerPixel,
+  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_HEIGHT, HIKER3D_PRESENT_FEET, HIKER3D_MAX_SCALE, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
@@ -745,33 +745,96 @@ export function TrackMap({
     if (!HIKER3D || progressRef.current >= 0.01 || playingRef.current) return
     if (!characters.length) {
       // Aucun personnage choisi : rien au départ.
+      removePresentation()
       hiker3dTokenRef.current++
       hiker3dRef.current.forEach(s => s.dispose())
       hiker3dRef.current = []
       markerRef.current?.remove(); markerRef.current = null; markerElRef.current = null
       return
     }
-    // Running : le coureur choisi est présenté en grand au départ, de face (dossard lisible), jusqu'au lancement.
-    const present = () => {
-      placeHikerAtStart()
-      const map = mapRef.current
-      if (!map || countdownRef.current !== null) return
-      hiker3dRef.current.forEach(s => s.resetToStart())
-      // Taille visée : HIKER3D_PRESENT_HEIGHT de la carte (taille du corps à l'échelle 1 mesurée sur le modèle
-      // chargé, sinon ≈ 98 px), d'où le zoom ; pieds posés en bas du cadre.
-      const h = map.getContainer().clientHeight
-      const s0 = hiker3dRef.current[0]
-      const body1 = s0 ? s0.layout().body / Math.max(0.01, hikerScaleRef.current) : 98
-      const scale = Math.min(HIKER3D_MAX_SCALE, (h * HIKER3D_PRESENT_HEIGHT) / body1)
-      map.easeTo({
-        center: [points[0].lon, points[0].lat], zoom: (targetZoomRef.current ?? ZOOMS[0]) + (scale - 1) / HIKER3D_SCALE_PER_ZOOM,
-        offset: [0, h * (0.5 - HIKER3D_PRESENT_FEET)],
-        duration: HIKER3D_PRESENT_MS, easing: smoothEase, essential: true,
-      })
-    }
+    // Running : le coureur choisi est présenté en grand PAR-DESSUS la carte (qui ne bouge pas), dossard lisible,
+    // jusqu'au lancement (cf. showPresentation / joinStartLine).
+    const present = () => { placeHikerAtStart(); showPresentation() }
     if (loadedRef.current) present()
     else mapRef.current?.once('load', present)
   }, [characters.join(','), points]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Présentation du coureur : un personnage à part, en grand, pieds sur le bas de la carte ; son pendant au
+  // départ reste caché. Au lancement, il rapetisse et glisse jusqu'au point de départ (joinStartLine). ──
+  const presentRef = useRef<{ wrap: HTMLDivElement; sprite: Hiker3dSprite; token: number } | null>(null)
+  const presentTokenRef = useRef(0)
+  const presentScaleRef = useRef(1)
+  const removePresentation = () => {
+    presentTokenRef.current++
+    presentRef.current?.sprite.dispose()
+    presentRef.current?.wrap.remove()
+    presentRef.current = null
+    if (markerElRef.current) markerElRef.current.style.visibility = ''
+  }
+  /** Taille de la carte et échelle de présentation (corps = HIKER3D_PRESENT_HEIGHT de la hauteur). */
+  const presentLayout = () => {
+    const p = presentRef.current
+    const map = mapRef.current
+    if (!p || !map) return null
+    const { clientWidth: cw, clientHeight: ch } = map.getContainer()
+    const body1 = p.sprite.layout().body / Math.max(0.01, presentScaleRef.current)
+    return { cw, ch, scale: Math.min(HIKER3D_MAX_SCALE, (ch * HIKER3D_PRESENT_HEIGHT) / body1) }
+  }
+  /** Place le coureur présenté : pieds en (x, y) (px de la carte), à l'échelle `scale`. */
+  const placePresented = (x: number, y: number, scale: number) => {
+    const p = presentRef.current
+    if (!p) return
+    presentScaleRef.current = scale
+    p.sprite.setScale(scale)
+    const { w, h, feet } = p.sprite.layout()
+    p.sprite.element.style.left = `${Math.round(x - w / 2)}px`
+    p.sprite.element.style.top = `${Math.round(y - (h - feet))}px`
+  }
+  const showPresentation = () => {
+    removePresentation()
+    const map = mapRef.current
+    if (!HIKER3D || !map || !characters.length || countdownRef.current !== null || playingRef.current || progressRef.current >= 0.01) return
+    if (markerElRef.current) markerElRef.current.style.visibility = 'hidden'
+    const token = presentTokenRef.current
+    void import('../lib/hiker3dSprite').then(m => {
+      if (token !== presentTokenRef.current || !m.supportsHiker3d()) return
+      const wrap = document.createElement('div')
+      wrap.className = 'hiker-present'
+      const sprite = m.createHiker3dSprite(characters[0], { bibNumber: bibNumberRef.current })
+      sprite.resetToStart()
+      wrap.appendChild(sprite.element)
+      map.getContainer().appendChild(wrap)
+      presentRef.current = { wrap, sprite, token }
+      const layout = () => {
+        const L = presentLayout()
+        if (L) placePresented(L.cw / 2, L.ch * (1 - HIKER3D_PRESENT_FEET), L.scale)
+      }
+      sprite.onFeet(layout)
+      layout()
+    })
+  }
+  /** Lancement : le coureur présenté rapetisse et glisse jusqu'au point de départ (suivi image par image, la carte
+   * bougeant en même temps), puis laisse la place au personnage du départ. */
+  const joinStartLine = (durationMs: number) => {
+    const p = presentRef.current
+    const map = mapRef.current
+    const L = presentLayout()
+    if (!p || !map || !L) { removePresentation(); return }
+    const x0 = L.cw / 2, y0 = L.ch * (1 - HIKER3D_PRESENT_FEET), s0 = presentScaleRef.current
+    const token = p.token
+    const t0 = performance.now()
+    const frame = (now: number) => {
+      if (presentRef.current?.token !== token) return
+      const t = Math.min(1, (now - t0) / durationMs), e = smoothEase(t)
+      const o = map.project([points[0].lon, points[0].lat])
+      const s1 = hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ZOOMS[0])
+      placePresented(x0 + (o.x - x0) * e, y0 + (o.y - y0) * e, s0 + (s1 - s0) * e)
+      if (t < 1) requestAnimationFrame(frame)
+      else removePresentation()
+    }
+    requestAnimationFrame(frame)
+  }
+  useEffect(() => () => removePresentation(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Randonneur 3D : la marche attend la fin du dézoom de départ ──
   useEffect(() => {
@@ -784,7 +847,10 @@ export function TrackMap({
   // ── Dossard : numéro saisi dans le widget, reporté sur les personnages déjà montés ──
   const bibNumberRef = useRef(bibNumber)
   bibNumberRef.current = bibNumber
-  useEffect(() => { hiker3dRef.current.forEach(s => s.setBibNumber(bibNumber)) }, [bibNumber])
+  useEffect(() => {
+    hiker3dRef.current.forEach(s => s.setBibNumber(bibNumber))
+    presentRef.current?.sprite.setBibNumber(bibNumber)
+  }, [bibNumber])
 
   // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, elles apparaissent au fil de la course, à
   // l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM »), et sont toutes là à la fin ──
@@ -842,6 +908,12 @@ export function TrackMap({
       flyingRef.current = true
       map.once('moveend', () => { flyingRef.current = false })
       map.easeTo({ center: [points[0].lon, points[0].lat], zoom: targetZoomRef.current ?? ZOOMS[0], duration: HIKER3D_START_DEZOOM_MS, easing: smoothEase, essential: true })
+      // Coureur présenté en grand : pendant que la carte zoome sur le départ, il rapetisse jusqu'à sa taille de
+      // course, pieds sur le point de départ.
+      if (presentRef.current) {
+        presentRef.current.sprite.turnTo(d0.x, d0.y)
+        joinStartLine(HIKER3D_START_DEZOOM_MS)
+      }
       return
     }
     if (countdown === null || was !== null) return
@@ -849,11 +921,9 @@ export function TrackMap({
     const map = mapRef.current
     if (!map || points.length < 2 || progressRef.current >= 0.01) return
     placeHikerAtStart()
-    // Depuis la présentation en grand : la caméra recule en douceur jusqu'au plan serré du départ (il « rejoint la
-    // ligne ») ; sinon, saut direct.
-    const closeZoom = (targetZoomRef.current ?? ZOOMS[0]) + HIKER3D_CLOSE_ZOOM
-    if (map.getZoom() > closeZoom + 0.2) map.easeTo({ center: [points[0].lon, points[0].lat], zoom: closeZoom, duration: 1200, easing: smoothEase, essential: true })
-    else map.jumpTo({ center: [points[0].lon, points[0].lat], zoom: closeZoom })
+    // Coureur présenté en grand : il reste en grand, carte immobile, pendant le décompte (voir la fin du décompte).
+    if (presentRef.current) return
+    map.jumpTo({ center: [points[0].lon, points[0].lat], zoom: (targetZoomRef.current ?? map.getZoom()) + HIKER3D_CLOSE_ZOOM })
   }, [countdown]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Marqueurs de col permanents ───────────────────────────────────────────
