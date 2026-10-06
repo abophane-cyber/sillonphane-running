@@ -407,6 +407,11 @@ export function TrackMap({
     }
     map.on('zoom', updateAlt)
     map.on('moveend', updateAlt)
+    // Pancartes couchées sur la carte : même taille que les personnages selon le zoom (cf. .loc-sign dans App.css).
+    const updateGroundScale = () => containerRef.current?.style.setProperty('--ground-scale',
+      String(hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ZOOMS[0])))
+    map.on('zoom', updateGroundScale)
+    updateGroundScale()
 
     return () => {
       loadedRef.current = false

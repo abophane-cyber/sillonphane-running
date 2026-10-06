@@ -611,7 +611,11 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   display: flex;
   flex-direction: column;
   align-items: center;
-  filter: drop-shadow(0 3px 8px rgba(0,0,0,0.5));
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.4));
+  /* Running : pancarte COUCHÉE sur la carte (sans poteau) — centrée sur le lieu (le marqueur est ancré en bas),
+     à la taille des personnages selon le zoom (--ground-scale, posé par TrackMap). Même rendu que le film 2D. */
+  transform: translateY(50%) scale(var(--ground-scale, 1));
+  transform-origin: center;
 }
 
 /* Panneau localité — charte française (fond blanc, double bordure rouge) */
@@ -705,8 +709,9 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   letter-spacing: 0.04em;
 }
 
-/* Poteau */
+/* Poteau (masqué : pancartes couchées sur la carte) */
 .loc-sign__pole {
+  display: none;
   width: 6px;
   height: 38px;
   background: linear-gradient(to right, #888, #ddd, #888);

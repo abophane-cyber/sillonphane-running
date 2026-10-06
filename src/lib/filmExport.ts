@@ -223,6 +223,10 @@ function drawTrack(
 
 type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi'
 
+// Running : panneaux COUCHÉS sur la carte (sans mât, centrés sur le lieu), à la taille des personnages selon le zoom
+// (cf. hiker3dScaleForZoom) ; pré-rendus en haute résolution (SIGN_RES) pour rester nets dans les plans serrés.
+const SIGN_RES = 2.5
+
 interface LocSignSprite { canvas: HTMLCanvasElement; offX: number; offY: number }
 type LocSignCache = Map<string, LocSignSprite>
 
@@ -230,8 +234,7 @@ function buildLocSignSprite(name: string, style: SignStyle, ele?: number): LocSi
   const FONT_SIZE = 15
   const PAD_X = 12, PAD_Y = 6
   const BORDER = 3.5, RADIUS = 7
-  const POLE_W = 6, POLE_H = 34
-  const MARGIN = 16 // marge autour du sprite pour laisser respirer l'ombre portée (blur 8 + offsetY 3)
+  const MARGIN = 8 // marge autour du sprite pour l'ombre au sol (blur 4 + offsetY 1)
 
   const isLieudit = style === 'lieudit'
   const isCol     = style === 'col'
@@ -251,32 +254,29 @@ function buildLocSignSprite(name: string, style: SignStyle, ele?: number): LocSi
   const boardW = Math.max(textW, eleW) + PAD_X * 2
   const boardH = isCol && eleStr ? FONT_SIZE + 12 + PAD_Y * 2 : FONT_SIZE + PAD_Y * 2
 
+  const W = Math.ceil(boardW + BORDER * 2 + MARGIN * 2)
+  const H = Math.ceil(boardH + BORDER * 2 + MARGIN * 2)
   const canvas = document.createElement('canvas')
-  canvas.width  = Math.ceil(boardW + BORDER * 2 + MARGIN * 2)
-  canvas.height = Math.ceil(boardH + POLE_H + BORDER + MARGIN * 2)
+  canvas.width  = Math.ceil(W * SIGN_RES)
+  canvas.height = Math.ceil(H * SIGN_RES)
   const ctx = canvas.getContext('2d')!
+  ctx.scale(SIGN_RES, SIGN_RES)
 
-  // Point d'ancrage dans le sprite : centre horizontal (mât + pancarte), pied du mât en bas.
-  const px = canvas.width / 2
-  const py = canvas.height - MARGIN
+  // Point d'ancrage dans le sprite (unités de dessin) : centre de la pancarte, posée à plat sur le lieu.
+  const px = W / 2
+  const py = H / 2
 
-  const poleX  = px - POLE_W / 2
-  const poleY  = py - POLE_H
   const boardX = px - boardW / 2
-  const boardY = poleY - boardH
+  const boardY = py - boardH / 2
 
   const bgColor     = isLieudit ? '#b84400' : isCol ? '#253d17' : isPoi ? '#5b3a1e' : '#fff'
   const textColor   = isLieudit || isCol || isPoi ? '#fff' : '#111'
   const borderColor = isLieudit || isCol || isPoi ? 'transparent' : '#c0000c'
 
   ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,0.45)'
-  ctx.shadowBlur  = 8; ctx.shadowOffsetY = 3
-
-  const grad = ctx.createLinearGradient(poleX, 0, poleX + POLE_W, 0)
-  grad.addColorStop(0, '#888'); grad.addColorStop(0.5, '#ddd'); grad.addColorStop(1, '#888')
-  ctx.fillStyle = grad
-  ctx.beginPath(); ctx.roundRect(poleX, poleY, POLE_W, POLE_H, [0, 0, 3, 3]); ctx.fill()
+  // Ombre courte : la pancarte est au sol, pas dressée.
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'
+  ctx.shadowBlur  = 4; ctx.shadowOffsetY = 1
 
   if (borderColor !== 'transparent') {
     ctx.fillStyle = borderColor
@@ -314,17 +314,19 @@ function drawLocSign(
   style: SignStyle = 'standard',
   ele?: number,
   alpha = 1,
+  scale = 1,
 ) {
   if (alpha <= 0) return
   const key = `${style}|${name}|${ele ?? ''}`
   let sprite = cache.get(key)
   if (!sprite) { sprite = buildLocSignSprite(name, style, ele); cache.set(key, sprite) }
-  if (alpha >= 1) {
-    ctx.drawImage(sprite.canvas, px - sprite.offX, py - sprite.offY)
-  } else {
+  const w = (sprite.canvas.width / SIGN_RES) * scale, h = (sprite.canvas.height / SIGN_RES) * scale
+  const draw = () => ctx.drawImage(sprite.canvas, px - sprite.offX * scale, py - sprite.offY * scale, w, h)
+  if (alpha >= 1) draw()
+  else {
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.drawImage(sprite.canvas, px - sprite.offX, py - sprite.offY)
+    draw()
     ctx.restore()
   }
 }
@@ -1019,6 +1021,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const hkDir = { x: 1, y: 0 }                          // cap lissé commun (vecteur écran unitaire)
   let hkSpeedPx = 0                                     // avancement à l'écran pendant la marche (px film / s)
   let hkMergeWas = false                                // mise en file du second en cours à l'image précédente
+  /** Taille des panneaux couchés au zoom affiché : celle des personnages (1 pendant la course). */
+  const signScale = () => hiker3dScaleForZoom(exportMap.getZoom(), zoom)
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))
   /** Avance les personnages d'une image et les dessine, pieds en (x, y). `scale` : 1 = taille de marche. */
   function drawHikers3d(x: number, y: number, scale: number, alpha = 1) {
@@ -1141,7 +1145,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (departureEvent) {
       const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, pt.y, departureEvent.style, departureEvent.ele)
+        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, pt.y, departureEvent.style, departureEvent.ele, 1, signScale())
     }
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
@@ -1187,7 +1191,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (departureEvent) {
       const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, pt.y, departureEvent.style, departureEvent.ele)
+        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, pt.y, departureEvent.style, departureEvent.ele, 1, signScale())
     }
     const p0 = exportMap.project([points[0].lon, points[0].lat])
     drawHikers3d(p0.x, p0.y, hiker3dScaleForZoom(z, zoom))
@@ -1352,7 +1356,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const pt = exportMap.project([ev.lon, ev.lat])
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, pt.y, ev.style, ev.ele)
+          drawLocSign(ctx, locSignCache, ev.name, pt.x, pt.y, ev.style, ev.ele, 1, signScale())
       }
 
       drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 1)
@@ -1455,7 +1459,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
           ctx.save()
           ctx.globalAlpha = a
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, pt.y, ev.style, ev.ele)
+          drawLocSign(ctx, locSignCache, ev.name, pt.x, pt.y, ev.style, ev.ele, 1, signScale())
           ctx.restore()
         }
       }
