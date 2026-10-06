@@ -534,6 +534,14 @@ export function TrackMap({
     if (!zoomToStart || !map || points.length < 2) return
     flyingRef.current = true
     map.once('moveend', () => { flyingRef.current = false })
+    if (countdownRef.current === null && HIKER3D && characters.length) {
+      // Bouton « Retour au début » (sans relance) : plan général du parcours, coureur à nouveau présenté en grand.
+      map.fitBounds(trackBounds(points), { padding: 60, duration: 1000, pitch: 0, bearing: 0 })
+      placeHikerAtStart()
+      hiker3dRef.current.forEach(s => s.resetToStart())
+      showPresentation()
+      return
+    }
     map.flyTo({ center: [points[0].lon, points[0].lat], zoom: map.getZoom(), duration: 1000 })
   }, [zoomToStart, points])
 
