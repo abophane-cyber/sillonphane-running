@@ -2,7 +2,8 @@
 
 export type CharacterId = 'coureuse1' | 'randonneur1' | 'randonneuse1' | 'randonneur2' | 'randonneuse2'
 
-export const CHARACTER_IDS: CharacterId[] = ['coureuse1', 'randonneur1', 'randonneuse1', 'randonneur2', 'randonneuse2']
+// Running : seuls les coureurs sont proposés (les randonneurs restent déclarés, repris de Sillonphane-Rando).
+export const CHARACTER_IDS: CharacterId[] = ['coureuse1']
 
 // Figurines rendues depuis les modèles 3D des randonneurs (cf. characters3d.ts) : elles montrent le personnage
 // tel qu'il apparaît à l'écran.

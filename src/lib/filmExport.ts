@@ -16,7 +16,7 @@ import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
-import { borneTimeLine, type Borne } from './raceSplits'
+import { borneReached, borneTimeLine, type Borne } from './raceSplits'
 import type { StartBannerImage } from './startBanner'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
@@ -1051,9 +1051,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     ctx.restore()
   }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
-  function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1) {
+  /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble). */
+  function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity) {
     if (alpha <= 0) return
     for (const b of opts.bornes ?? []) {
+      if (!borneReached(b, coveredM)) continue
       const pt = project(b.lon, b.lat)
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
         drawLocSign(ctx, locSignCache, b.label, pt.x, pt.y, 'borne', undefined, alpha, scale, borneTimeLine(b) || undefined)
@@ -1303,7 +1305,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
     // 2. Tracé GPX (projeté de manière synchrone)
     drawTrack(ctx, project, visualPoints, distances, totalDistance, progress)
-    drawBornes(project, 1) // bornes kilométriques, au sol sous les panneaux
+    drawBornes(project, 1, 1, progress * totalDistance) // bornes approchées, au sol sous les panneaux
 
     // 3. Panneaux localités
     // Évite la collision visuelle avec le randonneur : un panneau de lieu-dit qui se déclenche

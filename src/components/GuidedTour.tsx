@@ -36,9 +36,9 @@ const INTRO_SEEN_KEY = 'sillon.animGuide.introSeen'
 // pré-cadrés, voir CHARACTER_FACE), et tous réunis à la dernière étape. Les personnages sans portrait sont omis.
 const FACES = CHARACTER_IDS.flatMap(id => CHARACTER_FACE[id] ?? [])
 const STEP_FACES: Record<Step, string[]> = {
-  intro: [FACES[0]],
-  panels: [FACES[1]],
-  characters: [FACES[2]],
+  intro: FACES.slice(0, 1),
+  panels: FACES.slice(1, 2),
+  characters: FACES.slice(2, 3),
   create: FACES,
 }
 

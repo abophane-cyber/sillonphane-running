@@ -140,6 +140,13 @@ export function computeBornes(points: GpxPoint[], distances: number[], opts: Bor
   })
 }
 
+/** Une borne apparaît à l'approche (ce nombre de mètres avant elle), puis reste : sur une boucle, la borne des 20 km
+ * passe près du départ et ne doit pas se montrer avant celle des 5 km. */
+export const BORNE_LEAD_M = 1000
+export function borneReached(b: Borne, coveredM: number): boolean {
+  return coveredM >= b.km * 1000 - BORNE_LEAD_M
+}
+
 /** Deuxième ligne d'une borne : « 10 h 52 · 52'31" », ou l'un des deux, ou rien. */
 export function borneTimeLine(b: Borne): string {
   return [b.clock, b.elapsedS != null ? formatElapsed(b.elapsedS) : undefined].filter(Boolean).join(' · ')

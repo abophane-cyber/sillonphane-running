@@ -17,7 +17,7 @@ import {
   HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
-import { borneTimeLine, type Borne } from '../lib/raceSplits'
+import { borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -760,20 +760,33 @@ export function TrackMap({
     return () => { startDelayMsRef.current = 0 }
   }, [startDelayMsRef, characters.length])
 
-  // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, affichées en permanence ──
+  // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé. Toutes visibles avant la lecture et à la
+  // fin ; pendant la course, chacune apparaît à l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM ») ──
+  const borneElsRef = useRef<HTMLDivElement[]>([])
   useEffect(() => {
     const map = mapRef.current
     if (!map || !bornes?.length) return
+    borneElsRef.current = []
     const markers = bornes.map(b => {
       const el = document.createElement('div')
       const time = borneTimeLine(b)
       el.innerHTML = `<div class="loc-sign loc-sign--borne"><div class="loc-sign__board">` +
         `<span class="loc-sign__col-name">${b.label}</span>` +
         (time ? `<span class="loc-sign__borne-time">${time}</span>` : '') + '</div></div>'
+      borneElsRef.current.push(el)
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([b.lon, b.lat]).addTo(map)
     })
-    return () => markers.forEach(m => m.remove())
+    return () => { markers.forEach(m => m.remove()); borneElsRef.current = [] }
   }, [bornes])
+  useEffect(() => {
+    if (!bornes?.length) return
+    const all = (!playing && progress < 0.01) || progress >= 1
+    const coveredM = progress * (distances[distances.length - 1] ?? 0)
+    bornes.forEach((b, i) => {
+      const el = borneElsRef.current[i]
+      if (el) el.style.visibility = all || borneReached(b, coveredM) ? '' : 'hidden'
+    })
+  }, [bornes, progress, playing, distances])
 
   // ── Banderole de départ (startBanner.ts) : derrière la coureuse, au point de départ, à son échelle ──
   useEffect(() => {

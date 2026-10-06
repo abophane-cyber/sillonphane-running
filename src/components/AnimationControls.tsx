@@ -85,7 +85,7 @@ export function AnimationControls({
   onRecord3d, onFilm3dIntent, rec3dState = 'idle', lastFilm3dUrl,
   onViewFilm,
   previewFinished = false, trackSaved = false,
-  characters = ['randonneur1'], onToggleCharacter, ribbonOnly = false, onToggleRibbon,
+  characters = ['coureuse1'], onToggleCharacter, ribbonOnly = false, onToggleRibbon,
   voyageTrack, voyageGpxData, voyageTrackName, onVoyages, onSaveTrack, onAlbum,
   wizardInProgress = false,
   showPreviewHint, onDismissPreviewHint, showExportHint, onDismissExportHint,
@@ -233,7 +233,7 @@ export function AnimationControls({
             <div className="controls__subgroup" ref={previewGroupRef}>
               {showPreviewHint && !filmBusy && onDismissPreviewHint && (
                 <AnchoredBubble icon="▶️" onClose={onDismissPreviewHint} anchorRef={previewGroupRef}>
-                  Choisissez votre randonneur (ou le ruban seul), puis créez votre film : lancer l'aperçu est facultatif.
+                  Choisissez votre coureur (ou le ruban seul), puis créez votre film : lancer l'aperçu est facultatif.
                 </AnchoredBubble>
               )}
               {showWizardBlockedHint && (
@@ -243,7 +243,7 @@ export function AnimationControls({
               )}
               {showCharacterBlockedHint && (
                 <AnchoredBubble icon="🧍" onClose={() => setShowCharacterBlockedHint(false)} anchorRef={previewGroupRef}>
-                  Choisissez d'abord un randonneur, ou le ruban seul, ci-contre
+                  Choisissez d'abord un coureur, ou le ruban seul, ci-contre
                 </AnchoredBubble>
               )}
               <span className="controls__group-label">Aperçu</span>
@@ -275,7 +275,7 @@ export function AnimationControls({
 
           {/* Section Personnage(s) — 1 ou 2 parmi 4, validés/invalidés au clic */}
           <div className={`controls__group controls__group--character${needsCharacter ? ' controls__group--emphasize' : ''}`}>
-            <span className="controls__group-label">{onToggleRibbon ? '1 ou 2 personnages ou ruban seul' : '1 ou 2 personnages'}</span>
+            <span className="controls__group-label">{onToggleRibbon ? 'Personnage ou ruban seul' : 'Personnage'}</span>
             <div className="controls__appearance-icons">
               {CHARACTER_IDS.map(id => (
                 <button
@@ -353,7 +353,7 @@ export function AnimationControls({
                       disabled={recState === 'processing'}
                       title={
                         recState === 'idle' && lastFilmUrl ? 'Voir le film 2D créé'
-                        : !hasChoice ? 'Choisissez d\'abord un randonneur ou le ruban seul'
+                        : !hasChoice ? 'Choisissez d\'abord un coureur ou le ruban seul'
                         : !trackSaved ? 'Enregistrez d\'abord ce tracé dans un sillon'
                         : recState === 'idle' ? 'Créer le film 2D'
                         : recState === 'recording' ? 'Arrêter et télécharger'
@@ -383,7 +383,7 @@ export function AnimationControls({
                       disabled={rec3dState === 'processing'}
                       title={
                         rec3dState === 'idle' && lastFilm3dUrl ? 'Voir le film 3D créé'
-                        : !hasChoice ? 'Choisissez d\'abord un randonneur ou le ruban seul'
+                        : !hasChoice ? 'Choisissez d\'abord un coureur ou le ruban seul'
                         : !trackSaved ? 'Enregistrez d\'abord ce tracé dans un sillon'
                         : rec3dState === 'idle' ? 'Créer le film 3D (survol du relief)'
                         : rec3dState === 'recording' ? 'Annuler le rendu'
