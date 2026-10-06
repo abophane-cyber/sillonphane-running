@@ -30,6 +30,8 @@ export interface CreateFilmContext {
   characters: CharacterId[]
   /** Bornes tous les 5 km avec temps de passage (cf. raceSplits.ts). */
   bornes: Borne[]
+  /** Numéro inscrit sur le dossard du personnage. */
+  bibNumber?: string
   trackName: string
   speedLevel: 1 | 2
   activeSillonId: string | null
@@ -123,6 +125,7 @@ export function useFilmRecording() {
         weather:   ctx.weather ?? null,
         characters: ctx.characters,
         bornes: ctx.bornes,
+        bibNumber: ctx.bibNumber,
         speedLevel: ctx.speedLevel,
         trackName: ctx.trackName,
         durationS,

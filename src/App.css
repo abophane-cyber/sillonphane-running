@@ -2304,6 +2304,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 }
 .pwiz-section--banner .pwiz-input { min-width: 0; }
 .pwiz-input--distance { flex: 0 0 96px; }
+.pwiz-input--bib { flex: 0 0 96px; text-align: center; font-weight: 700; }
 
 /* Bornes et temps de passage : bleu nuit des bornes (cf. .loc-sign--borne). */
 .pwiz-section--bornes {

@@ -47,6 +47,8 @@ export interface FilmExportOptions {
   characters:        CharacterId[]
   /** Bornes tous les 5 km (km + temps de passage), couchées sur la carte comme les panneaux. */
   bornes?:           Borne[]
+  /** Numéro inscrit sur le dossard du personnage (cf. Hiker3dSprite.setBibNumber). */
+  bibNumber?:        string
   speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
   trackName:         string
   durationS:         number // Défaut: 30s (correspond à la Preview)
@@ -820,7 +822,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   if (want3d) {
     try {
       const { createHiker3dSprite } = await import('./hiker3dSprite')
-      hikers = opts.characters.slice(0, 2).map(id => createHiker3dSprite(id, { manual: true }))
+      hikers = opts.characters.slice(0, 2).map(id => createHiker3dSprite(id, { manual: true, bibNumber: opts.bibNumber }))
       // Annulation : contextes WebGL libérés tout de suite (le navigateur n'en garde qu'un nombre limité).
       signal?.addEventListener('abort', () => hikers.forEach(h => h.dispose()), { once: true })
       await Promise.race([Promise.all(hikers.map(h => h.whenReady())), new Promise(r => setTimeout(r, 30_000))])

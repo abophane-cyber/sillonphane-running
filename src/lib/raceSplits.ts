@@ -20,6 +20,8 @@ export interface RaceSettings {
   eventName?: string
   bannerDate?: string
   bannerDistance?: string
+  /** Numéro inscrit sur le dossard de la coureuse ; vide = dossard blanc. */
+  bibNumber?: string
 }
 /** Inscription de l'épreuve (nom, date, distance), saisie dans le widget des panneaux. */
 export interface BannerText {

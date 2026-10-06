@@ -220,6 +220,7 @@ export async function saveTrackPanelSettings(
     eventName?: string
     bannerDate?: string
     bannerDistance?: string
+    bibNumber?: string
   },
 ): Promise<void> {
   return withVoyageLock(voyageId, async () => {
@@ -240,6 +241,7 @@ export async function saveTrackPanelSettings(
       panelEventName: settings.eventName,
       panelBannerDate: settings.bannerDate,
       panelBannerDistance: settings.bannerDistance,
+      panelBibNumber: settings.bibNumber,
     } : t)
     await saveVoyage(voyage)
   })

@@ -52,6 +52,8 @@ export interface Hiker3dSprite {
   onFeet(cb: (pxAboveBottom: number) => void): void
   /** Taille à l'écran (1 = taille de marche) : grandit avec le zoom des plans serrés de départ et d'arrivée. */
   setScale(f: number): void
+  /** Numéro inscrit sur le dossard (personnages qui en portent un, cf. CharacterDef.bib) ; vide = dossard du modèle. */
+  setBibNumber(n: string): void
   /** Taille actuelle de la fenêtre (px CSS), hauteur des pieds au-dessus de son bas et taille du personnage (des
    * pieds au sommet de la tête). */
   layout(): { w: number; h: number; feet: number; body: number }
@@ -66,13 +68,15 @@ export interface Hiker3dSpriteOptions {
   /** Film : pas de boucle d'affichage, chaque image est produite par renderFrame (horloge du film, pas l'horloge
    * réelle — le rendu d'une image de film peut prendre bien plus d'1/30 s). */
   manual?: boolean
+  /** Numéro de dossard initial (cf. setBibNumber). */
+  bibNumber?: string
 }
 
 /** Taille de rendu de base (px CSS, taille de marche) et agrandissement maximal : pour dessiner le personnage
  * ailleurs (film), à la même échelle que l'aperçu. */
 export const HIKER3D_SIZE = { w: W, h: H, maxScale: MAX_SCALE }
-/** Caméra des personnages (personnage de hauteur 1, pieds à l'origine) : un décor rendu avec la même caméra
- * (banderole de départ, cf. startBanner.ts) se superpose exactement, en perspective. */
+/** Caméra des personnages (personnage de hauteur 1, pieds à l'origine) : un décor 3D rendu avec la même caméra se
+ * superpose exactement, en perspective. */
 export const HIKER3D_CAMERA = {
   fov: 30,
   position: [0, 0.95, 3.4] as [number, number, number],
@@ -197,6 +201,50 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
     mode = 'walk'
   }
 
+  // Dossard : numéro plaqué sur le dossard blanc du modèle (pose de repos, juste après le cadrage), accroché au buste
+  // pour suivre la course. Masqué tant qu'aucun numéro n'est saisi (le dossard blanc du modèle reste visible).
+  let bibNumber = (opts.bibNumber ?? '').trim()
+  let bibMesh: THREE.Mesh | null = null
+  const bibCanvas = document.createElement('canvas')
+  bibCanvas.width = 256; bibCanvas.height = 150
+  const bibTex = new THREE.CanvasTexture(bibCanvas)
+  bibTex.colorSpace = THREE.SRGBColorSpace
+  function drawBib() {
+    if (!bibMesh) return
+    bibMesh.visible = !!bibNumber
+    const g = bibCanvas.getContext('2d')!
+    const W = bibCanvas.width, H = bibCanvas.height
+    g.fillStyle = '#fff'; g.fillRect(0, 0, W, H)
+    g.fillStyle = '#c0000c'; g.fillRect(0, 0, W, H * 0.16)
+    g.fillStyle = '#c0000c'; g.fillRect(0, H * 0.88, W, H * 0.12)
+    g.fillStyle = '#111'; g.textAlign = 'center'; g.textBaseline = 'middle'
+    let px = H * 0.62
+    do { g.font = `800 ${px}px 'Arial Narrow', Arial, sans-serif`; px -= 4 } while (g.measureText(bibNumber).width > W * 0.9 && px > 20)
+    g.fillText(bibNumber, W / 2, H * 0.53)
+    bibTex.needsUpdate = true
+  }
+  function setupBib(model: THREE.Object3D, bib: NonNullable<typeof def.bib>) {
+    const bone = model.getObjectByName(bib.bone)
+    if (!bone) return
+    const yaw0 = group.rotation.y
+    group.rotation.y = 0
+    group.updateMatrixWorld(true)
+    model.traverse(o => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) (o as THREE.SkinnedMesh).skeleton.update() })
+    // Surface de la poitrine : premier point touché en venant de face.
+    const hit = new THREE.Raycaster(new THREE.Vector3(bib.x, bib.y, 5), new THREE.Vector3(0, 0, -1)).intersectObject(model, true)[0]
+    if (!hit) { group.rotation.y = yaw0; return }
+    bibMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(bib.w, bib.h),
+      new THREE.MeshLambertMaterial({ map: bibTex, polygonOffset: true, polygonOffsetFactor: -2 }),
+    )
+    bibMesh.position.set(bib.x, bib.y, hit.point.z + 0.003)
+    scene.add(bibMesh)
+    bibMesh.updateMatrixWorld(true)
+    bone.attach(bibMesh)
+    group.rotation.y = yaw0
+    drawBib()
+  }
+
   const draco = new DRACOLoader()
   draco.setDecoderPath(`${import.meta.env.BASE_URL}perso/draco/`)
   const loader = new GLTFLoader()
@@ -235,6 +283,7 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
     const head = new THREE.Vector3(0, 1, 0).project(camera)
     bodyPx = Math.max(1, (H - (1 - head.y) / 2 * H) - feetPx)
     feetCbs.splice(0).forEach(cb => cb(feetPx!))
+    if (def.bib) setupBib(model, def.bib)
 
     const walkClip = gltf.animations.find(c => c.duration > 0.1) ?? gltf.animations[0]
     if (!walkClip) return
@@ -403,11 +452,13 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
     layout() { return { w: W * scale, h: H * scale, feet: (feetPx ?? H * 0.26) * scale, body: bodyPx * scale } },
     renderFrame(dt) { if (!disposed) step(dt) },
     whenReady() { return readyPromise },
+    setBibNumber(n) { bibNumber = n.trim(); drawBib() },
     dispose() {
       disposed = true
       cancelAnimationFrame(raf)
       mixer?.stopAllAction()
       renderer.dispose()
+      bibTex.dispose()
       draco.dispose()
     },
   }

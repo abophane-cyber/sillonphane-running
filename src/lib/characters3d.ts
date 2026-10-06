@@ -29,11 +29,15 @@ export interface CharacterDef {
   /** Allures enchaînées selon la distance parcourue (part du parcours, 0 à 1, croissante) : chaque clip de course
    * (glb armature seule, même squelette) prend le relais à `from`, par fondu ; sans `url`, le clip de modelUrl. */
   gaits?: { from: number; url?: string }[]
+  /** Dossard blanc du modèle, mesuré de face en pose de repos (modèle ramené à une hauteur de 1, centré) : le numéro
+   * y est plaqué (cf. setBibNumber dans hiker3dSprite.ts), accroché au buste (`bone`). */
+  bib?: { x: number; y: number; w: number; h: number; bone: string }
 }
 
 export const CHARACTERS: CharacterDef[] = [
   // Course : allure qui change au fil du parcours (départ, croisière, fatigue, finish) ; attente au départ, victoire à l'arrivée.
   { id: 'coureuse1', label: 'Coureuse', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1_idle.glb`, greetUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1_victoire.glb`, clipFps: 30, trimDuplicateLastFrame: true,
+    bib: { x: 0, y: 0.699, w: 0.085, h: 0.05, bone: 'mixamorigSpine2' },
     gaits: [
       { from: 0, url: `${import.meta.env.BASE_URL}perso/models/coureuse1_running4.glb` },
       { from: 0.15 },

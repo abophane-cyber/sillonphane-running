@@ -381,6 +381,7 @@ export default function App() {
         eventName: race.eventName?.trim() || undefined,
         bannerDate: race.bannerDate?.trim() || undefined,
         bannerDistance: race.bannerDistance?.trim() || undefined,
+        bibNumber: race.bibNumber?.trim() || undefined,
       }).catch(e => console.error('[panels] save:', e))
     }, 600)
     return () => clearTimeout(timer)
@@ -429,6 +430,7 @@ export default function App() {
       weather,
       characters,
       bornes,
+      bibNumber: race.bibNumber?.trim() || undefined,
       trackName: customTitle || activeTrack.name,
       speedLevel,
       activeSillonId,
@@ -633,6 +635,7 @@ export default function App() {
                     eventName: track.panelEventName,
                     bannerDate: track.panelBannerDate,
                     bannerDistance: track.panelBannerDistance,
+                    bibNumber: track.panelBibNumber,
                   },
                   hasComposition,
                   hasFilm,

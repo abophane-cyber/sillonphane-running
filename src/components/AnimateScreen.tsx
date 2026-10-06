@@ -193,6 +193,7 @@ export function AnimateScreen({
           previewLocalities={previewLocalities}
           customLocalities={customLocalities}
           bornes={bornes}
+          bibNumber={race.bibNumber}
           onRemoveCustomLocality={handleRemoveCustomLocality}
           onMoveCustomLocality={handleMoveCustomLocality}
           onSuppressLocality={suppressLocality}

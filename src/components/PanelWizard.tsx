@@ -157,6 +157,14 @@ export function PanelWizard({
               onChange={e => onRaceChange({ ...race, bannerDistance: e.target.value })}
             />
           </div>
+          <label className="pwiz-race-row">
+            <span>N° de dossard</span>
+            <input
+              className="pwiz-input pwiz-input--bib" value={race.bibNumber ?? ''} placeholder="1234" maxLength={6}
+              inputMode="numeric"
+              onChange={e => onRaceChange({ ...race, bibNumber: e.target.value })}
+            />
+          </label>
         </div>
 
         {/* ── Cols repérés (décochés par défaut) ── */}

@@ -165,6 +165,8 @@ interface Props {
   customLocalities?: LocalityInfo[]
   /** Bornes tous les 5 km (km + temps de passage), couchées sur le tracé. */
   bornes?: Borne[]
+  /** Numéro inscrit sur le dossard du personnage. */
+  bibNumber?: string
   onRemoveCustomLocality?: (name: string) => void
   onMoveCustomLocality?: (name: string, lon: number, lat: number) => void
   onSuppressLocality?: (name: string) => void
@@ -227,7 +229,7 @@ export function TrackMap({
   panelDuration = 3000,
   localityDedupKm = 5,
   localityDedupMinScore = 6,
-  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
+  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, bibNumber = '', onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
   departureNameOverride, arrivalNameOverride, departureColEle, arrivalColEle, departureLieudit, arrivalLieudit,
   detectedDepartureName, detectedArrivalName,
   onMapCanvasReady, animationEnded = false,
@@ -335,7 +337,7 @@ export function TrackMap({
       el.style.height = '0'
       el.dataset.hiker3d = '1'
       hiker3dRef.current = chars.slice(0, 2).map(id => {
-        const s = m.createHiker3dSprite(id)
+        const s = m.createHiker3dSprite(id, { bibNumber: bibNumberRef.current })
         if (progressRef.current >= 0.01) s.skipToWalk()
         else if (countdownRef.current !== null) s.startIntro()
         s.setPlaying(playingRef.current)
@@ -759,6 +761,11 @@ export function TrackMap({
     startDelayMsRef.current = HIKER3D && characters.length ? HIKER3D_START_DEZOOM_MS : 0
     return () => { startDelayMsRef.current = 0 }
   }, [startDelayMsRef, characters.length])
+
+  // ── Dossard : numéro saisi dans le widget, reporté sur les personnages déjà montés ──
+  const bibNumberRef = useRef(bibNumber)
+  bibNumberRef.current = bibNumber
+  useEffect(() => { hiker3dRef.current.forEach(s => s.setBibNumber(bibNumber)) }, [bibNumber])
 
   // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, elles apparaissent au fil de la course, à
   // l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM »), et sont toutes là à la fin ──
