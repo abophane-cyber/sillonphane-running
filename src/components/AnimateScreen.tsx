@@ -11,7 +11,7 @@ import type { ActivityMode } from '../hooks/useAnimationSettings'
 import type { EndpointKind } from '../hooks/useTrackNaming'
 import { formatEta } from '../lib/exportEta'
 import type { Borne, RaceSettings } from '../lib/raceSplits'
-import type { BannerText } from '../lib/startBanner'
+import type { BannerText } from '../lib/raceSplits'
 import type { useAnimation } from '../hooks/useAnimation'
 import type { useLocalityPanels } from '../hooks/useLocalityPanels'
 import type { useLocality, useColMarkers } from '../hooks/useLocality'
@@ -66,8 +66,7 @@ interface Props {
   /** Le GPX porte des heures réelles. */
   realTimes: boolean
   bornes: Borne[]
-  bannerText: BannerText
-  /** Inscription par défaut de la banderole (exemples des champs du widget). */
+  /** Inscription par défaut de l'épreuve (exemples des champs du widget). */
   bannerDefaults: BannerText
   departureTime: string
   onDepartureTimeChange: (v: string) => void
@@ -122,7 +121,7 @@ export function AnimateScreen({
   locality, colMarkers, panels, endDelayMsRef, startDelayMsRef,
   startName, endName, onStartNameChange, onEndNameChange,
   effectiveStartName, effectiveEndName, startColEle, endColEle, startLieudit, endLieudit, onStartKindChange, onEndKindChange, onMapCanvasReady,
-  race, onRaceChange, realTimes, bornes, bannerText, bannerDefaults, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, bornes, bannerDefaults, departureTime, onDepartureTimeChange,
   countdown, waitingMap, weather, filmProgress, handleCreateFilm, lastFilmUrl,
   filmEtaS, film3dProgress, film3dPhase, film3dEtaS, handleCreateFilm3d, onFilm3dIntent, lastFilm3dUrl,
   trackHasSavedFilm, onViewFilm,
@@ -194,7 +193,6 @@ export function AnimateScreen({
           previewLocalities={previewLocalities}
           customLocalities={customLocalities}
           bornes={bornes}
-          bannerText={bannerText}
           onRemoveCustomLocality={handleRemoveCustomLocality}
           onMoveCustomLocality={handleMoveCustomLocality}
           onSuppressLocality={suppressLocality}

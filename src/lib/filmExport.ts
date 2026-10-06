@@ -17,7 +17,6 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { borneReached, borneTimeLine, type Borne } from './raceSplits'
-import type { BannerText, StartBannerImage } from './startBanner'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -48,8 +47,6 @@ export interface FilmExportOptions {
   characters:        CharacterId[]
   /** Bornes tous les 5 km (km + temps de passage), couchées sur la carte comme les panneaux. */
   bornes?:           Borne[]
-  /** Inscription de la banderole de départ (nom de l'épreuve, date, distance). */
-  bannerText?:       BannerText
   speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
   trackName:         string
   durationS:         number // Défaut: 30s (correspond à la Preview)
@@ -862,20 +859,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const pacing = hikers3d ? getTrackPacing(visualPoints, distances) : null
   const nominalMps = totalDistance / durationS
   pacing?.setNominalSpeed(nominalMps)
-  // Banderole de départ (startBanner.ts), en travers du tracé au départ ; sans WebGL2, pas de banderole.
-  let startBanner: StartBannerImage | null = null
-  let bannerAbove = () => false // passe-t-elle devant la coureuse ? (cf. bannerInFront)
-  if (want3d) {
-    const m = await import('./startBanner').catch(() => null)
-    const dir = headingToScreen(getTrackPacing(visualPoints, distances).headingAt(0))
-    startBanner = m ? await m.loadStartBanner(opts.bannerText ?? { title: '' }, dir).catch(() => null) : null
-    if (m && startBanner) {
-      const b = startBanner
-      bannerAbove = () => m.bannerInFront(b, bannerRel.x, bannerRel.y)
-    }
-  }
-  // Position de la coureuse relative au départ (px à l'échelle 1), tenue à jour pendant la course.
-  const bannerRel = { x: 0, y: 0 }
   const walkWarp = pacing ? pacing.timeWarp() : null
   const walkS = walkWarp ? walkWarp.totalS : durationS
   const H3_OUTRO_S = hikers3d ? Math.max(...hikers.map(h => h.outroDurationS())) : 0
@@ -1113,19 +1096,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
   const signY = (ev: unknown, y: number, scale: number) =>
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
-  /** Banderole de départ : derrière les personnages, pieds au point de départ, à leur échelle (`scale` : 1 = marche). */
-  function drawStartBanner(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1) {
-    if (!startBanner || alpha <= 0) return
-    const b = startBanner
-    const pt = project(points[0].lon, points[0].lat)
-    const s = scale * FILM_SCALE
-    const x = pt.x - b.anchorX * s, y = pt.y - b.anchorY * s, w = b.w * s, h = b.h * s
-    if (x > OUT_W || y > OUT_H || x + w < 0 || y + h < 0) return
-    ctx.save()
-    ctx.globalAlpha = Math.min(1, alpha)
-    ctx.drawImage(b.canvas, x, y, w, h)
-    ctx.restore()
-  }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
   /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble). */
   function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity) {
@@ -1264,9 +1234,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
       const p0 = exportMap.project([points[0].lon, points[0].lat])
-      if (!bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(closeZoom, zoom))
       drawHikers3d(p0.x, p0.y, hiker3dScaleForZoom(closeZoom, zoom))
-      if (bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(closeZoom, zoom))
     }
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
@@ -1310,9 +1278,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, signY(departureEvent, pt.y, signScale()), departureEvent.style, departureEvent.ele, 1, signScale())
     }
     const p0 = exportMap.project([points[0].lon, points[0].lat])
-    if (!bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(z, zoom))
     drawHikers3d(p0.x, p0.y, hiker3dScaleForZoom(z, zoom))
-    if (bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(z, zoom))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance,
@@ -1407,13 +1373,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const [lngPos, latPos] = lngLatAtProgress(visualPoints, distances, totalDistance, progress)
       const mk = project(lngPos, latPos)
       steerHikers3d(project, progress * totalDistance, mk, latPos)
-      // Banderole de départ : derrière la coureuse, ou devant une fois qu'elle est passée de l'autre côté.
-      const st = project(points[0].lon, points[0].lat)
-      bannerRel.x = (mk.x - st.x) / FILM_SCALE; bannerRel.y = (mk.y - st.y) / FILM_SCALE
-      const above = bannerAbove()
-      if (!above) drawStartBanner(project, 1)
       drawHikers3d(mk.x, mk.y, 1)
-      if (above) drawStartBanner(project, 1)
     }
 
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, progress)
@@ -1496,9 +1456,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Randonneurs 3D à l'arrivée : ils saluent, passent devant le panneau d'arrivée (comme l'aperçu).
       if (hikers3d) {
         const mkPt = exportMap.project([endLng, endLat])
-        if (!bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(cam.z, zoom))
         drawHikers3d(mkPt.x, mkPt.y, hiker3dScaleForZoom(cam.z, zoom))
-        if (bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(cam.z, zoom))
       }
 
       drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
@@ -1607,9 +1565,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Randonneurs 3D : ils rapetissent avec le dézoom et s'effacent en même temps (comme l'aperçu).
       if (hikers3d && f < EASE_OV) {
         const mkPt = exportMap.project([endLng, endLat])
-        if (!bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(cZoom, zoom), 1 - t)
         drawHikers3d(mkPt.x, mkPt.y, hiker3dScaleForZoom(cZoom, zoom), 1 - t)
-        if (bannerAbove()) drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(cZoom, zoom), 1 - t)
       }
 
       // Pas de fondu au noir : le film se termine sur l'image fixe de la vue d'ensemble.

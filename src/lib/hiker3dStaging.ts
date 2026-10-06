@@ -31,7 +31,7 @@ export function hiker3dScaleForZoom(zoom: number, walkZoom: number): number {
 }
 
 /** Scène de départ (course) : panneau de la commune au premier plan, décalé vers le bas de l'écran de ce nombre de
- * px (taille de marche) par rapport au point de départ ; la coureuse au point ; la banderole derrière (startBanner.ts).
+ * px (taille de marche) par rapport au point de départ ; la coureuse au point.
  * Même valeur dans l'aperçu (App.css, .loc-sign-anchor--depart) et le film 2D. */
 export const START_SIGN_OFFSET_PX = 40
 

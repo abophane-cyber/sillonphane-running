@@ -11,7 +11,6 @@ import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { Borne } from '../lib/raceSplits'
-import type { BannerText } from '../lib/startBanner'
 
 export interface CreateFilmContext {
   activeTrack: GpxTrack
@@ -31,8 +30,6 @@ export interface CreateFilmContext {
   characters: CharacterId[]
   /** Bornes tous les 5 km avec temps de passage (cf. raceSplits.ts). */
   bornes: Borne[]
-  /** Inscription de la banderole de départ. */
-  bannerText: BannerText
   trackName: string
   speedLevel: 1 | 2
   activeSillonId: string | null
@@ -126,7 +123,6 @@ export function useFilmRecording() {
         weather:   ctx.weather ?? null,
         characters: ctx.characters,
         bornes: ctx.bornes,
-        bannerText: ctx.bannerText,
         speedLevel: ctx.speedLevel,
         trackName: ctx.trackName,
         durationS,

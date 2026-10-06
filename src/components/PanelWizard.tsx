@@ -6,9 +6,8 @@ import { PANEL_DRAG_MIME } from '../lib/panelDrag'
 import type { EndpointKind } from '../hooks/useTrackNaming'
 import {
   DEFAULT_SPEED_KMH, SPEED_SLICE_KM, formatElapsed, hasPlannedSpeeds, plannedElapsedS, speedSliceCount,
-  type RaceSettings,
+  type BannerText, type RaceSettings,
 } from '../lib/raceSplits'
-import type { BannerText } from '../lib/startBanner'
 
 /** « 12 h 41 (3 h 41'00") », ou la durée seule sans heure de départ. */
 function plannedFinish(startTime: string, elapsedS: number): string {
@@ -45,7 +44,7 @@ interface Props {
   /** Le GPX porte des heures réelles : choix entre temps du GPX et temps prévus. */
   realTimes: boolean
   totalDistance: number
-  /** Inscription par défaut de la banderole de départ (exemples des champs). */
+  /** Inscription par défaut de l'épreuve (exemples des champs). */
   bannerDefaults: BannerText
   departureTime: string
   onDepartureTimeChange: (v: string) => void
@@ -138,9 +137,9 @@ export function PanelWizard({
           {!depHidden && !startIsCol && kindPicker(startKind, onStartKindChange)}
         </div>
 
-        {/* ── Inscription de la banderole de départ (startBanner.ts) : vide = valeur par défaut ── */}
+        {/* ── Inscription de l'épreuve (nom, date, distance), mémorisée avec le tracé ; vide = valeur par défaut ── */}
         <div className="pwiz-section pwiz-section--banner">
-          <span className="pwiz-section-label">🏁 Banderole de départ</span>
+          <span className="pwiz-section-label">🏁 Épreuve</span>
           <input
             className="pwiz-input" value={race.eventName ?? ''} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
             aria-label="Nom de l'épreuve"
