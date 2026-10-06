@@ -3,12 +3,15 @@
 # Procédure complète : docs/procedure-avatar-blender-mixamo.md
 #
 # Usage : "C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background
-#           --python scripts/mixamo-to-glb.py -- <entrée.fbx> <sortie.glb> [faces] [texture_px]
+#           --python scripts/mixamo-to-glb.py -- <entrée.fbx> <sortie.glb> [faces] [texture_px] [--clip]
 # faces : nombre de faces visé (Decimate), défaut 30 000 ; texture_px : côté max de la texture, défaut 1024.
+# --clip : squelette et animation seuls (attente, salut… : l'appli ne lit que l'animation de ces fichiers).
 # Le personnage n'occupe que quelques centaines de pixels à l'écran : au-delà, le fichier grossit pour rien.
 import bpy, sys
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+clip_only = "--clip" in argv
+argv = [a for a in argv if a != "--clip"]
 in_path, out_path = argv[0], argv[1]
 target_faces = int(argv[2]) if len(argv) > 2 else 30000
 tex_px = int(argv[3]) if len(argv) > 3 else 1024
@@ -54,7 +57,7 @@ for img in bpy.data.images:
         img.scale(max(1, round(w * k)), max(1, round(h * k)))
 
 for o in bpy.data.objects:
-    o.select_set(o.type in ('MESH', 'ARMATURE'))
+    o.select_set(o.type == 'ARMATURE' if clip_only else o.type in ('MESH', 'ARMATURE'))
 
 bpy.ops.export_scene.gltf(
     filepath=out_path,
