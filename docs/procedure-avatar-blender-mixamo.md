@@ -40,6 +40,11 @@ Chemin complet : **PNG → Meshy (image → 3D) → Blender (nettoyage) → Mixa
 7. Refaire avec une animation **Idle** (départ et arrivée).
 
 ## 5. Retour dans Blender → GLB pour l'appli
+**Raccourci** : `scripts/mixamo-to-glb.py` fait toute cette étape sans ouvrir Blender (matériau mat, texture
+1024 px, ~30 000 faces, Draco) :
+`"C:\Program Files\Blender Foundation\Blender 5.2\blender.exe" --background --python scripts/mixamo-to-glb.py -- "Running.fbx" public/perso/models/coureur1.glb`
+
+À la main :
 1. *File → New → General*, supprimer le cube.
 2. **File → Import → FBX** → le FBX de course Mixamo.
 3. **Barre d'espace** : vérifier que la boucle est propre.
