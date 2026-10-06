@@ -23,6 +23,8 @@ import { RIBBON_FULL_GRADIENT, RIBBON_HEAD_COLOR, RIBBON_LAG_PX, RIBBON_HEAD_FAD
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
 const HIKER3D = HIKER3D_ENABLED
+/** Suivi caméra de l'aperçu : constante de temps de l'amorti (s), comme le film 2D (FOLLOW_K ≈ 0,038 par image à 30 i/s). */
+const CAMERA_FOLLOW_TAU_S = 0.8
 
 // ─── SVG markers ──────────────────────────────────────────────────────────────
 
@@ -744,26 +746,23 @@ export function TrackMap({
         : [],
     })
 
-    // Suivi caméra
+    // Suivi caméra : glissement continu et amorti vers le coureur à chaque image (comme le film 2D, FOLLOW_K),
+    // au lieu d'un rattrapage quand il approchait du bord. Amorti resserré s'il s'éloigne trop du centre.
     if (followMarker && animating && !flyingRef.current) {
       const now = performance.now()
-      const isMobile = window.innerWidth < 768
-      const throttle = isMobile ? 800 : 1500
-      if (now - lastCameraUpdateRef.current >= throttle) {
-        const canvas = map.getCanvas()
-        const dpr = window.devicePixelRatio || 1
-        const cw = canvas.width / dpr, ch = canvas.height / dpr
-        const px = map.project(lngLat)
-        const margin = isMobile ? 0.30 : 0.20
-        const marginX = cw * margin, marginY = ch * margin
-        const nearEdge = px.x < marginX || px.x > cw - marginX || px.y < marginY || px.y > ch - marginY
-        if (nearEdge) {
-          lastCameraUpdateRef.current = now
-          const zoom = targetZoomRef.current != null ? targetZoomRef.current : map.getZoom()
-          const duration = isMobile ? 1200 : 2000
-          map.easeTo({ center: lngLat, zoom, duration, easing: t => t < 0.5 ? 2*t*t : -1+(4-2*t)*t })
-        }
-      }
+      const dt = Math.min(0.1, Math.max(0, (now - lastCameraUpdateRef.current) / 1000))
+      lastCameraUpdateRef.current = now
+      const { clientWidth: cw, clientHeight: ch } = map.getContainer()
+      const c = map.getCenter()
+      const pc = map.project(c), pm = map.project(lngLat)
+      const lagPx = Math.hypot(pm.x - pc.x, pm.y - pc.y)
+      const maxLag = Math.min(cw, ch) * 0.3
+      let k = 1 - Math.exp(-dt / CAMERA_FOLLOW_TAU_S)
+      if (lagPx > maxLag) k = Math.min(0.5, k * (lagPx / maxLag))
+      const zoom = targetZoomRef.current != null ? targetZoomRef.current : map.getZoom()
+      map.jumpTo({ center: [c.lng + (lngLat[0] - c.lng) * k, c.lat + (lngLat[1] - c.lat) * k], zoom })
+    } else {
+      lastCameraUpdateRef.current = performance.now()
     }
   }, [markerPosition, progress, followMarker, animating, points, distances, totalDistance])
 
