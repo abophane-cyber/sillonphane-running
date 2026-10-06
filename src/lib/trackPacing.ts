@@ -14,10 +14,11 @@ const LOOK_MIN_M = 120
 const LOOK_MAX_M = 700
 /** Vitesse de pivot visée au plus fort d'un virage (degrés par seconde d'animation). */
 const MAX_TURN_DEG_PER_S = 130
-/** Ralenti maximal (fraction de la vitesse normale). */
-const MIN_FACTOR = 0.8
-/** Vitesse hors des virages (fraction de la vitesse normale) : le ruban accélère sur les portions régulières. */
-const MAX_FACTOR = 1.2
+/** Ralenti maximal (fraction de la vitesse normale). Running : aucun (1) — le ruban avance à vitesse constante,
+ * sans à-coups ; les pivots restent doux grâce au cap mesuré loin devant. */
+const MIN_FACTOR = 1
+/** Vitesse hors des virages (fraction de la vitesse normale). Running : 1, pas d'accélération sur les lignes droites. */
+const MAX_FACTOR = 1
 /** Cadence des pas plafonnée à la vitesse normale : l'accélération hors des lacets ne fait pas trotter les personnages. */
 const STEP_MAX_FACTOR = 1
 /** Le ralenti s'installe ANTICIPATE_M avant le virage et dure autant après ; puis lissage sur ±BLUR_M. */

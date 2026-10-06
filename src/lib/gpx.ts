@@ -183,7 +183,11 @@ export function interpolateTrack(points: GpxPoint[], distances: number[], totalD
 // Lisse la géométrie du tracé (moyenne mobile pondérée, plusieurs passes) pour adoucir les
 // angles vifs dus au bruit GPS. N'affecte que lon/lat ; distances/altitude réelles utilisées
 // ailleurs (marqueur, altimétrie, progression) restent basées sur les points d'origine.
-export function smoothTrackCoords(points: GpxPoint[], iterations = 5, radius = 4): [number, number][] {
+/** Lissage du tracé affiché. Running : léger par défaut (2 passes, rayon 2) — on suit fidèlement les rues ; la
+ * rando lissait fort (5, 4) pour adoucir les lacets. */
+export const TRACK_SMOOTH = { iterations: 2, radius: 2 }
+
+export function smoothTrackCoords(points: GpxPoint[], iterations = TRACK_SMOOTH.iterations, radius = TRACK_SMOOTH.radius): [number, number][] {
   const n = points.length
   let lons = points.map(p => p.lon)
   let lats = points.map(p => p.lat)
@@ -212,7 +216,7 @@ export function smoothTrackCoords(points: GpxPoint[], iterations = 5, radius = 4
 /** Variante de smoothTrackCoords qui renvoie directement des GpxPoint (lon/lat lissés, ele et
  *  autres champs conservés depuis le point d'origine). Pratique pour réutiliser telles quelles
  *  les fonctions qui attendent un tableau de GpxPoint (interpolateTrack, projection carte…). */
-export function smoothTrackPoints(points: GpxPoint[], iterations = 5, radius = 4): GpxPoint[] {
+export function smoothTrackPoints(points: GpxPoint[], iterations = TRACK_SMOOTH.iterations, radius = TRACK_SMOOTH.radius): GpxPoint[] {
   const coords = smoothTrackCoords(points, iterations, radius)
   return points.map((p, i) => ({ ...p, lon: coords[i][0], lat: coords[i][1] }))
 }
