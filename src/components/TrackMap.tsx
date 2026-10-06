@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
+import { ensureVegetationProtocol, VEG_PROTOCOL } from '../lib/vegetation'
 import type { FeatureCollection } from 'geojson'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { GpxPoint } from '../types'
@@ -66,11 +67,12 @@ export function markerSvg(_mode: 'randonneur', female: boolean): string {
 const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] }
 
 export function makeStyle(): maplibregl.StyleSpecification {
+  ensureVegetationProtocol(maplibregl) // végétation recoloriée au chargement des tuiles (vegetation.ts)
   return {
     version: 8,
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources: {
-      'tiles-ign':  { type: 'raster', tiles: [BASEMAP_TILE_URL], tileSize: 256, maxzoom: 19, attribution: '© IGN' },
+      'tiles-ign':  { type: 'raster', tiles: [BASEMAP_TILE_URL.replace('https://', `${VEG_PROTOCOL}://`)], tileSize: 256, maxzoom: 19, attribution: '© IGN' },
       'track-full': { type: 'geojson', data: EMPTY_FC },
       // lineMetrics: nécessaire pour line-gradient (dégradé le long du tracé parcouru)
       'track-done': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },

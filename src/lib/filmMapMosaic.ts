@@ -21,6 +21,7 @@
 
 import type { GpxPoint } from '../types'
 import { BASEMAP_ADJUST, BASEMAP_BACKGROUND, BASEMAP_TILE_URL } from './tileSources'
+import { recolorVegetation } from './vegetation'
 import { lonLatToTileXY } from './tilePrefetch'
 
 const TILE_SIZE = 256
@@ -159,6 +160,8 @@ export async function buildMapMosaic(
   // visuel (contraste/saturation/teinte) via les paint properties raster-* de MapLibre. La
   // mosaïque contourne le pipeline de rendu MapLibre (c'est tout l'intérêt), donc ce retraitement
   // doit être reproduit ici à la main pour garder le même rendu que l'aperçu/le reste du film.
+  // Végétation recoloriée (vegetation.ts, comme les tuiles de l'aperçu), puis même assombrissement.
+  { const img = ctx.getImageData(0, 0, w, h); recolorVegetation(img.data); ctx.putImageData(img, 0, 0) }
   applyBasemapColorAdjust(ctx, w, h)
 
   // Cases restées vides — tuiles introuvables, et cases du rectangle trop loin du tracé pour avoir
