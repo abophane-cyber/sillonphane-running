@@ -71,6 +71,13 @@ export interface Hiker3dSpriteOptions {
 /** Taille de rendu de base (px CSS, taille de marche) et agrandissement maximal : pour dessiner le personnage
  * ailleurs (film), à la même échelle que l'aperçu. */
 export const HIKER3D_SIZE = { w: W, h: H, maxScale: MAX_SCALE }
+/** Caméra des personnages (personnage de hauteur 1, pieds à l'origine) : un décor rendu avec la même caméra
+ * (banderole de départ, cf. startBanner.ts) se superpose exactement, en perspective. */
+export const HIKER3D_CAMERA = {
+  fov: 30,
+  position: [0, 0.95, 3.4] as [number, number, number],
+  target: [0, 0.45, 0] as [number, number, number],
+}
 
 export function supportsHiker3d(): boolean {
   try { return !!document.createElement('canvas').getContext('webgl2') } catch { return false }
@@ -134,9 +141,9 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
   sun.position.set(0.5, 1, 0.8)
   scene.add(sun)
   // Caméra un peu au-dessus de la tête, légèrement plongeante : on voit le marcheur de trois quarts haut.
-  const camera = new THREE.PerspectiveCamera(30, W / H, 0.1, 100)
-  camera.position.set(0, 0.95, 3.4)
-  camera.lookAt(0, 0.45, 0)
+  const camera = new THREE.PerspectiveCamera(HIKER3D_CAMERA.fov, W / H, 0.1, 100)
+  camera.position.set(...HIKER3D_CAMERA.position)
+  camera.lookAt(...HIKER3D_CAMERA.target)
   const group = new THREE.Group()
   scene.add(group)
 

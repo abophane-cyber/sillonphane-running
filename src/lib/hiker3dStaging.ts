@@ -30,6 +30,11 @@ export function hiker3dScaleForZoom(zoom: number, walkZoom: number): number {
   return Math.max(HIKER3D_MIN_SCALE, Math.min(HIKER3D_MAX_SCALE, 1 + (zoom - walkZoom) * HIKER3D_SCALE_PER_ZOOM))
 }
 
+/** Scène de départ (course) : panneau de la commune au premier plan, décalé vers le bas de l'écran de ce nombre de
+ * px (taille de marche) par rapport au point de départ ; la coureuse au point ; la banderole derrière (startBanner.ts).
+ * Même valeur dans l'aperçu (App.css, .loc-sign-anchor--depart) et le film 2D. */
+export const START_SIGN_OFFSET_PX = 40
+
 /** Accélère puis ralentit en douceur (pas d'à-coup au début ni à la fin du mouvement de caméra). */
 export const smoothEase = (t: number) => t * t * t * (t * (t * 6 - 15) + 10)
 

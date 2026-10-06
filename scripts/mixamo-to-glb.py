@@ -1,4 +1,4 @@
-# mixamo-to-glb.py — Convertit un FBX animé de Mixamo (With Skin, In Place) en GLB pour l'appli :
+# mixamo-to-glb.py — Convertit un FBX animé de Mixamo (With Skin, In Place), ou un GLB de décor (Meshy), en GLB pour l'appli :
 # matériau mat (réglage anti-plastique), texture réduite, maillage allégé, compression Draco.
 # Procédure complète : docs/procedure-avatar-blender-mixamo.md
 #
@@ -17,7 +17,10 @@ target_faces = int(argv[2]) if len(argv) > 2 else 30000
 tex_px = int(argv[3]) if len(argv) > 3 else 1024
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
-bpy.ops.import_scene.fbx(filepath=in_path)
+if in_path.lower().endswith(".glb"):
+    bpy.ops.import_scene.gltf(filepath=in_path)  # objet de décor (Meshy), sans squelette
+else:
+    bpy.ops.import_scene.fbx(filepath=in_path)
 
 meshes = [o for o in bpy.data.objects if o.type == 'MESH']
 

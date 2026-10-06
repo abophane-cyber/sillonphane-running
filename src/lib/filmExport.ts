@@ -17,9 +17,11 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { borneTimeLine, type Borne } from './raceSplits'
+import type { StartBannerImage } from './startBanner'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
+  START_SIGN_OFFSET_PX,
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 
@@ -768,6 +770,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (signal?.aborted) { hikers.forEach(h => h.dispose()); return new Blob() }
   }
   const hikers3d = hikers.length > 0
+  // Banderole de départ (startBanner.ts), derrière les personnages ; sans WebGL2, pas de banderole.
+  let startBanner: StartBannerImage | null = null
+  if (want3d) startBanner = await import('./startBanner').then(m => m.loadStartBanner()).catch(() => null)
 
   const canvas = document.createElement('canvas')
   canvas.width = OUT_W; canvas.height = OUT_H
@@ -1029,6 +1034,22 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   let hkMergeWas = false                                // mise en file du second en cours à l'image précédente
   /** Taille des panneaux couchés au zoom affiché : celle des personnages (1 pendant la course). */
   const signScale = () => hiker3dScaleForZoom(exportMap.getZoom(), zoom)
+  /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
+  const signY = (ev: unknown, y: number, scale: number) =>
+    ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
+  /** Banderole de départ : derrière les personnages, pieds au point de départ, à leur échelle (`scale` : 1 = marche). */
+  function drawStartBanner(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1) {
+    if (!startBanner || alpha <= 0) return
+    const b = startBanner
+    const pt = project(points[0].lon, points[0].lat)
+    const s = scale * FILM_SCALE
+    const x = pt.x - b.anchorX * s, y = pt.y - b.anchorY * s, w = b.w * s, h = b.h * s
+    if (x > OUT_W || y > OUT_H || x + w < 0 || y + h < 0) return
+    ctx.save()
+    ctx.globalAlpha = Math.min(1, alpha)
+    ctx.drawImage(b.canvas, x, y, w, h)
+    ctx.restore()
+  }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
   function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1) {
     if (alpha <= 0) return
@@ -1160,11 +1181,12 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (departureEvent) {
       const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, pt.y, departureEvent.style, departureEvent.ele, 1, signScale())
+        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, signY(departureEvent, pt.y, signScale()), departureEvent.style, departureEvent.ele, 1, signScale())
     }
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
       const p0 = exportMap.project([points[0].lon, points[0].lat])
+      drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(closeZoom, zoom))
       drawHikers3d(p0.x, p0.y, hiker3dScaleForZoom(closeZoom, zoom))
     }
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
@@ -1206,9 +1228,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (departureEvent) {
       const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, pt.y, departureEvent.style, departureEvent.ele, 1, signScale())
+        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, signY(departureEvent, pt.y, signScale()), departureEvent.style, departureEvent.ele, 1, signScale())
     }
     const p0 = exportMap.project([points[0].lon, points[0].lat])
+    drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(z, zoom))
     drawHikers3d(p0.x, p0.y, hiker3dScaleForZoom(z, zoom))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
@@ -1294,7 +1317,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const pt = project(ev.lon, ev.lat)
       // (Plus de masquage du panneau quand le randonneur passe devant : il reste affiché.)
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
-        drawLocSign(ctx, locSignCache, ev.name, pt.x, pt.y, ev.style, ev.ele, signA)
+        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, 1), ev.style, ev.ele, signA)
       }
     }
 
@@ -1304,6 +1327,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const [lngPos, latPos] = lngLatAtProgress(visualPoints, distances, totalDistance, progress)
       const mk = project(lngPos, latPos)
       steerHikers3d(project, progress * totalDistance, mk, latPos)
+      drawStartBanner(project, 1) // banderole de départ, derrière les personnages
       drawHikers3d(mk.x, mk.y, 1)
     }
 
@@ -1373,7 +1397,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const pt = exportMap.project([ev.lon, ev.lat])
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, pt.y, ev.style, ev.ele, 1, signScale())
+          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale())
       }
 
       drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 1)
@@ -1387,6 +1411,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Randonneurs 3D à l'arrivée : ils saluent, passent devant le panneau d'arrivée (comme l'aperçu).
       if (hikers3d) {
         const mkPt = exportMap.project([endLng, endLat])
+        drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(cam.z, zoom))
         drawHikers3d(mkPt.x, mkPt.y, hiker3dScaleForZoom(cam.z, zoom))
       }
 
@@ -1477,7 +1502,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
           ctx.save()
           ctx.globalAlpha = a
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, pt.y, ev.style, ev.ele, 1, signScale())
+          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale())
           ctx.restore()
         }
       }
@@ -1496,6 +1521,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Randonneurs 3D : ils rapetissent avec le dézoom et s'effacent en même temps (comme l'aperçu).
       if (hikers3d && f < EASE_OV) {
         const mkPt = exportMap.project([endLng, endLat])
+        drawStartBanner((lon, lat) => exportMap.project([lon, lat]), hiker3dScaleForZoom(cZoom, zoom), 1 - t)
         drawHikers3d(mkPt.x, mkPt.y, hiker3dScaleForZoom(cZoom, zoom), 1 - t)
       }
 

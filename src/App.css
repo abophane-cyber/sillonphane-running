@@ -709,6 +709,15 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   letter-spacing: 0.04em;
 }
 
+/* Panneau de départ au premier plan : décalé vers le bas, devant la coureuse (40 px = START_SIGN_OFFSET_PX). */
+.loc-sign-anchor--depart .loc-sign {
+  transform: translateY(calc(50% + 40px * var(--ground-scale, 1))) scale(var(--ground-scale, 1));
+}
+
+/* Banderole de départ (startBanner.ts) : image fixe derrière la coureuse, à son échelle. */
+.start-banner { z-index: 2; width: 0; height: 0; pointer-events: none; }
+.start-banner canvas { position: absolute; display: block; }
+
 /* Borne kilométrique (cf. raceSplits.ts) — bleu nuit, km en blanc, temps de passage en jaune (comme le film 2D) */
 .loc-sign--borne .loc-sign__board {
   background: #14213d;

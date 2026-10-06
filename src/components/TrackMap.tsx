@@ -775,6 +775,32 @@ export function TrackMap({
     return () => markers.forEach(m => m.remove())
   }, [bornes])
 
+  // ── Banderole de départ (startBanner.ts) : derrière la coureuse, au point de départ, à son échelle ──
+  useEffect(() => {
+    const map = mapRef.current
+    const start = points[0]
+    if (!HIKER3D || !map || !start) return
+    let marker: maplibregl.Marker | null = null
+    let cancelled = false
+    void import('../lib/startBanner').then(m => m.loadStartBanner()).then(img => {
+      if (cancelled || !img) return
+      const el = document.createElement('div')
+      el.className = 'start-banner'
+      // Copie de l'image partagée (un canvas ne peut être qu'à un endroit du DOM), placée pieds sur le point.
+      const c = document.createElement('canvas')
+      c.width = img.canvas.width
+      c.height = img.canvas.height
+      c.getContext('2d')!.drawImage(img.canvas, 0, 0)
+      c.style.left = `calc(${-img.anchorX}px * var(--ground-scale, 1))`
+      c.style.top = `calc(${-img.anchorY}px * var(--ground-scale, 1))`
+      c.style.width = `calc(${img.w}px * var(--ground-scale, 1))`
+      c.style.height = `calc(${img.h}px * var(--ground-scale, 1))`
+      el.appendChild(c)
+      marker = new maplibregl.Marker({ element: el, anchor: 'top-left' }).setLngLat([start.lon, start.lat]).addTo(map)
+    })
+    return () => { cancelled = true; marker?.remove() }
+  }, [points])
+
   // ── Randonneur 3D : sa taille suit le zoom de la carte (plans serrés de départ et d'arrivée) ──
   useEffect(() => {
     const map = mapRef.current
@@ -1421,7 +1447,9 @@ export function TrackMap({
       // Recréé à chaque changement (nom ou style col/localité) en gardant la position s'il a été déplacé.
       const at = departureMarkerRef.current?.getLngLat() ?? { lng: coords.lon, lat: coords.lat }
       departureMarkerRef.current?.remove()
-      departureMarkerRef.current = new maplibregl.Marker({ element: makeEndpointEl(departureNameOverride, departureColEle, departureLieudit, departureMarkerRef), anchor: 'bottom', draggable: true })
+      const el = makeEndpointEl(departureNameOverride, departureColEle, departureLieudit, departureMarkerRef)
+      el.classList.add('loc-sign-anchor--depart') // au premier plan, devant la coureuse (cf. START_SIGN_OFFSET_PX)
+      departureMarkerRef.current = new maplibregl.Marker({ element: el, anchor: 'bottom', draggable: true })
         .setLngLat(at).addTo(mapRef.current!)
     }
     if (loadedRef.current) place(); else mapRef.current.once('load', place)
