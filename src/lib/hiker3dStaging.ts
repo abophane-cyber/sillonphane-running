@@ -12,6 +12,9 @@ export const HIKER3D_CLOSE_ZOOM = 3.5
 export const HIKER3D_END_ZOOM_MS = 3000
 export const HIKER3D_START_DEZOOM_MS = 2000
 export const HIKER3D_OVERVIEW_MS = 5000
+/** Début du geste d'arrivée (victoire), en part du zoom d'arrivée. Running : 0 — dès la ligne franchie, sinon le
+ * coureur courait sur place pendant le zoom. */
+export const HIKER3D_OUTRO_AT = 0
 /** Duo : écart côte à côte (départ, arrivée) de chaque marcheur au point, et distance en file pendant la marche
  * (px à l'écran, taille de marche). */
 export const HIKER3D_PAIR_PX = 42

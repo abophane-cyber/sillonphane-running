@@ -22,7 +22,7 @@ import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard, typ
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
-  START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE,
+  START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT,
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 
@@ -1017,7 +1017,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const walkWarp = pacing ? pacing.timeWarp() : null
   const walkS = walkWarp ? walkWarp.totalS : durationS
   const H3_OUTRO_S = hikers3d ? Math.max(...hikers.map(h => h.outroDurationS())) : 0
-  const H3_END_HOLD_S = Math.max(0.5, (HIKER3D_END_ZOOM_MS / 1000) * 0.6 + H3_OUTRO_S + 0.3 - HIKER3D_END_ZOOM_MS / 1000)
+  const H3_END_HOLD_S = Math.max(0.5, (HIKER3D_END_ZOOM_MS / 1000) * HIKER3D_OUTRO_AT + H3_OUTRO_S + 0.3 - HIKER3D_END_ZOOM_MS / 1000)
   const filmDurationS = hikers3d
     ? walkS + (4 + 1.6 + H3_START_HOLD_S + HIKER3D_START_DEZOOM_MS / 1000)
       + (HIKER3D_END_ZOOM_MS / 1000 + H3_END_HOLD_S + HIKER3D_OVERVIEW_MS / 1000 + 5)
@@ -1615,8 +1615,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const cam = endCam(f)
       exportMap.jumpTo({ center: [cam.lng, cam.lat], zoom: cam.z })
       if (hikers3d && f <= END_ZOOM_FRAMES) { await waitForMapIdle(exportMap, signal); if (signal?.aborted) break }
-      // Le salut démarre aux 60 % du zoom (comme l'aperçu).
-      if (hikers3d && f === Math.round(END_ZOOM_FRAMES * 0.6)) hikers.forEach(h => h.startOutro())
+      // Geste d'arrivée à HIKER3D_OUTRO_AT du zoom (comme l'aperçu) : dès la ligne franchie en course.
+      if (hikers3d && f === Math.round(END_ZOOM_FRAMES * HIKER3D_OUTRO_AT)) hikers.forEach(h => h.startOutro())
 
       ctx.clearRect(0, 0, OUT_W, OUT_H)
       try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
