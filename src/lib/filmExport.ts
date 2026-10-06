@@ -13,6 +13,7 @@ import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './t
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPoints } from './gpx'
 import { BASEMAP_BACKGROUND } from './tileSources'
+import { RIBBON_HEAD_COLOR, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
@@ -205,16 +206,42 @@ function drawTrack(
     ctx.globalAlpha = 1
     ctx.stroke(path)
 
-    // Dégradé du symbole Sillon (vert → orangé → blanc cassé), même palette que TrackMap.
-    const startPt = project(points[0].lon, points[0].lat)
-    const grad = ctx.createLinearGradient(startPt.x, startPt.y, tipPt.x, tipPt.y)
-    grad.addColorStop(0,   '#2F5C45')
-    grad.addColorStop(0.5, '#D97A3D')
-    grad.addColorStop(1,   '#F4EDE0')
-    ctx.strokeStyle = grad
+    // Dégradé du symbole Sillon (vert → orangé → blanc cassé), même palette que TrackMap, réparti le long de la
+    // DISTANCE parcourue (tronçons dessinés dans l'ordre : le plus récent passe dessus). Un dégradé en ligne droite
+    // départ → tête devenait faux sur une boucle (départ et tête confondus).
+    const CHUNKS = 120
     ctx.lineWidth   = 4.5
     ctx.globalAlpha = 0.97
-    ctx.stroke(path)
+    let i = 0
+    for (let c = 1; c <= CHUNKS; c++) {
+      const until = c === CHUNKS ? Infinity : (t * c) / CHUNKS
+      const seg = new Path2D()
+      const p0 = project(points[i].lon, points[i].lat)
+      seg.moveTo(p0.x, p0.y)
+      let n = 0
+      while (i < lo && distances[i + 1] <= until) { i++; const pt = project(points[i].lon, points[i].lat); seg.lineTo(pt.x, pt.y); n++ }
+      if (c === CHUNKS) { seg.lineTo(tipPt.x, tipPt.y); n++ }
+      if (!n) continue // tronçon plus court qu'un écart entre deux points : la couleur suivante prend le relais
+      ctx.strokeStyle = ribbonColorAt((c - 0.5) / CHUNKS)
+      ctx.stroke(seg)
+    }
+
+    // Tête du ruban (derniers mètres) par-dessus tout, avec un liseré : toujours visible sur une boucle.
+    const headFrom = t - ribbonHeadM(totalDistance)
+    let h = lo
+    while (h > 0 && distances[h] > headFrom) h--
+    const head = new Path2D()
+    const hp = project(points[h].lon, points[h].lat)
+    head.moveTo(hp.x, hp.y)
+    for (let k = h + 1; k <= lo; k++) { const pt = project(points[k].lon, points[k].lat); head.lineTo(pt.x, pt.y) }
+    head.lineTo(tipPt.x, tipPt.y)
+    ctx.globalAlpha = 1
+    ctx.strokeStyle = 'rgba(20,30,20,0.75)'
+    ctx.lineWidth   = 8
+    ctx.stroke(head)
+    ctx.strokeStyle = RIBBON_HEAD_COLOR
+    ctx.lineWidth   = 4.5
+    ctx.stroke(head)
   }
 
   ctx.restore()

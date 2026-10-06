@@ -18,6 +18,7 @@ import {
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
+import { RIBBON_HEAD_COLOR, ribbonHeadM } from '../lib/ribbon'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -71,6 +72,9 @@ export function makeStyle(): maplibregl.StyleSpecification {
       'track-full': { type: 'geojson', data: EMPTY_FC },
       // lineMetrics: nécessaire pour line-gradient (dégradé le long du tracé parcouru)
       'track-done': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
+      // Tête du ruban (derniers mètres parcourus), redessinée par-dessus : sur une boucle, le ruban repasse sur
+      // lui-même et sa tête disparaissait sous un passage antérieur.
+      'track-head': { type: 'geojson', data: EMPTY_FC },
     },
     layers: [
       { id: 'background', type: 'background', paint: { 'background-color': BASEMAP_BACKGROUND } },
@@ -101,6 +105,16 @@ export function makeStyle(): maplibregl.StyleSpecification {
           ],
           'line-width': 5.5, 'line-opacity': 0.97,
         },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+      },
+      {
+        id: 'track-head-halo', type: 'line', source: 'track-head',
+        paint: { 'line-color': 'rgba(20,30,20,0.75)', 'line-width': 9 },
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+      },
+      {
+        id: 'track-head-line', type: 'line', source: 'track-head',
+        paint: { 'line-color': RIBBON_HEAD_COLOR, 'line-width': 5.5 },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
     ],
@@ -695,6 +709,17 @@ export function TrackMap({
         : [],
     }
     ;(map.getSource('track-done') as maplibregl.GeoJSONSource | undefined)?.setData(doneFC)
+    // Tête du ruban : derniers mètres parcourus, au-dessus de tout (cf. ribbonHeadM).
+    const headFrom = covered - ribbonHeadM(totalDistance)
+    let h0 = doneCoords.length - 1
+    while (h0 > 0 && distances[h0 - 1] > headFrom) h0--
+    const headCoords = doneCoords.slice(Math.max(0, h0 - 1))
+    ;(map.getSource('track-head') as maplibregl.GeoJSONSource | undefined)?.setData({
+      type: 'FeatureCollection',
+      features: headCoords.length > 1
+        ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: headCoords }, properties: {} }]
+        : [],
+    })
 
     // Suivi caméra
     if (followMarker && animating && !flyingRef.current) {
