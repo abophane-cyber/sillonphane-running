@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<title>OG builder</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #0b140d; }
+
+  /* Cadre exact 1200x630 */
+  .og {
+    position: relative;
+    width: 1200px; height: 630px; overflow: hidden;
+    background:
+      radial-gradient(ellipse at 22% -10%, rgba(76,175,80,0.20), rgba(76,175,80,0) 60%),
+      linear-gradient(135deg, #12211a 0%, #0f1a12 45%, #0c150e 100%);
+    font-family: Georgia, 'Times New Roman', serif;
+    color: #F4EDE0;
+  }
+
+  /* Colonne texte */
+  .og__left {
+    position: absolute; left: 72px; top: 0; bottom: 0; width: 620px;
+    display: flex; flex-direction: column; justify-content: center; gap: 26px;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand svg { width: 54px; height: 54px; border-radius: 12px; }
+  .brand__name { font-size: 26px; letter-spacing: 1px; }
+  .brand__name .a { color: #F4EDE0; }
+  .brand__name .b { color: #D97A3D; }
+
+  .eyebrow {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 15px; letter-spacing: 0.28em; text-transform: uppercase; color: #8ba98d;
+  }
+  .headline {
+    font-size: 52px; line-height: 1.16; font-weight: 400; color: #F4EDE0;
+  }
+  .headline .accent { color: #D97A3D; }
+  .sub {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 19px; line-height: 1.5; color: #9ab89c; max-width: 500px;
+  }
+  .url {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 17px; font-weight: 700; color: #0b140d;
+    background: #4caf50; padding: 12px 22px; border-radius: 12px; width: max-content;
+    box-shadow: 0 6px 26px rgba(76,175,80,0.4);
+  }
+
+  /* Colonne visuelle : mock téléphone + carte album */
+  .og__right { position: absolute; right: 0; top: 0; width: 470px; height: 630px; }
+  .phone {
+    position: absolute; right: 104px; top: 50%; transform: translateY(-50%) rotate(4deg);
+    width: 274px; padding: 13px; border-radius: 38px; z-index: 2;
+    background: linear-gradient(180deg, #2A2723 0%, #15130F 100%);
+    box-shadow: 0 40px 80px rgba(0,0,0,0.55), inset 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .phone__screen {
+    width: 100%; height: 458px; border-radius: 26px; overflow: hidden; background: #0c150e;
+  }
+  .phone__screen img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  /* Carte album : format paysage, taille proche du téléphone, mais derrière lui (z-index < .phone) */
+  .album {
+    position: absolute; right: -26px; bottom: 20px; z-index: 1;
+    width: 466px; height: 322px;
+    transform: rotate(-7deg);
+    display: flex; gap: 18px;
+    background: #F4EDE0; border-radius: 16px; padding: 20px; color: #2A2723;
+    box-shadow: 0 26px 55px rgba(0,0,0,0.5);
+  }
+  .album__photo {
+    flex: 0 0 52%; height: 100%; border-radius: 11px;
+    background: linear-gradient(135deg, #2F5C45 0%, #D97A3D 62%, #F4EDE0 100%);
+  }
+  .album__body { flex: 1; display: flex; flex-direction: column; }
+  .album__tag {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #2F5C45; font-weight: 700;
+    margin-bottom: 14px;
+  }
+  .album__title { font-size: 20px; font-weight: 700; color: #15130F; margin-bottom: 9px; }
+  .album__caption { font-family: 'Segoe UI', system-ui, sans-serif; font-style: italic; font-size: 13px; line-height: 1.55; color: #574b3c; }
+
+  .fade-left {
+    position: absolute; left: 0; top: 0; bottom: 0; width: 180px; z-index: 1;
+    background: linear-gradient(90deg, #0f1a12 0%, rgba(15,26,18,0) 100%);
+  }
+</style>
+</head>
+<body>
+  <div class="og" id="og">
+    <div class="og__left">
+      <div class="brand">
+        <svg viewBox="0 0 320 320">
+          <defs>
+            <linearGradient id="g" x1="0" y1="1" x2="0" y2="0">
+              <stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" />
+            </linearGradient>
+          </defs>
+          <rect width="320" height="320" fill="#000" />
+          <path d="M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60"
+                fill="none" stroke="url(#g)" stroke-width="29" stroke-linecap="round" />
+          <circle cx="220" cy="60" r="10" fill="#2F5C45" stroke="#F4EDE0" stroke-width="3" />
+          <circle cx="138" cy="225" r="10" fill="#F4EDE0" />
+        </svg>
+        <div class="brand__name"><span class="a">Sillonphane</span> <span class="b">Rando</span></div>
+      </div>
+
+      <p class="eyebrow">Animez votre prochaine sortie</p>
+
+      <h1 class="headline">Transformez votre trace GPX<br>en <span class="accent">film</span> et en <span class="accent">carnet photo</span> à imprimer.</h1>
+
+      <p class="sub">Le tracé s'anime en 2D/3D sur carte IGN, l'album photo de la sortie se compose tout seul, prêt pour le PDF.</p>
+
+      <span class="url">sillonphane.fr/rando</span>
+    </div>
+
+    <div class="og__right">
+      <div class="fade-left"></div>
+      <div class="phone">
+        <div class="phone__screen"><img src="/demo/hero-demo.jpg" alt=""></div>
+      </div>
+      <div class="album">
+        <div class="album__photo"></div>
+        <div class="album__body">
+          <div class="album__tag">Exemple d'album</div>
+          <div class="album__title">Étape 4 — Le Sommet</div>
+          <div class="album__caption">La vue s'ouvre enfin sur les sommets voisins, le vent s'est levé.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

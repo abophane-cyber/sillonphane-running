@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Export film 3D — banc de test</title>
+  <style>
+    html, body { margin: 0; min-height: 100%; background: #0a0e14; color: #eef2f6;
+      font: 15px/1.5 system-ui, sans-serif; }
+    #wrap { max-width: 1000px; margin: 40px auto; padding: 0 24px; }
+    h1 { font-size: 20px; font-weight: 800; }
+    button { font: 600 14px system-ui, sans-serif; padding: 10px 18px; border: 0; border-radius: 8px;
+      background: #e07b3c; color: #fff; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    #bar { height: 10px; background: #1c2634; border-radius: 999px; overflow: hidden; margin: 18px 0 6px; }
+    #bar > i { display: block; height: 100%; width: 0; background: #e07b3c; transition: width .15s; }
+    #label { font-size: 13px; color: #b7c2cf; min-height: 18px; }
+    #err { color: #ff8080; white-space: pre-wrap; margin-top: 12px; }
+    video { width: 100%; margin-top: 20px; border-radius: 10px; background: #000; display: none; }
+    a#dl { display: none; margin-top: 12px; color: #e07b3c; }
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <h1>Export film 3D — banc de test</h1>
+    <p>Rendu hors écran 1920×1080 / 30 fps, déterministe. Tracé de test : boucle Sotteville-sur-Mer / Veules-les-Roses (Côte d'Albâtre).</p>
+    <p><label>Tracé GPX (facultatif) : <input type="file" id="gpx" accept=".gpx" /></label>
+       <label>fps <input type="number" id="fps" value="30" min="5" max="60" style="width:4em" /></label>
+       <label>Débit max (Mb/s) <input type="number" id="mbps" value="16" min="1" max="50" style="width:4em" /></label></p>
+    <button id="go">Lancer l'export</button>
+    <button id="cancel" disabled>Annuler</button>
+    <div id="bar"><i></i></div>
+    <div id="label"></div>
+    <div id="err"></div>
+    <a id="dl" download="survol-3d.mp4">Télécharger la vidéo</a>
+    <video id="preview" controls></video>
+  </div>
+  <script type="module" src="./filmExport3dDemo.ts"></script>
+</body>
+</html>

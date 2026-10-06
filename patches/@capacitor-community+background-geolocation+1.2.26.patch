@@ -1,0 +1,567 @@
+diff --git a/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocation.java b/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocation.java
+index a92fcf9..4e344a6 100644
+--- a/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocation.java
++++ b/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocation.java
+@@ -20,6 +20,7 @@ import android.os.Build;
+ import android.os.IBinder;
+ import android.provider.Settings;
+ 
++import com.getcapacitor.JSArray;
+ import com.getcapacitor.JSObject;
+ import com.getcapacitor.Logger;
+ import com.getcapacitor.PermissionState;
+@@ -34,6 +35,10 @@ import com.google.android.gms.tasks.OnSuccessListener;
+ 
+ import org.json.JSONObject;
+ 
++import java.io.BufferedReader;
++import java.io.File;
++import java.io.FileReader;
++
+ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+ 
+ @CapacitorPlugin(
+@@ -45,10 +50,21 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+                                 Manifest.permission.ACCESS_FINE_LOCATION
+                         },
+                         alias = "location"
++                ),
++                // PATCH (Sillon) : alias séparé pour la localisation en arrière-plan. Ne PAS
++                // l'ajouter au tableau ci-dessus : sur Android 11+, Android refuse une demande
++                // groupée premier plan + arrière-plan et le flux existant casserait.
++                @Permission(
++                        strings = { Manifest.permission.ACCESS_BACKGROUND_LOCATION },
++                        alias = "backgroundLocation"
+                 )
+         }
+ )
+ public class BackgroundGeolocation extends Plugin {
++    // PATCH (Sillon) : id distinct de l'ancien canal (package name seul), voir son commentaire
++    // dans load() — nécessaire pour appliquer IMPORTANCE_MIN, qu'Android refuse sur un canal
++    // déjà créé.
++    static final String SILENT_CHANNEL_ID = BackgroundGeolocationService.class.getPackage().getName() + ".silent";
+     private BackgroundGeolocationService.LocalBinder service = null;
+     private Boolean stoppedWithoutPermissions = false;
+ 
+@@ -103,7 +119,8 @@ public class BackgroundGeolocation extends Plugin {
+                     )
+                     .setContentText(backgroundMessage)
+                     .setOngoing(true)
+-                    .setPriority(Notification.PRIORITY_HIGH)
++                    // PATCH (Sillon) : MIN au lieu de HIGH, cohérent avec le canal IMPORTANCE_MIN
++                    .setPriority(Notification.PRIORITY_MIN)
+                     .setWhen(System.currentTimeMillis());
+ 
+             try {
+@@ -151,7 +168,7 @@ public class BackgroundGeolocation extends Plugin {
+ 
+             // Set the Channel ID for Android O.
+             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+-                builder.setChannelId(BackgroundGeolocationService.class.getPackage().getName());
++                builder.setChannelId(BackgroundGeolocation.SILENT_CHANNEL_ID);
+             }
+ 
+             backgroundNotification = builder.build();
+@@ -181,6 +198,37 @@ public class BackgroundGeolocation extends Plugin {
+         }
+     }
+ 
++    // PATCH (Sillon) : sans ACCESS_BACKGROUND_LOCATION (« Autoriser tout le temps »), Android 10+
++    // étrangle la localisation à quelques relevés/heure dès que l'appli passe en arrière-plan,
++    // même avec un foreground service de type location — l'enregistrement direct produisait alors
++    // un tracé réduit à quelques points. Le plugin d'origine ne demande jamais cette permission.
++    // Le JS appelle cette méthode au démarrage du suivi (indépendamment de addWatcher, pour ne
++    // rien changer au flux premier plan existant). Sur Android 11+, le système n'affiche pas de
++    // dialogue : il ouvre l'écran de réglages et l'utilisateur choisit lui-même « Autoriser tout
++    // le temps » — d'où le repli openSettings côté UI quand { granted:false } est renvoyé.
++    @PluginMethod()
++    public void requestBackgroundPermission(final PluginCall call) {
++        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
++                || getPermissionState("backgroundLocation") == PermissionState.GRANTED) {
++            resolveBackgroundPermission(call);
++            return;
++        }
++        requestPermissionForAlias("backgroundLocation", call, "backgroundPermissionCallback");
++    }
++
++    @PermissionCallback
++    private void backgroundPermissionCallback(PluginCall call) {
++        resolveBackgroundPermission(call);
++    }
++
++    private void resolveBackgroundPermission(PluginCall call) {
++        boolean granted = Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
++                || getPermissionState("backgroundLocation") == PermissionState.GRANTED;
++        JSObject ret = new JSObject();
++        ret.put("granted", granted);
++        call.resolve(ret);
++    }
++
+     @PluginMethod()
+     public void removeWatcher(PluginCall call) {
+         String callbackId = call.getString("id");
+@@ -188,6 +236,14 @@ public class BackgroundGeolocation extends Plugin {
+             call.reject("Missing id.");
+             return;
+         }
++        // PATCH (Sillon) : contrairement à addWatcher, cette méthode ne vérifiait pas si le
++        // service était déjà lié (bindService est asynchrone) — un appel juste après le
++        // démarrage de l'appli provoquait une NullPointerException silencieuse côté JS
++        // (la notification et le service continuaient alors de tourner indéfiniment).
++        if (service == null) {
++            call.reject("Service not running.");
++            return;
++        }
+         service.removeWatcher(callbackId);
+         PluginCall savedCall = getBridge().getSavedCall(callbackId);
+         if (savedCall != null) {
+@@ -196,6 +252,42 @@ public class BackgroundGeolocation extends Plugin {
+         call.resolve();
+     }
+ 
++    // PATCH (Sillon) : renvoie toutes les positions que le service a écrites sur disque depuis le
++    // dernier drain (voir BackgroundGeolocationService.appendToBuffer), puis vide le fichier. Le JS
++    // l'appelle au retour au premier plan pour récupérer les points captés pendant que l'Activity
++    // (et donc la WebView qui reçoit les broadcasts) n'existait plus. Ne dépend pas du service :
++    // fonctionne même si le process a été recréé.
++    @PluginMethod()
++    public void drainBufferedLocations(PluginCall call) {
++        JSArray locations = new JSArray();
++        File file = BackgroundGeolocationService.bufferFile(getContext());
++        synchronized (BackgroundGeolocationService.class) {
++            if (file.exists()) {
++                try {
++                    BufferedReader reader = new BufferedReader(new FileReader(file));
++                    try {
++                        String line;
++                        while ((line = reader.readLine()) != null) {
++                            line = line.trim();
++                            if (line.isEmpty()) continue;
++                            try {
++                                locations.put(new JSONObject(line));
++                            } catch (Exception ignore) {}
++                        }
++                    } finally {
++                        reader.close();
++                    }
++                } catch (Exception e) {
++                    Logger.error("Failed to read location buffer", e);
++                }
++                try { file.delete(); } catch (Exception ignore) {}
++            }
++        }
++        JSObject ret = new JSObject();
++        ret.put("locations", locations);
++        call.resolve(ret);
++    }
++
+     @PluginMethod()
+     public void openSettings(PluginCall call) {
+         Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+@@ -255,7 +347,15 @@ public class BackgroundGeolocation extends Plugin {
+             }
+             Location location = intent.getParcelableExtra("location");
+             if (location != null) {
+-                call.resolve(formatLocation(location));
++                JSObject obj = formatLocation(location);
++                // PATCH (Sillon) : le service joint le dénivelé barométrique cumulé en extras
++                // (voir BackgroundGeolocationService, section Baromètre) — absent si l'appareil
++                // n'a pas de capteur de pression, auquel cas le moteur JS retombe sur l'altitude GPS.
++                if (intent.hasExtra("baroGain")) {
++                    obj.put("baroGain", intent.getFloatExtra("baroGain", 0f));
++                    obj.put("baroLoss", intent.getFloatExtra("baroLoss", 0f));
++                }
++                call.resolve(obj);
+             } else {
+                 Logger.debug("No locations received");
+             }
+@@ -286,13 +386,19 @@ public class BackgroundGeolocation extends Plugin {
+             NotificationManager manager = (NotificationManager) getContext().getSystemService(
+                     Context.NOTIFICATION_SERVICE
+             );
++            // PATCH (Sillon) : nouvel id de canal + IMPORTANCE_MIN (au lieu de l'ancien canal en
++            // IMPORTANCE_DEFAULT) — la notification reste techniquement obligatoire pour un
++            // foreground service de localisation, mais à cette importance elle n'apparaît plus en
++            // carte visible/sonore dans le tiroir de notifications (repliée avec les notifications
++            // silencieuses), comme OpenTracks. Un nouvel id est nécessaire car Android interdit de
++            // changer l'importance d'un canal déjà créé sur l'appareil.
+             NotificationChannel channel = new NotificationChannel(
+-                    BackgroundGeolocationService.class.getPackage().getName(),
++                    BackgroundGeolocation.SILENT_CHANNEL_ID,
+                     getAppString(
+                             "capacitor_background_geolocation_notification_channel_name",
+                             "Background Tracking"
+                     ),
+-                    NotificationManager.IMPORTANCE_DEFAULT
++                    NotificationManager.IMPORTANCE_MIN
+             );
+             channel.enableLights(false);
+             channel.enableVibration(false);
+@@ -300,6 +406,13 @@ public class BackgroundGeolocation extends Plugin {
+             manager.createNotificationChannel(channel);
+         }
+ 
++        // PATCH (Sillon) : démarre le service indépendamment du binding (au lieu de compter
++        // uniquement sur bindService), pour qu'il survive à la destruction de l'Activity au
++        // lieu d'être détruit avec elle — comme le service de suivi natif d'OpenTracks.
++        this.getContext().startService(
++                new Intent(this.getContext(), BackgroundGeolocationService.class)
++        );
++
+         this.getContext().bindService(
+                 new Intent(this.getContext(), BackgroundGeolocationService.class),
+                 new ServiceConnection() {
+@@ -337,11 +450,11 @@ public class BackgroundGeolocation extends Plugin {
+         super.handleOnPause();
+     }
+ 
++    // PATCH (Sillon) : ne plus arrêter le service quand l'Activity est détruite (fermeture de
++    // l'appli) — c'est justement ce qui empêchait l'enregistrement de continuer en arrière-plan.
++    // Le service ne s'arrête désormais que sur demande explicite (removeWatcher).
+     @Override
+     protected void handleOnDestroy() {
+-        if (service != null) {
+-            service.stopService();
+-        }
+         super.handleOnDestroy();
+     }
+ }
+diff --git a/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocationService.java b/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocationService.java
+index fafbb86..ca0a29b 100644
+--- a/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocationService.java
++++ b/node_modules/@capacitor-community/background-geolocation/android/src/main/java/com/equimaps/capacitor_background_geolocation/BackgroundGeolocationService.java
+@@ -2,21 +2,30 @@ package com.equimaps.capacitor_background_geolocation;
+ 
+ import android.app.Notification;
+ import android.app.Service;
++import android.content.Context;
+ import android.content.Intent;
+ import android.content.pm.ServiceInfo;
++import android.hardware.Sensor;
++import android.hardware.SensorEvent;
++import android.hardware.SensorEventListener;
++import android.hardware.SensorManager;
+ import android.location.Location;
++import android.location.LocationListener;
++import android.location.LocationManager;
+ import android.os.Binder;
+ import android.os.Build;
++import android.os.Bundle;
+ import android.os.IBinder;
++import android.os.Looper;
++
++import androidx.annotation.NonNull;
+ 
+ import com.getcapacitor.Logger;
+-import com.google.android.gms.location.FusedLocationProviderClient;
+-import com.google.android.gms.location.LocationAvailability;
+-import com.google.android.gms.location.LocationCallback;
+-import com.google.android.gms.location.LocationRequest;
+-import com.google.android.gms.location.LocationResult;
+-import com.google.android.gms.location.LocationServices;
+ 
++import org.json.JSONObject;
++
++import java.io.File;
++import java.io.FileOutputStream;
+ import java.util.HashSet;
+ 
+ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+@@ -28,16 +37,148 @@ public class BackgroundGeolocationService extends Service {
+     static final String ACTION_BROADCAST = (
+             BackgroundGeolocationService.class.getPackage().getName() + ".broadcast"
+     );
++    // PATCH (Sillon) : chaque position captée est aussi écrite ici, sur le disque de l'appli, en
++    // plus d'être diffusée à la WebView. Quand Android détruit l'Activity pendant que l'appli est
++    // en arrière-plan (téléphone verrouillé/en poche), le service continue de tourner mais la
++    // WebView n'existe plus pour recevoir le broadcast : sans ce fichier, tous ces points étaient
++    // perdus. Au retour au premier plan, le JS vide ce fichier (drainBufferedLocations) et
++    // réinjecte les points manqués dans le tracé.
++    static final String BUFFER_FILENAME = "sillon-geo-buffer.jsonl";
+     private final IBinder binder = new LocalBinder();
+ 
++    static File bufferFile(Context context) {
++        return new File(context.getFilesDir(), BUFFER_FILENAME);
++    }
++
++    private void appendToBuffer(Location location) {
++        if (location == null) return;
++        try {
++            JSONObject obj = new JSONObject();
++            obj.put("latitude", location.getLatitude());
++            obj.put("longitude", location.getLongitude());
++            obj.put("accuracy", location.hasAccuracy() ? location.getAccuracy() : JSONObject.NULL);
++            obj.put("altitude", location.hasAltitude() ? location.getAltitude() : JSONObject.NULL);
++            obj.put("speed", location.hasSpeed() ? location.getSpeed() : JSONObject.NULL);
++            obj.put("bearing", location.hasBearing() ? location.getBearing() : JSONObject.NULL);
++            obj.put("time", location.getTime());
++            // PATCH (Sillon) : dénivelé barométrique cumulé (voir la section Baromètre plus bas).
++            if (baroAvailable) {
++                obj.put("baroGain", baroGainM);
++                obj.put("baroLoss", baroLossM);
++            }
++            byte[] line = (obj.toString() + "\n").getBytes("UTF-8");
++            synchronized (BackgroundGeolocationService.class) {
++                FileOutputStream out = new FileOutputStream(bufferFile(getApplicationContext()), true);
++                try {
++                    out.write(line);
++                } finally {
++                    out.close();
++                }
++            }
++        } catch (Exception e) {
++            Logger.error("Failed to buffer location", e);
++        }
++    }
++
+     // Must be unique for this application.
+     private static final int NOTIFICATION_ID = 28351;
+ 
++    // PATCH (Sillon) : bascule de FusedLocationProviderClient (Google Play Services) vers le GPS
++    // brut LocationManager / GPS_PROVIDER, comme OpenTracks. Test terrain 2026-09-07, mêmes
++    // conditions (poche, sans Wi-Fi ni données) : OpenTracks 702 m / ~72 points / précision 1–6 m,
++    // ce plugin 25 m / 13 points bloqués au départ. Sans connexion data, le fused provider ne
++    // renvoie qu'une position périmée toutes les 20–40 s ; le GPS brut délivre 1 relevé/s dès
++    // qu'il a des satellites, sans repli réseau/passif.
++    private static final long GPS_MIN_TIME_MS = 1000L;
++
++    // PATCH (Sillon) : dénivelé par le baromètre du téléphone, algo repris tel quel d'OpenTracks
++    // (sensors/PressureSensorUtils.java) — l'altitude GPS brute donne +50 m de bruit sur du plat.
++    // Le capteur tourne DANS le service, donc il continue en arrière-plan (téléphone en poche).
++    // On accumule un dénivelé gain/perte cumulé ; chaque relevé GPS emporte la valeur courante
++    // (buffer + broadcast), et le moteur JS s'en sert à la place de l'altitude GPS. Repli
++    // automatique sur l'altitude GPS si l'appareil n'a pas de capteur de pression.
++    private static final int   BARO_SAMPLING_US        = 5_000_000;   // 5 s, comme OpenTracks
++    private static final float BARO_SMOOTHING          = 0.3f;        // lissage exponentiel 2 échantillons
++    private static final float BARO_ALT_CHANGE_DIFF_M  = 3.0f;        // en-deçà = bruit, ignoré ; sinon on compte 3 m pile
++    private static final float BARO_P0                 = SensorManager.PRESSURE_STANDARD_ATMOSPHERE;
++
++    private SensorManager sensorManager;
++    private Sensor pressureSensor;
++    private boolean baroAvailable = false;
++    private Float baroLastAcceptedHpa = null;  // pression au dernier palier de 3 m franchi
++    private Float baroPrevRawHpa = null;       // dernière pression brute (pour le lissage)
++    private double baroGainM = 0;
++    private double baroLossM = 0;
++
++    private final SensorEventListener pressureListener = new SensorEventListener() {
++        @Override public void onSensorChanged(SensorEvent event) { onPressure(event.values[0]); }
++        @Override public void onAccuracyChanged(Sensor sensor, int accuracy) {}
++    };
++
++    // Reprend PressureSensorUtils.computeChangesWithSmoothing_m + AggregatorBarometer.computeValue
++    // d'OpenTracks : lissage 0.3*brut + 0.7*brut_précédent, conversion pression→altitude via
++    // SensorManager.getAltitude (p0 standard : la valeur absolue est fausse mais le delta est bon,
++    // p0 s'annule), et on ne compte QUE 3 m par palier franchi en avançant l'ancre d'autant.
++    private void onPressure(float currentRawHpa) {
++        if (baroPrevRawHpa == null || baroLastAcceptedHpa == null) {
++            baroPrevRawHpa = currentRawHpa;
++            baroLastAcceptedHpa = currentRawHpa;
++            return;
++        }
++        float smoothedHpa = BARO_SMOOTHING * currentRawHpa + (1 - BARO_SMOOTHING) * baroPrevRawHpa;
++        baroPrevRawHpa = currentRawHpa;
++
++        float lastAltM = SensorManager.getAltitude(BARO_P0, baroLastAcceptedHpa);
++        float curAltM  = SensorManager.getAltitude(BARO_P0, smoothedHpa);
++        float deltaM = curAltM - lastAltM;
++        if (Math.abs(deltaM) < BARO_ALT_CHANGE_DIFF_M) return;
++
++        if (deltaM > 0) {
++            baroGainM += BARO_ALT_CHANGE_DIFF_M;
++            baroLastAcceptedHpa = pressureForAltitude(lastAltM + BARO_ALT_CHANGE_DIFF_M);
++        } else {
++            baroLossM += BARO_ALT_CHANGE_DIFF_M;
++            baroLastAcceptedHpa = pressureForAltitude(lastAltM - BARO_ALT_CHANGE_DIFF_M);
++        }
++    }
++
++    // Inverse de SensorManager.getAltitude (formule barométrique internationale), repris d'OpenTracks.
++    private static float pressureForAltitude(float altitudeM) {
++        return (float) (BARO_P0 * Math.pow(1.0 - 0.0065 * altitudeM / 288.15, 5.255));
++    }
++
++    private void startBarometer() {
++        if (sensorManager == null) {
++            sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
++        }
++        if (sensorManager != null && pressureSensor == null) {
++            pressureSensor = sensorManager.getDefaultSensor(Sensor.TYPE_PRESSURE);
++        }
++        // Repart d'un dénivelé nul à chaque (re)démarrage du suivi ; le moteur JS ne compte que la
++        // progression en avant, donc une remise à zéro sur reprise après pause ne retire rien.
++        baroLastAcceptedHpa = null;
++        baroPrevRawHpa = null;
++        baroGainM = 0;
++        baroLossM = 0;
++        if (pressureSensor != null) {
++            baroAvailable = sensorManager.registerListener(pressureListener, pressureSensor, BARO_SAMPLING_US);
++        } else {
++            baroAvailable = false;
++        }
++    }
++
++    private void stopBarometer() {
++        if (sensorManager != null) {
++            try { sensorManager.unregisterListener(pressureListener); } catch (Exception ignore) {}
++        }
++        baroAvailable = false;
++    }
++
+     private class Watcher {
+         public String id;
+-        public FusedLocationProviderClient client;
+-        public LocationRequest locationRequest;
+-        public LocationCallback locationCallback;
++        public LocationManager locationManager;
++        public LocationListener locationListener;
++        public float distanceFilter;
+         public Notification backgroundNotification;
+     }
+     private HashSet<Watcher> watchers = new HashSet<Watcher>();
+@@ -47,18 +188,14 @@ public class BackgroundGeolocationService extends Service {
+         return binder;
+     }
+ 
+-    // Some devices allow a foreground service to outlive the application's main
+-    // activity, leading to nasty crashes as reported in issue #59. If we learn
+-    // that the application has been killed, all watchers are stopped and the
+-    // service is terminated immediately.
++    // PATCH (Sillon) : à l'origine, ce service s'arrêtait dès que l'appli se détachait
++    // (fermeture/balayage depuis les apps récentes), empêchant tout suivi GPS en tâche de
++    // fond façon OpenTracks. Le service est maintenant démarré indépendamment du binding
++    // (voir startService dans BackgroundGeolocation.load()), donc on n'a plus besoin de le
++    // tuer ici : il continue de tourner et sera rebindé quand l'appli revient au premier plan.
+     @Override
+     public boolean onUnbind(Intent intent) {
+-        for (Watcher watcher : watchers) {
+-            watcher.client.removeLocationUpdates(watcher.locationCallback);
+-        }
+-        watchers = new HashSet<Watcher>();
+-        stopSelf();
+-        return false;
++        return true;
+     }
+ 
+     Notification getNotification() {
+@@ -77,50 +214,53 @@ public class BackgroundGeolocationService extends Service {
+                 Notification backgroundNotification,
+                 float distanceFilter
+         ) {
+-            FusedLocationProviderClient client = LocationServices.getFusedLocationProviderClient(
+-                    BackgroundGeolocationService.this
+-            );
+-            LocationRequest locationRequest = new LocationRequest();
+-            locationRequest.setMaxWaitTime(1000);
+-            locationRequest.setInterval(1000);
+-            locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
+-            locationRequest.setSmallestDisplacement(distanceFilter);
+-
+-            LocationCallback callback = new LocationCallback(){
++            LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
++
++            LocationListener listener = new LocationListener() {
+                 @Override
+-                public void onLocationResult(LocationResult locationResult) {
+-                    Location location = locationResult.getLastLocation();
++                public void onLocationChanged(@NonNull Location location) {
++                    // PATCH (Sillon) : persiste d'abord sur disque (survit à la destruction de
++                    // l'Activity), puis diffuse à la WebView si elle est encore là.
++                    appendToBuffer(location);
+                     Intent intent = new Intent(ACTION_BROADCAST);
+                     intent.putExtra("location", location);
+                     intent.putExtra("id", id);
++                    if (baroAvailable) {
++                        intent.putExtra("baroGain", (float) baroGainM);
++                        intent.putExtra("baroLoss", (float) baroLossM);
++                    }
+                     LocalBroadcastManager.getInstance(
+                             getApplicationContext()
+                     ).sendBroadcast(intent);
+                 }
+-                @Override
+-                public void onLocationAvailability(LocationAvailability availability) {
+-                    if (!availability.isLocationAvailable()) {
+-                        Logger.debug("Location not available");
+-                    }
+-                }
++                // Requis sur API 24–29 (méthodes abstraites de LocationListener ; devenues
++                // "default" à partir d'API 30).
++                @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
++                @Override public void onProviderEnabled(@NonNull String provider) {}
++                @Override public void onProviderDisabled(@NonNull String provider) {}
+             };
+ 
+             Watcher watcher = new Watcher();
+             watcher.id = id;
+-            watcher.client = client;
+-            watcher.locationRequest = locationRequest;
+-            watcher.locationCallback = callback;
++            watcher.locationManager = locationManager;
++            watcher.locationListener = listener;
++            watcher.distanceFilter = distanceFilter;
+             watcher.backgroundNotification = backgroundNotification;
+             watchers.add(watcher);
+ 
++            // PATCH (Sillon) : (re)démarre le baromètre pour le dénivelé (voir section Baromètre).
++            startBarometer();
++
+             // According to Android Studio, this method can throw a Security Exception if
+             // permissions are not yet granted. Rather than check the permissions, which is fiddly,
+             // we simply ignore the exception.
+             try {
+-                watcher.client.requestLocationUpdates(
+-                        watcher.locationRequest,
+-                        watcher.locationCallback,
+-                        null
++                watcher.locationManager.requestLocationUpdates(
++                        LocationManager.GPS_PROVIDER,
++                        GPS_MIN_TIME_MS,
++                        distanceFilter,
++                        watcher.locationListener,
++                        Looper.getMainLooper()
+                 );
+             } catch (SecurityException ignore) {}
+ 
+@@ -145,10 +285,17 @@ public class BackgroundGeolocationService extends Service {
+         void removeWatcher(String id) {
+             for (Watcher watcher : watchers) {
+                 if (watcher.id.equals(id)) {
+-                    watcher.client.removeLocationUpdates(watcher.locationCallback);
++                    watcher.locationManager.removeUpdates(watcher.locationListener);
+                     watchers.remove(watcher);
++                    if (watchers.isEmpty()) stopBarometer();  // PATCH (Sillon)
+                     if (getNotification() == null) {
+                         stopForeground(true);
++                        // PATCH (Sillon) : le service est désormais démarré indépendamment du
++                        // binding (voir startService dans BackgroundGeolocation.load()) pour
++                        // survivre à la fermeture de l'appli PENDANT un enregistrement. Sans cet
++                        // arrêt explicite une fois le dernier watcher retiré, il continuerait de
++                        // tourner indéfiniment en arrière-plan après la fin de l'enregistrement.
++                        if (watchers.isEmpty()) stopSelf();
+                     }
+                     return;
+                 }
+@@ -159,12 +306,16 @@ public class BackgroundGeolocationService extends Service {
+             // If permissions were granted while the app was in the background, for example in
+             // the Settings app, the watchers need restarting.
+             for (Watcher watcher : watchers) {
+-                watcher.client.removeLocationUpdates(watcher.locationCallback);
+-                watcher.client.requestLocationUpdates(
+-                        watcher.locationRequest,
+-                        watcher.locationCallback,
+-                        null
+-                );
++                try {
++                    watcher.locationManager.removeUpdates(watcher.locationListener);
++                    watcher.locationManager.requestLocationUpdates(
++                            LocationManager.GPS_PROVIDER,
++                            GPS_MIN_TIME_MS,
++                            watcher.distanceFilter,
++                            watcher.locationListener,
++                            Looper.getMainLooper()
++                    );
++                } catch (SecurityException ignore) {}
+             }
+         }
+ 

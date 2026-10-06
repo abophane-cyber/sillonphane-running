@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Icône bouton — Album photo de voyage (final)</title>
+<style>
+  body{
+    margin:0;
+    min-height:100vh;
+    background:#0D0F12;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .label{ color:#F4EDE0; font-size:16px; font-weight:600; letter-spacing:0.01em; }
+</style>
+</head>
+<body>
+
+<svg viewBox="0 0 320 320" width="220" height="220">
+  <defs>
+    <linearGradient id="bgF" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2A2723"/><stop offset="100%" stop-color="#15130F"/>
+    </linearGradient>
+    <linearGradient id="strokeF" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#2F5C45"/><stop offset="50%" stop-color="#D97A3D"/><stop offset="100%" stop-color="#F4EDE0"/>
+    </linearGradient>
+  </defs>
+  <rect width="320" height="320" rx="60" fill="url(#bgF)"/>
+
+  <!-- back photo: static, mountain + sun -->
+  <rect x="64" y="76" width="176" height="176" rx="28"
+        fill="none" stroke="url(#strokeF)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="138" cy="128" r="15" fill="#D97A3D"/>
+  <polyline points="100,215 128,168 152,195 178,158 205,215"
+            fill="none" stroke="#F4EDE0" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- front photo + tent: slides in from the top-right corner into place -->
+  <g style="animation: slideInF 4.4s cubic-bezier(.2,.7,.3,1) infinite;">
+    <rect x="88" y="100" width="176" height="176" rx="28"
+          fill="url(#bgF)" stroke="url(#strokeF)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M118,216 L176,148 L234,216 Z" fill="#F4EDE0"/>
+    <path d="M159,216 L176,180 L193,216 Z" fill="#D97A3D"/>
+    <line x1="112" y1="216" x2="240" y2="216" stroke="#F4EDE0" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <style>
+    @keyframes slideInF {
+      0%   { transform: translate(90px,90px); opacity: 0; }
+      3%   { opacity: 1; }
+      40%  { transform: translate(0,0); opacity: 1; }
+      88%  { transform: translate(0,0); opacity: 1; }
+      100% { transform: translate(0,0); opacity: 0; }
+    }
+  </style>
+</svg>
+<div class="label">Créer mon album-photo</div>
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "flexilivre": [
+    { "code": "SILLONRANDO", "label": "-15 %" }
+  ],
+  "whitewall": [
+    { "code": "PRS3VLWW26", "label": "-3 %", "until": "2026-09-30" },
+    { "code": "PRS4VLWW26", "label": "-3 %", "from": "2026-10-01", "until": "2026-10-31" }
+  ]
+}

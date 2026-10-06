@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="sg" x1="330" y1="140" x2="180" y2="375" gradientUnits="userSpaceOnUse">
+      <stop offset="0%"   stop-color="#f0cfa8"/>
+      <stop offset="40%"  stop-color="#d07840"/>
+      <stop offset="75%"  stop-color="#5a8a60"/>
+      <stop offset="100%" stop-color="#1e4a2a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="#000000"/>
+  <!-- S : part top-right, bol haut ouvre à gauche, bol bas ouvre à droite, finit bottom-left -->
+  <path d="M 330 140
+           C 175 80, 50 215, 256 258
+           C 462 300, 340 450, 182 390"
+        fill="none"
+        stroke="url(#sg)"
+        stroke-width="62"
+        stroke-linecap="round"/>
+  <!-- dot top -->
+  <circle cx="330" cy="140" r="18" fill="#f0e0c8"/>
+  <!-- dot bottom -->
+  <circle cx="182" cy="390" r="18" fill="#f0f0f0"/>
+</svg>

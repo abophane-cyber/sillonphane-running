@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Comment ça marche — trace GPX, film 2D/3D et album à imprimer | Sillonphane-Rando</title>
+  <meta name="description" content="Comment Sillonphane-Rando transforme une trace GPX ou un enregistrement Android en film 2D/3D animé et en album-photo prêt à imprimer, sans compte ni upload de vos photos. Les trois étapes expliquées." />
+  <link rel="canonical" href="https://sillonphane.fr/rando/comment-ca-marche.html" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Sillonphane-Rando" />
+  <meta property="og:title" content="Comment ça marche — trace GPX, film 2D/3D et album à imprimer" />
+  <meta property="og:description" content="Les trois étapes pour transformer une randonnée en film animé et en album-photo imprimable, sans compte." />
+  <meta property="og:url" content="https://sillonphane.fr/rando/comment-ca-marche.html" />
+  <meta property="og:locale" content="fr_FR" />
+  <meta property="og:image" content="https://sillonphane.fr/rando/demo/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:alt" content="Sillonphane-Rando — transforme votre trace GPX en film et en carnet photo à imprimer" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://sillonphane.fr/rando/demo/og-image.jpg" />
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Comment transformer une randonnée en film et album-photo avec Sillonphane-Rando",
+    "step": [
+      { "@type": "HowToStep", "name": "Importer votre trace", "text": "Importez un fichier GPX ou KML, ou enregistrez votre sortie en direct depuis l'appli Android Sillonphane-Rando." },
+      { "@type": "HowToStep", "name": "Générer le film et l'album", "text": "Sillonphane-Rando anime le tracé en film 2D ou 3D sur la carte, et compose avec vous l'album-photo de la sortie, étape par étape." },
+      { "@type": "HowToStep", "name": "Partager ou imprimer", "text": "Regardez et partagez le film, exportez l'album en PDF, ou faites-le imprimer chez un partenaire, avec une réduction exclusive." }
+    ]
+  }
+  </script>
+
+  <style>
+    @font-face {
+      font-family: 'Playfair Display'; font-style: normal; font-weight: 400 900; font-display: swap;
+      src: url('fonts/playfair-display-latin.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Playfair Display'; font-style: italic; font-weight: 400; font-display: swap;
+      src: url('fonts/playfair-display-italic-latin.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400 700; font-display: swap;
+      src: url('fonts/plus-jakarta-sans-latin.woff2') format('woff2');
+    }
+    * { box-sizing: border-box; }
+    :root {
+      --stone-50: #FAF9F6; --stone-900: #191817;
+      --terracotta: #C15C3D; --forest: #2F4839; --forest-light: #EDF2EE; --terracotta-light: #F8ECE7;
+      --ink: #191817; --ink-soft: rgba(43,41,39,0.80); --ink-faint: rgba(43,41,39,0.55);
+      --line: rgba(43,41,39,0.12);
+    }
+    html { scroll-behavior: smooth; }
+    html, body { margin: 0; padding: 0; background: var(--stone-50); }
+    body {
+      color: var(--ink); font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased; line-height: 1.7;
+    }
+    h1, h2 { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; color: var(--ink); }
+    a { color: var(--forest); }
+    a:hover { color: var(--terracotta); }
+
+    .wrap { max-width: 760px; margin: 0 auto; padding: 0 24px; }
+
+    .hdr { border-bottom: 1px solid var(--line); background: rgba(250,249,246,0.9); backdrop-filter: blur(8px); }
+    .hdr__in { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+    .hdr__brand { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+    .hdr__brand em { color: #9C8156; font-weight: 400; }
+    .hdr__back { font-size: 0.82rem; font-weight: 600; }
+    .back-bottom { margin: 48px 0 0; text-align: right; }
+
+    main.wrap { padding-top: 56px; padding-bottom: 56px; }
+    .eyebrow { display: block; margin-bottom: 14px; font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; color: var(--forest); }
+    h1 {
+      font-size: clamp(2.1rem, 6vw, 3rem); margin: 0 0 20px; line-height: 1.1;
+      letter-spacing: -0.015em; text-wrap: balance;
+    }
+    .lead { font-size: 1.08rem; color: var(--ink-soft); margin: 0; max-width: 62ch; }
+
+    h2 { font-size: 1.4rem; margin: 56px 0 14px; }
+    p { color: var(--ink-soft); }
+    ul { list-style: none; padding: 0; margin: 12px 0; }
+    li { position: relative; padding-left: 26px; margin: 8px 0; color: var(--ink-soft); }
+    li::before { content: ""; position: absolute; left: 4px; top: 9px; width: 8px; height: 8px; border-radius: 999px; background: var(--forest); }
+    strong { color: var(--ink); }
+
+    .steps { display: flex; flex-direction: column; gap: 18px; margin: 24px 0 0; }
+    .step { display: flex; gap: 18px; align-items: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; }
+    .step__n {
+      flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
+      font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.85rem;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--forest-light); color: var(--forest);
+    }
+    .step:nth-child(2) .step__n { background: var(--terracotta-light); color: var(--terracotta); }
+    .step h3 { margin: 0 0 6px; font-size: 1.05rem; color: var(--ink); font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
+    .step p { margin: 0; font-size: 0.95rem; }
+
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; margin: 16px 0; }
+    .card--forest { background: var(--forest-light); border-color: rgba(47,72,57,0.18); }
+
+    .cta { text-align: center; margin: 48px 0 8px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 9px;
+      font-family: inherit; font-weight: 500; font-size: 0.9rem;
+      padding: 14px 28px; border-radius: 999px; border: 1px solid transparent;
+      cursor: pointer; white-space: nowrap; text-decoration: none;
+      background: var(--terracotta); color: #fff; box-shadow: 0 6px 20px rgba(193,92,61,0.22);
+    }
+    .btn:hover { background: #A84C30; color: #fff; }
+
+    .more { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 0.92rem; }
+
+    .foot { background: var(--stone-900); color: rgba(255,255,255,0.55); padding: 32px 0; margin-top: 48px; }
+    .foot__in { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; }
+    .foot__brand { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: #fff; }
+    .foot a { color: rgba(255,255,255,0.7); font-size: 0.8rem; }
+    .foot a:hover { color: #fff; }
+    .foot small { font-size: 0.74rem; }
+  </style>
+</head>
+<body>
+  <header class="hdr">
+    <div class="wrap hdr__in">
+      <a class="hdr__brand" href="./">Sillonphane-<em>Rando</em></a>
+      <a class="hdr__back" href="./">← Accueil</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <span class="eyebrow">Fonctionnement</span>
+    <h1>Comment ça marche</h1>
+    <p class="lead">
+      Sillonphane-Rando transforme une randonnée en <strong>film animé</strong> et en <strong>album-photo
+      imprimable</strong>, à partir d'une simple trace GPX. Pas de compte, pas de téléversement de vos
+      photos : voici les trois étapes, en détail.
+    </p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step__n">01</div>
+        <div>
+          <h3>Importez votre trace</h3>
+          <p>
+            Importez un fichier <strong>GPX ou KML</strong> exporté depuis votre montre, votre appli de
+            randonnée habituelle (Visorando, IGN Rando, Komoot…) ou votre GPS de randonnée. Vous pouvez
+            aussi <strong>enregistrer votre sortie en direct</strong> depuis l'application Android de
+            Sillonphane-Rando, qui continue de tracer même en arrière-plan, écran éteint.
+          </p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__n">02</div>
+        <div>
+          <h3>Générez le film et l'album</h3>
+          <p>
+            À partir du tracé, Sillonphane-Rando anime automatiquement le parcours sur une carte —
+            <strong>vue 2D</strong> (fond Plan IGN, avec profil altimétrique et
+            météo en direct) ou <strong>survol 3D</strong> du relief. En parallèle, vous composez
+            l'album-photo de la sortie : une première page générée depuis le tracé (carte, dénivelé,
+            météo du jour, nom des lieux traversés), puis vos photos placées automatiquement le long
+            du parcours ou disposées à la main, page par page.
+          </p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step__n">03</div>
+        <div>
+          <h3>Partagez ou imprimez</h3>
+          <p>
+            Le film s'exporte en vidéo HD, prête à partager. L'album s'exporte en <strong>PDF haute
+            définition</strong>, que vous pouvez garder tel quel ou faire relier chez un imprimeur
+            partenaire (Flexilivre, WhiteWall…), avec une <strong>réduction exclusive</strong>, pour obtenir un
+            vrai livre photo à conserver.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <h2>Ce qui reste sur votre appareil</h2>
+    <div class="card card--forest">
+      <p style="margin:0">
+        Vos fichiers GPX, vos photos et l'album composé restent dans la mémoire de votre navigateur ou
+        de votre téléphone. Seules les coordonnées et la date de l'étape sont envoyées à des services
+        tiers, pour récupérer la météo et les noms de lieux — <strong>vos photos, elles, ne partent
+        jamais</strong>. Le court texte d'ambiance de l'album est écrit sur votre appareil, sans IA.
+        Le détail complet est expliqué sur la page <a href="confidentialite.html">vos données</a>.
+      </p>
+    </div>
+
+    <h2>De quoi avez-vous besoin ?</h2>
+    <ul>
+      <li>Une trace GPX ou KML de votre randonnée, ou un smartphone Android pour enregistrer en direct.</li>
+      <li>Des photos de la sortie, si vous voulez composer un album (facultatif pour le film).</li>
+      <li>Aucun compte, aucune carte bancaire pour essayer.</li>
+    </ul>
+
+    <div class="cta">
+      <a class="btn" href="app.html?start">Essayer avec mon parcours →</a>
+    </div>
+
+    <div class="more">
+      Voir aussi : <a href="album-photo-imprimable.html">l'album-photo imprimable en détail</a> ·
+      <a href="confidentialite.html">vos données restent chez vous</a>
+    </div>
+    <p class="back-bottom"><a class="hdr__back" href="./">← Accueil</a></p>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__in">
+      <span class="foot__brand">Sillonphane-Rando</span>
+      <a href="./">Accueil</a>
+      <a href="album-photo-imprimable.html">L'album-photo imprimable</a>
+      <a href="confidentialite.html">Vos données</a>
+      <a href="mailto:sillonphane@gmail.com">Contact</a>
+      <small>© 2026 Sillonphane</small>
+    </div>
+  </footer>
+</body>
+</html>

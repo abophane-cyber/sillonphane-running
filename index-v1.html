@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f1a12" />
+    <meta name="description" content="Sillon Rando transforme vos parcours GPX ou KML de randonnée en film animé sur carte IGN et en carnet photo à imprimer, avec vos photos placées automatiquement sur le tracé." />
+    <link rel="canonical" href="https://sillon-rando.fr/" />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <title>Sillon Rando — transformez vos parcours GPX en film et en carnet photo</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sillon Rando" />
+    <meta property="og:title" content="Sillon Rando — transformez vos parcours GPX en film et en carnet photo" />
+    <meta property="og:description" content="Importez ou enregistrez votre parcours : Sillon-Rando anime votre tracé sur la carte IGN et compose automatiquement l'album photo de votre sortie, prêt à imprimer." />
+    <meta property="og:url" content="https://sillon-rando.fr/" />
+    <meta property="og:locale" content="fr_FR" />
+    <meta property="og:image" content="https://sillon-rando.fr/demo/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:type" content="image/jpeg" />
+    <meta property="og:image:alt" content="Sillon Rando — transforme votre trace GPX en film et en carnet photo à imprimer" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://sillon-rando.fr/demo/og-image.jpg" />
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; background: #0f1a12; }
+      a { color: #4caf50; text-decoration: none; }
+      a:hover { color: #66bb6a; }
+
+      body {
+        background: #0f1a12;
+        color: #e8f5e9;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        position: relative;
+        overflow-x: hidden;
+      }
+      h1, h2, h3 { font-family: Georgia, 'Times New Roman', serif; font-weight: 400; margin: 0; }
+      .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; position: relative; }
+      .accent { color: #D97A3D; }
+      .eyebrow {
+        font-size: 0.75rem; letter-spacing: 0.25em; text-transform: uppercase;
+        color: #8ba98d; margin: 0 0 14px;
+      }
+
+      /* Ambiance de fond */
+      .glow-top {
+        position: absolute; top: -180px; left: 50%; transform: translateX(-50%);
+        width: 1100px; height: 560px; pointer-events: none;
+        background: radial-gradient(ellipse at 50% 0%, rgba(76,175,80,0.16), rgba(76,175,80,0) 65%);
+      }
+
+      /* Nav */
+      .nav { display: flex; align-items: center; justify-content: space-between; padding: 26px 0; }
+      .nav__brand { display: flex; align-items: center; gap: 10px; }
+      /* Logo animé (repris de l'écran de démarrage de l'appli) : le "S" se dessine en boucle */
+      .sillon-draw {
+        stroke-dasharray: 1; stroke-dashoffset: 1;
+        animation: sillonDraw 4.4s ease-in-out infinite;
+      }
+      .sillon-dot { opacity: 0; animation: sillonDotIn 4.4s ease-in-out infinite; }
+      @keyframes sillonDraw {
+        0%   { stroke-dashoffset: 1; }
+        40%  { stroke-dashoffset: 0; }
+        100% { stroke-dashoffset: 0; }
+      }
+      @keyframes sillonDotIn {
+        0%, 2%  { opacity: 0; }
+        4%, 82% { opacity: 1; }
+        100%    { opacity: 0; }
+      }
+      @keyframes sillonRiseIn {
+        0%, 5%  { opacity: 0; transform: translateY(6px); }
+        18%     { opacity: 1; transform: translateY(0); }
+        82%     { opacity: 1; transform: translateY(0); }
+        100%    { opacity: 0; transform: translateY(6px); }
+      }
+      .nav__wordmark { font-size: 1.25rem; letter-spacing: 1px; }
+      .nav__wordmark .a { color: #F4EDE0; }
+      .nav__wordmark .b { color: #D97A3D; }
+      .nav__wordmark span {
+        display: inline-block; opacity: 0;
+        animation: sillonRiseIn 4.4s ease-out infinite;
+      }
+      .nav__wordmark .a { animation-delay: 0.55s; }
+      .nav__wordmark .b { animation-delay: 0.95s; }
+      .nav__links { display: flex; gap: 34px; font-size: 0.88rem; color: #8ba98d; }
+      .nav__links a { color: inherit; }
+      .nav__links a:hover { color: #e8f5e9; }
+      .nav__cta { display: flex; align-items: center; }
+      @media (max-width: 860px) { .nav__links { display: none; } }
+
+      /* Boutons */
+      .btn {
+        display: inline-flex; align-items: center; gap: 10px; font-family: inherit;
+        font-weight: 700; font-size: 0.95rem; padding: 14px 28px; border-radius: 12px;
+        border: none; cursor: pointer; white-space: nowrap;
+      }
+      .btn--primary { background: #4caf50; color: #fff; box-shadow: 0 4px 20px rgba(76,175,80,0.35); }
+      .btn--primary:hover { background: #66bb6a; color: #fff; }
+      .btn--secondary { background: rgba(255,255,255,0.06); border: 1px solid rgba(76,175,80,0.4); color: #e8f5e9; }
+      .btn--secondary:hover { color: #e8f5e9; border-color: #66bb6a; }
+      .btn--small { padding: 10px 20px; font-size: 0.85rem; }
+      .btn__arrow { font-size: 1.1rem; }
+
+      /* Hero */
+      .hero { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; padding: 56px 0 100px; }
+      .hero__title { font-size: clamp(2.1rem, 3.6vw, 3.2rem); line-height: 1.18; color: #F4EDE0; letter-spacing: 0.2px; }
+      .hero__sub { font-size: 1.05rem; line-height: 1.65; color: #8ba98d; max-width: 460px; margin: 22px 0 0; }
+      .hero__list { font-size: 1.05rem; line-height: 1.65; color: #8ba98d; max-width: 460px; margin: 10px 0 0; padding-left: 1.2em; }
+      .hero__list li { margin-top: 6px; }
+      .hero__cta-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
+      .hero__hint { font-size: 0.8rem; color: #7d9a7f; margin: 16px 0 0; }
+      .hero__visual { position: relative; min-height: 520px; display: flex; align-items: flex-start; justify-content: center; }
+      @media (max-width: 900px) {
+        .hero { grid-template-columns: 1fr; padding-bottom: 64px; }
+        .hero__visual { order: -1; min-height: auto; flex-direction: column; align-items: center; gap: 32px; margin-bottom: 8px; }
+        .hero__sub { max-width: 100%; }
+      }
+
+      /* Phone mock (film) */
+      .phone-mock {
+        position: relative; z-index: 2; width: 264px; padding: 14px; border-radius: 40px;
+        background: linear-gradient(180deg, #2A2723 0%, #15130F 100%);
+        box-shadow: 0 30px 70px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.06);
+      }
+      .phone-mock__screen {
+        position: relative; width: 100%; height: 440px; border-radius: 27px; overflow: hidden;
+        background: #0c150e;
+      }
+      .phone-mock__media {
+        position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+      }
+      .preview-tag {
+        position: absolute; top: 12px; right: 12px; z-index: 3;
+        background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.18);
+        color: #cfe0d1; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase;
+        padding: 4px 9px; border-radius: 20px; backdrop-filter: blur(4px);
+      }
+      .play-badge {
+        position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 3;
+        width: 56px; height: 56px; border-radius: 50%;
+        background: rgba(0,0,0,0.38); border: 2px solid rgba(255,255,255,0.55);
+        display: flex; align-items: center; justify-content: center; backdrop-filter: blur(2px);
+      }
+      .stat-chips { position: absolute; left: 14px; right: 14px; bottom: 14px; z-index: 3; display: flex; gap: 8px; }
+      .stat-chip {
+        background: rgba(0,0,0,0.5); color: #F4EDE0; font-size: 0.72rem; font-weight: 600;
+        padding: 6px 11px; border-radius: 20px; backdrop-filter: blur(3px);
+      }
+
+      /* Album mock */
+      .album-mock {
+        position: absolute; right: -6px; bottom: -18px; z-index: 1; transform: rotate(7deg);
+        width: 208px; background: #F4EDE0; border-radius: 14px; padding: 18px;
+        box-shadow: 0 24px 46px rgba(0,0,0,0.45); color: #2A2723;
+      }
+      @media (max-width: 900px) { .album-mock { position: static; transform: rotate(-2deg); } }
+      .album-mock__tag {
+        font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: #2F5C45;
+        font-weight: 700; margin: 0 0 10px;
+      }
+      .album-mock__photo {
+        height: 108px; border-radius: 10px; margin-bottom: 12px; position: relative; overflow: hidden;
+        background: linear-gradient(135deg, #2F5C45 0%, #D97A3D 62%, #F4EDE0 100%);
+      }
+      .album-mock__title { font-family: Georgia, serif; font-size: 0.98rem; font-weight: 700; margin: 0 0 6px; color: #15130F; }
+      .album-mock__caption { font-style: italic; font-size: 0.78rem; line-height: 1.55; color: #574b3c; margin: 0; }
+
+      /* Sections génériques */
+      section.section { padding: 72px 0; }
+      .section__head { text-align: center; max-width: 620px; margin: 0 auto 48px; }
+      /* Respiration entre sections (les .section en <div> n'héritent pas du padding ci-dessus) */
+      #sorties, #reassurance { padding-top: 64px; }
+      .section__title { font-size: clamp(1.7rem, 2.6vw, 2.3rem); color: #F4EDE0; }
+
+      /* Comment ça marche */
+      .steps { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 620px; margin: 0 auto; gap: 0; }
+      .step-card {
+        width: 100%; box-sizing: border-box; border-radius: 20px; padding: 26px 28px;
+        display: flex; align-items: center; gap: 22px; position: relative;
+        background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+      }
+      .step-card__badge {
+        position: absolute; top: -11px; left: 26px; background: #0f1a12;
+        border: 1px solid rgba(76,175,80,0.35); color: #4caf50; font-size: 0.7rem; font-weight: 800;
+        letter-spacing: 0.1em; padding: 2px 10px; border-radius: 20px;
+      }
+      .step-card__icons { display: flex; gap: 8px; flex-shrink: 0; }
+      .step-card__icons svg { width: 56px; height: 56px; border-radius: 14px; }
+      .step-card__text { font-size: 0.97rem; color: #8ba98d; line-height: 1.65; }
+      .step-card__text strong { color: #e8f5e9; font-weight: 600; }
+      .connector { display: flex; flex-direction: column; align-items: center; padding: 4px 0; }
+      .connector__line { width: 1px; height: 16px; background: linear-gradient(to bottom, rgba(76,175,80,0.15), rgba(76,175,80,0.4)); }
+      .connector__arrow {
+        font-size: 1rem; font-weight: 900; color: #0d1f12; width: 30px; height: 30px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center; background: #4caf50;
+        box-shadow: 0 0 16px rgba(76,175,80,0.6); line-height: 1;
+      }
+
+      /* Deux sorties */
+      .outputs { display: grid; grid-template-columns: 1fr 1fr; gap: 56px; }
+      @media (max-width: 860px) { .outputs { grid-template-columns: 1fr; gap: 48px; } }
+      .output-block__icon svg { width: 46px; height: 46px; border-radius: 12px; margin-bottom: 18px; }
+      .output-block__title { font-size: 1.4rem; color: #F4EDE0; margin-bottom: 10px; }
+      .output-block__text { font-size: 0.96rem; color: #8ba98d; line-height: 1.65; margin: 0 0 26px; }
+
+      .film-previews { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 358px; }
+      .film-card {
+        position: relative; width: 100%; border-radius: 18px; overflow: hidden;
+        background: #0c150e; box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+      }
+      .film-card--2d { aspect-ratio: 565 / 288; }
+      .film-card--3d { aspect-ratio: 568 / 320; }
+      .film-card img,
+      .film-card video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+      .film-card__label {
+        position: absolute; top: 12px; left: 12px; z-index: 3;
+        background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.18);
+        color: #cfe0d1; font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase;
+        padding: 4px 9px; border-radius: 20px; backdrop-filter: blur(4px);
+      }
+      .album-preview {
+        width: 100%; max-width: 420px; border-radius: 12px; overflow: hidden;
+        box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+        background: #F4EDE0; padding: 16px 16px 18px;
+      }
+      .album-preview__hd {
+        font-family: Georgia, serif; font-size: 0.68rem; letter-spacing: 0.08em;
+        text-transform: uppercase; color: #2F5C45; text-align: center; margin: 0 0 3px;
+      }
+      .album-preview__title {
+        font-family: Georgia, serif; font-weight: 700; font-size: 0.95rem;
+        color: #15130F; text-align: center; margin: 0 0 12px;
+      }
+      .album-preview__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+      .album-preview__cell { position: relative; border-radius: 6px; overflow: hidden; aspect-ratio: 4 / 3; }
+      .album-preview__cell img { width: 100%; height: 100%; object-fit: cover; display: block; }
+      .album-preview__cap {
+        position: absolute; left: 7px; bottom: 5px;
+        font-family: Georgia, serif; font-style: italic; font-size: 0.68rem; color: #fff;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.65);
+      }
+      .partners-note { margin-top: 16px; font-size: 0.82rem; color: #7d9a7f; }
+      .partners-note strong { color: #b7cdb8; font-weight: 600; }
+
+      /* Réassurance */
+      .trust-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+      .trust-card {
+        display: flex; align-items: flex-start; gap: 14px; padding: 18px;
+        background: rgba(255,255,255,0.04); border: 1px solid rgba(76,175,80,0.15); border-radius: 14px;
+      }
+      .trust-card__icon {
+        flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px;
+        background: rgba(76,175,80,0.14); display: flex; align-items: center; justify-content: center;
+      }
+      .trust-card strong { display: block; font-size: 0.9rem; color: #e8f5e9; margin-bottom: 4px; }
+      .trust-card p { margin: 0; font-size: 0.82rem; color: #8ba98d; line-height: 1.55; }
+
+      /* Disponibilité */
+      .avail {
+        background: linear-gradient(135deg, rgba(47,92,69,0.35) 0%, rgba(26,43,30,0.6) 100%);
+        border: 1px solid rgba(76,175,80,0.45); border-radius: 24px; padding: 52px 44px;
+        box-shadow: 0 8px 32px rgba(76,175,80,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+        text-align: center;
+      }
+      .avail__sub { max-width: 520px; margin: 14px auto 30px; color: #b7cdb8; font-size: 0.98rem; line-height: 1.6; }
+      .platform-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-bottom: 30px; }
+      .platform-chip {
+        display: flex; align-items: center; gap: 9px; background: rgba(0,0,0,0.2);
+        border: 1px solid rgba(255,255,255,0.12); border-radius: 30px; padding: 9px 16px 9px 12px;
+        font-size: 0.84rem; color: #e8f5e9;
+      }
+      .platform-chip svg { width: 18px; height: 18px; }
+      .platform-chip__status { font-size: 0.72rem; padding: 2px 9px; border-radius: 20px; font-weight: 700; }
+      .status--ok { background: rgba(76,175,80,0.2); color: #8fd99a; }
+      .status--soon { background: rgba(217,122,61,0.2); color: #eda56f; }
+      .status--later { background: rgba(255,255,255,0.08); color: #8ba98d; }
+      .avail__cta-row { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+
+      /* CTA final */
+      .final-cta { text-align: center; padding: 88px 0 40px; }
+      .final-cta__title { font-size: clamp(1.8rem, 3vw, 2.5rem); color: #F4EDE0; margin-bottom: 14px; }
+      .final-cta__sub { color: #8ba98d; margin: 0 0 32px; font-size: 1rem; }
+
+      /* Footer */
+      .footer {
+        border-top: 1px solid rgba(255,255,255,0.08); padding: 32px 0 48px;
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px;
+      }
+      .footer__brand { display: flex; align-items: center; gap: 8px; color: #8ba98d; font-size: 0.85rem; }
+      .footer__links { display: flex; gap: 22px; font-size: 0.82rem; color: #7d9a7f; }
+    </style>
+  </head>
+  <body>
+
+    <div class="glow-top"></div>
+
+    <div class="container">
+      <div class="nav">
+        <div class="nav__brand">
+          <svg viewBox="0 0 320 320" width="34" height="34" style="border-radius: 8px; flex-shrink: 0;">
+            <defs>
+              <linearGradient id="navLogoGrad" x1="0" y1="1" x2="0" y2="0">
+                <stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" />
+              </linearGradient>
+            </defs>
+            <rect width="320" height="320" fill="#000" />
+            <path pathLength="1" class="sillon-draw" style="animation-delay: 1.6s"
+                  d="M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60"
+                  fill="none" stroke="url(#navLogoGrad)" stroke-width="29" stroke-linecap="round" />
+            <circle class="sillon-dot" style="animation-delay: 3.15s" cx="220" cy="60" r="10" fill="#2F5C45" stroke="#F4EDE0" stroke-width="3" />
+            <circle class="sillon-dot" style="animation-delay: 1.65s" cx="138" cy="225" r="10" fill="#F4EDE0" />
+          </svg>
+          <div class="nav__wordmark"><span class="a">Sillon</span> <span class="b">Rando</span></div>
+        </div>
+        <div class="nav__links">
+          <a href="#comment-ca-marche">Comment ça marche</a>
+          <a href="#sorties">Le film &amp; l'album</a>
+          <a href="#disponibilite">Télécharger</a>
+        </div>
+        <div class="nav__cta">
+          <a class="btn btn--primary btn--small" href="/app.html?start">Ouvrir l'appli</a>
+        </div>
+      </div>
+
+      <!-- Hero -->
+      <div class="hero">
+        <div>
+          <p class="eyebrow">Animez votre prochaine sortie</p>
+          <h1 class="hero__title">Transformez votre trace GPX en <span class="accent">film</span> et en <span class="accent">carnet photo</span> à imprimer.</h1>
+          <p class="hero__sub">Importez votre parcours ou enregistrez-le en direct depuis l'appli Android&nbsp;:</p>
+          <ul class="hero__list">
+            <li>Sillon-Rando anime votre tracé en 2D et 3D sur carte IGN, topo ou OSM et,</li>
+            <li>compose automatiquement, si vous le souhaitez, l'album photo de votre sortie ou de votre voyage, prêt à imprimer.</li>
+          </ul>
+          <div class="hero__cta-row">
+            <a class="btn btn--primary" href="/app.html?start">Essayer avec mon parcours <span class="btn__arrow">→</span></a>
+            <a class="btn btn--secondary" href="/downloads/sillon-rando.apk" download>Télécharger pour Android</a>
+          </div>
+          <p class="hero__hint">Fonctionne dans le navigateur — vos photos et votre trace restent sur votre appareil.</p>
+        </div>
+
+        <div class="hero__visual">
+          <div class="phone-mock">
+            <div class="phone-mock__screen">
+              <img class="phone-mock__media" src="/demo/hero-demo.jpg" alt="Capture de l'application Sillon Rando animant un tracé sur carte IGN, avec météo, profil altimétrique et personnage randonneur">
+            </div>
+          </div>
+
+          <div class="album-mock">
+            <p class="album-mock__tag">Exemple d'album</p>
+            <div class="album-mock__photo">
+              <img src="/demo/album-box.png" alt="" width="200" height="108" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;">
+            </div>
+            <p class="album-mock__title">Étape 4 — Le Sommet</p>
+            <p class="album-mock__caption">La vue s'ouvre enfin sur les sommets voisins, le vent s'est levé.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comment ça marche -->
+    <div class="section" id="comment-ca-marche">
+      <div class="container">
+        <div class="section__head">
+          <p class="eyebrow">Trois étapes</p>
+          <h2 class="section__title">Comment ça marche</h2>
+        </div>
+
+        <div class="steps">
+          <div class="step-card">
+            <span class="step-card__badge">01</span>
+            <div class="step-card__icons">
+              <svg viewBox="0 0 320 320">
+                <defs>
+                  <linearGradient id="phoneBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2A2723" /><stop offset="100%" stop-color="#15130F" /></linearGradient>
+                  <linearGradient id="phoneStroke" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" /></linearGradient>
+                </defs>
+                <rect width="320" height="320" rx="60" fill="url(#phoneBg)" />
+                <rect x="108" y="56" width="104" height="208" rx="20" fill="none" stroke="url(#phoneStroke)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
+                <line x1="140" y1="228" x2="180" y2="228" stroke="#F4EDE0" stroke-width="10" stroke-linecap="round" opacity="0.6" />
+                <path d="M 128,190 C 140,160 150,190 162,160 C 174,130 184,160 192,130" fill="none" stroke="#F4EDE0" stroke-width="8" stroke-linecap="round" opacity="0.4" />
+                <circle cx="192" cy="130" r="11" fill="#D97A3D" stroke="#F4EDE0" stroke-width="3" />
+              </svg>
+            </div>
+            <p class="step-card__text">Importez la trace <strong>GPX ou KML</strong> de votre randonnée, ou <strong>enregistrez votre sortie en direct</strong> depuis l'appli Android sur votre smartphone.</p>
+          </div>
+
+          <div class="connector"><div class="connector__line"></div><div class="connector__arrow">↓</div><div class="connector__line"></div></div>
+
+          <div class="step-card">
+            <span class="step-card__badge">02</span>
+            <div class="step-card__icons">
+              <svg viewBox="0 0 320 320">
+                <defs>
+                  <linearGradient id="filmBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2A2723" /><stop offset="100%" stop-color="#15130F" /></linearGradient>
+                  <linearGradient id="filmStroke" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" /></linearGradient>
+                </defs>
+                <rect width="320" height="320" rx="60" fill="url(#filmBg)" />
+                <rect x="72" y="72" width="176" height="176" rx="28" fill="url(#filmBg)" stroke="url(#filmStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+                <rect x="108" y="164" width="104" height="46" rx="8" fill="#F4EDE0" />
+                <circle cx="108" cy="166" r="6" fill="#D97A3D" />
+                <rect x="108" y="142" width="104" height="24" rx="6" fill="#F4EDE0" transform="rotate(-10 160 154)" />
+              </svg>
+            </div>
+            <div class="step-card__icons">
+              <svg viewBox="0 0 320 320">
+                <defs>
+                  <linearGradient id="albumBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2A2723" /><stop offset="100%" stop-color="#15130F" /></linearGradient>
+                  <linearGradient id="albumStroke" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" /></linearGradient>
+                </defs>
+                <rect width="320" height="320" rx="60" fill="url(#albumBg)" />
+                <rect x="72" y="72" width="176" height="176" rx="28" fill="none" stroke="url(#albumStroke)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="130" cy="120" r="15" fill="#D97A3D" />
+                <polyline points="96,208 124,160 148,188 174,150 200,208" fill="none" stroke="#F4EDE0" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <p class="step-card__text">Sillon-Rando anime le tracé sur la carte et <strong>compose l'album photo</strong> de votre parcours, étape par étape, avec un court texte généré pour chacune.</p>
+          </div>
+
+          <div class="connector"><div class="connector__line"></div><div class="connector__arrow">↓</div><div class="connector__line"></div></div>
+
+          <div class="step-card">
+            <span class="step-card__badge">03</span>
+            <div class="step-card__icons">
+              <svg viewBox="0 0 320 320">
+                <defs>
+                  <linearGradient id="exportBg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2A2723" /><stop offset="100%" stop-color="#15130F" /></linearGradient>
+                  <linearGradient id="exportStroke" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" /></linearGradient>
+                </defs>
+                <rect width="320" height="320" rx="60" fill="url(#exportBg)" />
+                <rect x="92" y="76" width="136" height="176" rx="18" fill="none" stroke="url(#exportStroke)" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" />
+                <line x1="116" y1="118" x2="204" y2="118" stroke="#F4EDE0" stroke-width="9" stroke-linecap="round" opacity="0.55" />
+                <line x1="116" y1="146" x2="204" y2="146" stroke="#F4EDE0" stroke-width="9" stroke-linecap="round" opacity="0.4" />
+                <line x1="116" y1="174" x2="176" y2="174" stroke="#F4EDE0" stroke-width="9" stroke-linecap="round" opacity="0.4" />
+                <path d="M 160,236 L 160,190 M 132,214 L 160,186 L 188,214" fill="none" stroke="#D97A3D" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <p class="step-card__text">Regardez le <strong>film</strong>, exportez l'album en <strong>PDF</strong> et faites-le imprimer chez nos partenaires, ou partagez-le simplement.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deux sorties -->
+    <div class="section" id="sorties">
+      <div class="container">
+        <div class="section__head">
+          <p class="eyebrow">Deux sorties pour chaque randonnée</p>
+          <h2 class="section__title">Un film à partager, un carnet à garder</h2>
+        </div>
+
+        <div class="outputs">
+          <div class="output-block">
+            <div class="output-block__icon">
+              <svg viewBox="0 0 320 320">
+                <defs>
+                  <linearGradient id="filmBg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2A2723" /><stop offset="100%" stop-color="#15130F" /></linearGradient>
+                  <linearGradient id="filmStroke2" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" /></linearGradient>
+                </defs>
+                <rect width="320" height="320" rx="60" fill="url(#filmBg2)" />
+                <rect x="72" y="72" width="176" height="176" rx="28" fill="url(#filmBg2)" stroke="url(#filmStroke2)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+                <rect x="108" y="164" width="104" height="46" rx="8" fill="#F4EDE0" />
+                <circle cx="108" cy="166" r="6" fill="#D97A3D" />
+                <rect x="108" y="142" width="104" height="24" rx="6" fill="#F4EDE0" transform="rotate(-10 160 154)" />
+              </svg>
+            </div>
+            <h3 class="output-block__title">Le film de votre tracé en 2D ou en 3D</h3>
+            <p class="output-block__text">Votre parcours prend vie sur fond de carte (IGN, topo ou OSM)&nbsp;: profil altimétrique, distance et cols défilent en direct. De quoi revivre — ou partager — votre sortie en quelques secondes.</p>
+            <div class="film-previews">
+              <div class="film-card film-card--2d">
+                <span class="film-card__label">Vue 2D</span>
+                <span class="preview-tag">Aperçu</span>
+                <video autoplay loop muted playsinline preload="metadata"
+                       aria-label="Aperçu animé du film 2D : le tracé progresse sur la carte IGN avec la météo, le profil altimétrique et la distance qui défilent en direct">
+                  <source src="/demo/2D.webm" type="video/webm">
+                  <source src="/demo/2D.mp4" type="video/mp4">
+                </video>
+              </div>
+              <div class="film-card film-card--3d">
+                <span class="film-card__label">Vue 3D</span>
+                <span class="preview-tag">Aperçu</span>
+                <video autoplay loop muted playsinline preload="metadata"
+                       aria-label="Aperçu animé du film 3D : survol du relief le long du tracé, la caméra suit la progression du parcours">
+                  <source src="/demo/3d.webm" type="video/webm">
+                  <source src="/demo/3d.mp4" type="video/mp4">
+                </video>
+              </div>
+            </div>
+          </div>
+
+          <div class="output-block">
+            <div class="output-block__icon">
+              <svg viewBox="0 0 320 320">
+                <defs>
+                  <linearGradient id="albumBg2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2A2723" /><stop offset="100%" stop-color="#15130F" /></linearGradient>
+                  <linearGradient id="albumStroke2" x1="0" y1="1" x2="0" y2="0"><stop offset="0%" stop-color="#2F5C45" /><stop offset="50%" stop-color="#D97A3D" /><stop offset="100%" stop-color="#F4EDE0" /></linearGradient>
+                </defs>
+                <rect width="320" height="320" rx="60" fill="url(#albumBg2)" />
+                <rect x="72" y="72" width="176" height="176" rx="28" fill="none" stroke="url(#albumStroke2)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" />
+                <circle cx="130" cy="120" r="15" fill="#D97A3D" />
+                <polyline points="96,208 124,160 148,188 174,150 200,208" fill="none" stroke="#F4EDE0" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </div>
+            <h3 class="output-block__title">L'album à imprimer</h3>
+            <p class="output-block__text">Vos photos peuvent se placer automatiquement le long du tracé, avec un court texte d'ambiance généré pour chaque étape. Exportez en PDF et faites imprimer votre carnet de randonnées.</p>
+            <div class="album-preview">
+              <p class="album-preview__hd">Mes Sillons · 14 juillet 2026</p>
+              <p class="album-preview__title">Lac des Vaches — Vanoise</p>
+              <div class="album-preview__grid">
+                <div class="album-preview__cell"><img src="/demo/20250801_073836b.jpg" alt="Vallée de la Vanoise sous les nuages au départ de la randonnée" loading="lazy"><span class="album-preview__cap">Départ</span></div>
+                <div class="album-preview__cell"><img src="/demo/20250801_080604.jpg" alt="Torrent dans la combe, montée vers le lac" loading="lazy"><span class="album-preview__cap">La combe</span></div>
+                <div class="album-preview__cell"><img src="/demo/20250801_112754.jpg" alt="Lac des Vaches et son passage de pierres" loading="lazy"><span class="album-preview__cap">Lac des Vaches</span></div>
+                <div class="album-preview__cell"><img src="/demo/20250801_110000.jpg" alt="Lac d'altitude aux eaux turquoise" loading="lazy"><span class="album-preview__cap">Lac du Col</span></div>
+              </div>
+            </div>
+            <p class="partners-note">Impression via nos partenaires <strong>Blurb</strong> &amp; <strong>Pixartprinting</strong>.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Réassurance -->
+    <div class="section" id="reassurance">
+      <div class="container">
+        <div class="section__head">
+          <p class="eyebrow">Pensé pour la rando en France</p>
+          <h2 class="section__title">Simple, sobre, respectueux de vos données</h2>
+        </div>
+
+        <div class="trust-grid">
+          <div class="trust-card">
+            <div class="trust-card__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12,3 L20,6 L20,12 C20,17 16.5,20.5 12,22 C7.5,20.5 4,17 4,12 L4,6 Z" />
+              </svg>
+            </div>
+            <div><strong>Vos données restent chez vous</strong><p>Photos et trace GPS restent sur votre appareil, sans compte obligatoire.</p></div>
+          </div>
+          <div class="trust-card">
+            <div class="trust-card__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="5" width="18" height="16" rx="3" /><line x1="3" y1="10" x2="21" y2="10" /><line x1="8" y1="3" x2="8" y2="7" /><line x1="16" y1="3" x2="16" y2="7" />
+              </svg>
+            </div>
+            <div><strong>Météo &amp; lieux automatiques</strong><p>La météo du jour et les noms de lieux et cols sont récupérés pour vous.</p></div>
+          </div>
+          <div class="trust-card">
+            <div class="trust-card__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12,3 L14,9 L20,10 L15.5,14 L17,20 L12,17 L7,20 L8.5,14 L4,10 L10,9 Z" />
+              </svg>
+            </div>
+            <div><strong>Un texte pour chaque étape</strong><p>Une courte note d'ambiance générée pour ouvrir chaque étape de votre album.</p></div>
+          </div>
+          <div class="trust-card">
+            <div class="trust-card__icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3,7 C3,5.9 3.9,5 5,5 L9,5 L11,7.5 L19,7.5 C20.1,7.5 21,8.4 21,9.5 L21,17 C21,18.1 20.1,19 19,19 L5,19 C3.9,19 3,18.1 3,17 Z" />
+              </svg>
+            </div>
+            <div><strong>Sauvegarde en un clic</strong><p>Exportez toutes vos randos dans un fichier, à garder où vous voulez.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disponibilité -->
+    <div class="section" id="disponibilite">
+      <div class="container">
+        <div class="avail">
+          <h2 class="section__title">Disponible dès maintenant</h2>
+          <p class="avail__sub">Sillon-Rando fonctionne dans votre navigateur et sur Android. iOS arrivera dans un second temps.</p>
+
+          <div class="platform-row">
+            <span class="platform-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#e8f5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" /><line x1="3" y1="12" x2="21" y2="12" /><path d="M12,3 C15,7 15,17 12,21 C9,17 9,7 12,3 Z" /></svg>
+              Navigateur (PWA) <span class="platform-chip__status status--ok">Disponible</span>
+            </span>
+            <span class="platform-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#e8f5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2" /><line x1="11" y1="18" x2="13" y2="18" /></svg>
+              Android (APK) <span class="platform-chip__status status--ok">Disponible</span>
+            </span>
+            <span class="platform-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#e8f5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2" /><line x1="11" y1="18" x2="13" y2="18" /></svg>
+              Play Store <span class="platform-chip__status status--soon">Bientôt</span>
+            </span>
+            <span class="platform-chip">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#e8f5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2" /><line x1="11" y1="18" x2="13" y2="18" /></svg>
+              iOS <span class="platform-chip__status status--later">À venir</span>
+            </span>
+          </div>
+
+          <div class="avail__cta-row">
+            <a class="btn btn--primary" href="/app.html?start">Ouvrir dans le navigateur</a>
+            <a class="btn btn--secondary" href="/downloads/sillon-rando.apk" download>Télécharger l'APK Android</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA final -->
+    <div class="container">
+      <div class="final-cta">
+        <h2 class="final-cta__title">Prêt à transformer votre prochaine sortie&nbsp;?</h2>
+        <p class="final-cta__sub">Importez un GPX et voyez le résultat en quelques minutes.</p>
+        <a class="btn btn--primary" href="/app.html?start">Essayer avec mon parcours <span class="btn__arrow">→</span></a>
+      </div>
+
+      <div class="footer">
+        <div class="footer__brand">
+          <svg viewBox="0 0 320 320" width="22" height="22" style="border-radius: 6px; flex-shrink: 0;">
+            <rect width="320" height="320" fill="#000" />
+            <path d="M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60"
+                  fill="none" stroke="#D97A3D" stroke-width="29" stroke-linecap="round" />
+          </svg>
+          © 2026 Sillon-Rando
+        </div>
+      </div>
+    </div>
+
+  </body>
+</html>

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Confidentialité & Mentions légales — Sillonphane-Rando</title>
+  <meta name="description" content="Mentions légales et politique de confidentialité de Sillonphane-Rando : traitement local, pas de compte à créer, tout reste sur votre appareil." />
+  <link rel="canonical" href="https://sillonphane.fr/rando/legal.html" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <style>
+    @font-face {
+      font-family: 'Playfair Display'; font-style: normal; font-weight: 400 900; font-display: swap;
+      src: url('fonts/playfair-display-latin.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400 700; font-display: swap;
+      src: url('fonts/plus-jakarta-sans-latin.woff2') format('woff2');
+    }
+    * { box-sizing: border-box; }
+    :root {
+      --stone-50: #FAF9F6; --stone-900: #191817;
+      --terracotta: #C15C3D; --forest: #2F4839;
+      --ink: #191817; --ink-soft: rgba(43,41,39,0.80); --ink-faint: rgba(43,41,39,0.55);
+      --line: rgba(43,41,39,0.12);
+    }
+    html { scroll-behavior: smooth; }
+    html, body { margin: 0; padding: 0; background: var(--stone-50); }
+    body {
+      color: var(--ink); font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased; line-height: 1.65;
+    }
+    h1, h2, h3 { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; color: var(--ink); }
+    a { color: var(--forest); }
+    a:hover { color: var(--terracotta); }
+
+    .wrap { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+    .hdr { border-bottom: 1px solid var(--line); background: rgba(250,249,246,0.9); backdrop-filter: blur(8px); }
+    .hdr__in { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+    .hdr__brand { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+    .hdr__brand em { color: #9C8156; font-weight: 400; }
+    .hdr__back { font-size: 0.82rem; font-weight: 600; }
+    .back-bottom { margin: 48px 0 0; text-align: right; }
+
+    main.wrap { padding-top: 44px; padding-bottom: 64px; }
+    .legal__eyebrow { display: inline-block; font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; color: var(--forest); }
+    h1 { font-size: clamp(1.8rem, 4vw, 2.4rem); margin: 10px 0 6px; }
+    .legal__date { margin: 0 0 40px; font-size: 0.82rem; color: var(--ink-faint); }
+    section { margin: 0 0 40px; }
+    h2 { font-size: 1.35rem; margin: 40px 0 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+    h3 { font-size: 1rem; margin: 24px 0 6px; }
+    p, li { color: var(--ink-soft); font-size: 0.95rem; }
+    ul { padding-left: 20px; }
+    li { margin: 4px 0; }
+    strong { color: var(--ink); }
+    .legal__box { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; }
+    .legal__box p { margin: 4px 0; }
+
+    .tablewrap { overflow-x: auto; margin: 14px 0; }
+    table { border-collapse: collapse; width: 100%; font-size: 0.86rem; }
+    th, td { text-align: left; vertical-align: top; padding: 9px 12px; border: 1px solid var(--line); }
+    th { background: #fff; color: var(--ink); font-weight: 600; }
+    td { color: var(--ink-soft); }
+
+    .note { font-size: 0.82rem; color: var(--ink-faint); }
+
+    .foot { background: var(--stone-900); color: rgba(255,255,255,0.55); padding: 32px 0; margin-top: 48px; }
+    .foot__in { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; }
+    .foot__brand { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: #fff; }
+    .foot a { color: rgba(255,255,255,0.7); font-size: 0.8rem; }
+    .foot a:hover { color: #fff; }
+    .foot small { font-size: 0.74rem; }
+  </style>
+</head>
+<body>
+  <header class="hdr">
+    <div class="wrap hdr__in">
+      <a class="hdr__brand" href="./">Sillonphane-<em>Rando</em></a>
+      <a class="hdr__back" href="./">← Accueil</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <span class="legal__eyebrow">Informations légales</span>
+    <h1>Confidentialité &amp; Mentions légales</h1>
+    <p class="legal__date">Dernière mise à jour : 2 octobre 2026</p>
+
+    <section id="confidentialite">
+      <h2>Politique de confidentialité</h2>
+
+      <h3>1. Principe : traitement local</h3>
+      <p>
+        Sillonphane-Rando fonctionne <strong>sans compte</strong>. Vos fichiers GPX/KML, vos photos et vos
+        albums ne sont <strong>jamais téléversés</strong> sur un serveur : ils sont traités et stockés
+        sur votre appareil (IndexedDB et stockage local du navigateur). La fonction « Sauvegarder »
+        produit un fichier que vous enregistrez vous-même, en local.
+      </p>
+      <p>
+        L'application lit sur votre appareil la <strong>date de prise de vue</strong> de vos photos
+        (métadonnée EXIF) pour les classer dans l'ordre chronologique de l'album. Cette donnée n'est
+        jamais transmise. Aucune analyse d'image,
+        aucune reconnaissance de visage n'est effectuée, ni en local ni à distance. Aucun de vos
+        contenus — traces, photos, textes — n'est traité par un système d'intelligence artificielle.
+      </p>
+
+      <h3>2. Données transmises à des tiers</h3>
+      <p>
+        Pour afficher la carte, situer l'itinéraire et enrichir l'album, l'application effectue des
+        requêtes vers des services tiers. Ces requêtes transmettent votre <strong>adresse IP</strong>
+        et les informations strictement nécessaires au service demandé :
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr><th>Service tiers</th><th>Donnée transmise</th><th>Finalité</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>IGN / Géoplateforme, Esri (imagerie Maxar), AWS Open Data</td>
+              <td>adresse IP, zone géographique affichée</td>
+              <td>fonds de carte 2D et relief 3D</td>
+            </tr>
+            <tr>
+              <td>IGN / Géoplateforme (géocodage), Photon (Komoot), OpenStreetMap Nominatim hors de France</td>
+              <td>coordonnées géographiques</td>
+              <td>noms de lieux et de cols (données © les contributeurs OpenStreetMap, ODbL)</td>
+            </tr>
+            <tr>
+              <td>Overpass API</td>
+              <td>emprise géographique</td>
+              <td>points d'intérêt (refuges, sommets…)</td>
+            </tr>
+            <tr>
+              <td>Open-Meteo</td>
+              <td>coordonnées et dates</td>
+              <td>météo de l'étape</td>
+            </tr>
+            <tr>
+              <td>Awin (réseau d'affiliation) puis WhiteWall</td>
+              <td>adresse IP, page de provenance</td>
+              <td>uniquement si vous cliquez sur le lien « faire imprimer » — voir ci-dessous</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Le court texte d'ambiance affiché sur chaque page d'étape est <strong>rédigé localement</strong>
+        par l'application, à partir des seules données chiffrées de la trace (distance, dénivelé) :
+        il ne donne lieu à aucune requête ni transmission.
+      </p>
+
+      <h3>2 bis. Liens d'affiliation</h3>
+      <p>
+        Après export d'un album au format imprimable, l'application propose des liens vers des
+        services d'impression de livres photo. Le lien vers <strong>WhiteWall</strong> est un
+        <strong> lien d'affiliation</strong>, opéré via le réseau <strong>Awin</strong> : si vous
+        passez commande après avoir cliqué dessus, Sillonphane perçoit une commission de la part de
+        WhiteWall, <strong>sans aucun surcoût pour vous</strong>. Ce lien est identifié comme tel
+        dans l'application et marqué <code>rel="sponsored"</code> conformément aux recommandations
+        en matière de publicité en ligne. En cliquant, vous quittez sillonphane.fr/rando : le traitement
+        de votre commande et des données associées relève de la politique de confidentialité
+        d'Awin et de WhiteWall, pas de la nôtre. Le lien vers Flexilivre, à ce jour, n'est pas un
+        lien d'affiliation.
+      </p>
+
+      <h3>3. Bases légales (RGPD)</h3>
+      <ul>
+        <li>Fonctionnement du service (affichage cartographique, géocodage, météo) : exécution du service que vous demandez — art. 6.1.b du RGPD.</li>
+      </ul>
+
+      <h3>4. Sous-traitants et transferts hors Union européenne</h3>
+      <ul>
+        <li><strong>OVH SAS</strong> (France) — hébergement du site.</li>
+      </ul>
+      <p>
+        Le site est hébergé en France. Les autres fournisseurs listés au point 2 sont appelés
+        directement par votre navigateur. La plupart sont établis dans l'Union européenne (IGN,
+        Photon, Overpass). Esri et Amazon Web Services (AWS), utilisés pour le relief du film 3D, sont
+        des entreprises américaines dont les serveurs peuvent traiter ces requêtes aux États-Unis.
+        Open-Meteo est établi en Suisse, et OpenStreetMap (Nominatim, utilisé hors de France) au
+        Royaume-Uni : deux pays reconnus par la Commission européenne comme offrant une protection
+        adéquate des données. Seules votre adresse IP et les informations strictement nécessaires au
+        service demandé leur sont transmises, jamais vos photos ni vos fichiers.
+      </p>
+
+      <h3>5. Cookies et traceurs</h3>
+      <p>
+        Sillonphane-Rando (sillonphane.fr/rando) n'utilise <strong>lui-même aucun cookie, aucun traceur
+        publicitaire, aucun bouton de réseau social tiers</strong>. Aucune mesure d'audience
+        n'est effectuée. Seul un stockage technique local (IndexedDB, localStorage) est
+        utilisé pour faire fonctionner l'application sur votre appareil. Aucun consentement
+        « cookies » n'est donc requis pour naviguer sur Sillonphane-Rando. Seule exception : si vous
+        cliquez sur le lien d'affiliation WhiteWall décrit au point 2 bis, un cookie peut être posé
+        par le partenaire une fois que vous avez quitté notre site.
+      </p>
+
+      <h3>6. Durées de conservation</h3>
+      <ul>
+        <li>Données locales (traces, photos, albums, réglages) : conservées sur votre appareil jusqu'à ce que <strong>vous</strong> les effaciez (vidage des données du site, désinstallation, suppression du fichier de sauvegarde).</li>
+        <li>Nous ne détenons aucune donnée vous concernant, hormis les journaux techniques d'accès (adresse IP, page demandée, date) conservés par l'hébergeur, OVH, à des fins de sécurité.</li>
+      </ul>
+
+      <h3>7. Vos droits</h3>
+      <p>
+        Vous disposez d'un droit d'accès, de rectification, d'effacement, d'opposition et de
+        portabilité. Aucune donnée personnelle n'étant conservée sur nos serveurs, hormis ces journaux techniques :
+      </p>
+      <ul>
+        <li>l'effacement et la portabilité s'exercent directement depuis votre navigateur (export via « Sauvegarder », puis vidage des données du site) ;</li>
+        <li>pour toute question ou réclamation : <a href="mailto:sillonphane@gmail.com">sillonphane@gmail.com</a>.</li>
+      </ul>
+      <p>Vous pouvez également saisir la CNIL — <a href="https://www.cnil.fr" target="_blank" rel="noopener">www.cnil.fr</a>.</p>
+
+      <h3>8. Application Android</h3>
+      <p>
+        La version Android (APK) embarque les mêmes fichiers que la version web et suit la même
+        politique. Les positions GPS enregistrées en direct restent sur l'appareil ; elles ne sont
+        transmises qu'aux services cartographiques et météo ci-dessus, au moment de l'affichage.
+      </p>
+      <p>
+        L'application demande trois autorisations, au moment où elles servent : la
+        <strong>position</strong> (au démarrage d'un enregistrement, « tout le temps » pour que la
+        trace continue écran éteint), les <strong>notifications</strong> (pour afficher
+        l'enregistrement en cours) et l'<strong>installation d'applications</strong> (uniquement
+        pour installer une mise à jour, si vous l'acceptez). Elle ne demande ni l'accès à vos
+        photos (c'est vous qui choisissez celles à ajouter), ni contacts, ni micro, ni
+        caméra, et ne se connecte à aucun compte.
+      </p>
+
+      <h3>9. Modifications</h3>
+      <p>
+        Cette politique peut évoluer avec l'application. La date de version indiquée en tête de page
+        fait foi.
+      </p>
+    </section>
+
+    <section id="mentions">
+      <h2>Mentions légales</h2>
+
+      <h3>Nom de domaine</h3>
+      <p>sillonphane.fr/rando (et sillonphane.com).</p>
+
+      <h3>Propriété intellectuelle</h3>
+      <p>
+        Le nom « Sillonphane-Rando », le logo, les textes, l'interface et le code de l'application sont
+        la propriété de Sillonphane, sauf mention contraire. Les fonds cartographiques et données
+        tierces restent la propriété de leurs fournisseurs respectifs (voir la section Confidentialité).
+      </p>
+      <p>« Sillonphane » est une marque déposée à l'INPI (dépôt n° 5303714 du 30 septembre 2026).</p>
+      <p>
+        <strong>Vous conservez l'intégralité des droits</strong> sur les contenus que vous importez
+        ou créez dans l'application (traces, photos, albums, textes). Sillonphane n'en acquiert
+        aucun droit et n'en conserve aucune copie.
+      </p>
+
+      <h3>Responsabilité</h3>
+      <p>
+        L'application fonctionne dans le navigateur. Les traces, photos et albums que vous y importez
+        sont traités localement sur votre appareil. Sillonphane ne saurait être tenu responsable
+        d'une perte de données locales (vidage du cache du navigateur, changement d'appareil, etc.) :
+        pensez à utiliser la fonction de sauvegarde.
+      </p>
+
+      <h3>Hébergeur</h3>
+      <div class="legal__box">
+        <p><strong>OVH SAS</strong></p>
+        <p>2 rue Kellermann, 59100 Roubaix, France.</p>
+        <p><a href="https://www.ovhcloud.com/fr/" target="_blank" rel="noopener">www.ovhcloud.com</a></p>
+      </div>
+
+      <h3>Éditeur du site</h3>
+      <div class="legal__box">
+        <p><strong>Sillonphane</strong> — entreprise individuelle (micro-entreprise).</p>
+        <p>Représentant légal et directeur de la publication : Stéphane Varomme.</p>
+        <p>SIRET : 109 980 714 00017.</p>
+        <p>Adresse : 50 rue de Lommelet, 59520 Marquette-lez-Lille, France.</p>
+        <p>Contact : <a href="mailto:sillonphane@gmail.com">sillonphane@gmail.com</a></p>
+      </div>
+      <p class="note">Le nom commercial « Sillonphane-Rando » est exploité par l'entreprise individuelle Sillonphane.</p>
+    </section>
+    <p class="back-bottom"><a class="hdr__back" href="./">← Accueil</a></p>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__in">
+      <span class="foot__brand">Sillonphane-Rando</span>
+      <a href="./">Accueil</a>
+      <a href="mailto:sillonphane@gmail.com">Contact</a>
+      <small>© 2026 Sillonphane</small>
+    </div>
+  </footer>
+</body>
+</html>

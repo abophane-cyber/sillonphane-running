@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pourquoi vos données restent chez vous — Sillonphane-Rando</title>
+  <meta name="description" content="Sillonphane-Rando fonctionne sans compte : vos traces, vos photos et vos albums restent sur votre appareil. Explication simple de ce qui sort, et de ce qui ne sort jamais." />
+  <link rel="canonical" href="https://sillonphane.fr/rando/confidentialite.html" />
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="Sillonphane-Rando" />
+  <meta property="og:title" content="Pourquoi vos données restent chez vous" />
+  <meta property="og:description" content="Sans compte : vos traces, vos photos et vos albums restent sur votre appareil. Ce qui sort, et ce qui ne sort jamais." />
+  <meta property="og:url" content="https://sillonphane.fr/rando/confidentialite.html" />
+  <meta property="og:locale" content="fr_FR" />
+  <meta property="og:image" content="https://sillonphane.fr/rando/demo/og-image.jpg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:alt" content="Sillonphane-Rando — transforme votre trace GPX en film et en carnet photo à imprimer" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://sillonphane.fr/rando/demo/og-image.jpg" />
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+  <style>
+    @font-face {
+      font-family: 'Playfair Display'; font-style: normal; font-weight: 400 900; font-display: swap;
+      src: url('fonts/playfair-display-latin.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Playfair Display'; font-style: italic; font-weight: 400; font-display: swap;
+      src: url('fonts/playfair-display-italic-latin.woff2') format('woff2');
+    }
+    @font-face {
+      font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400 700; font-display: swap;
+      src: url('fonts/plus-jakarta-sans-latin.woff2') format('woff2');
+    }
+    * { box-sizing: border-box; }
+    :root {
+      --stone-50: #FAF9F6; --stone-900: #191817;
+      --terracotta: #C15C3D; --forest: #2F4839; --forest-light: #EDF2EE;
+      --ink: #191817; --ink-soft: rgba(43,41,39,0.80); --ink-faint: rgba(43,41,39,0.55);
+      --line: rgba(43,41,39,0.12);
+    }
+    html { scroll-behavior: smooth; }
+    html, body { margin: 0; padding: 0; background: var(--stone-50); }
+    body {
+      color: var(--ink); font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      -webkit-font-smoothing: antialiased; line-height: 1.7;
+    }
+    h1, h2 { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; color: var(--ink); }
+    a { color: var(--forest); }
+    a:hover { color: var(--terracotta); }
+
+    .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+    .hdr { border-bottom: 1px solid var(--line); background: rgba(250,249,246,0.9); backdrop-filter: blur(8px); }
+    .hdr__in { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+    .hdr__brand { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--ink); }
+    .hdr__brand em { color: #9C8156; font-weight: 400; }
+    .hdr__back { font-size: 0.82rem; font-weight: 600; }
+    .back-bottom { margin: 48px 0 0; text-align: right; }
+
+    main.wrap { padding-top: 56px; padding-bottom: 56px; }
+    .eyebrow { display: block; margin-bottom: 14px; font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 600; color: var(--forest); }
+    h1 {
+      font-size: clamp(2.1rem, 6vw, 3rem); margin: 0 0 20px; line-height: 1.1;
+      letter-spacing: -0.015em; text-wrap: balance;
+    }
+    .lead { font-size: 1.08rem; color: var(--ink-soft); margin: 0; max-width: 60ch; }
+
+    h2 { font-size: 1.32rem; margin: 52px 0 12px; }
+    p { color: var(--ink-soft); }
+    ul { list-style: none; padding: 0; margin: 12px 0; }
+    li { position: relative; padding-left: 26px; margin: 8px 0; color: var(--ink-soft); }
+    li::before { content: ""; position: absolute; left: 4px; top: 9px; width: 8px; height: 8px; border-radius: 999px; background: var(--forest); }
+    li.no::before { background: var(--terracotta); }
+    strong { color: var(--ink); }
+
+    .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; margin: 16px 0; }
+    .card--forest { background: var(--forest-light); border-color: rgba(47,72,57,0.18); }
+
+    .more { margin-top: 44px; padding-top: 22px; border-top: 1px solid var(--line); font-size: 0.92rem; }
+
+    .foot { background: var(--stone-900); color: rgba(255,255,255,0.55); padding: 32px 0; margin-top: 48px; }
+    .foot__in { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 22px; }
+    .foot__brand { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: #fff; }
+    .foot a { color: rgba(255,255,255,0.7); font-size: 0.8rem; }
+    .foot a:hover { color: #fff; }
+    .foot small { font-size: 0.74rem; }
+  </style>
+</head>
+<body>
+  <header class="hdr">
+    <div class="wrap hdr__in">
+      <a class="hdr__brand" href="./">Sillonphane-<em>Rando</em></a>
+      <a class="hdr__back" href="./">← Accueil</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <span class="eyebrow">Vos données</span>
+    <h1>Pourquoi vos données restent chez&nbsp;vous</h1>
+    <p class="lead">
+      Sillonphane-Rando est conçu pour fonctionner <strong>sans compte</strong> et <strong>sans serveur</strong> qui garde
+      vos données. Voici, en clair, ce qui ne quitte jamais votre appareil — et le peu qui en sort.
+    </p>
+
+    <h2>Ce qui ne quitte jamais votre appareil</h2>
+    <div class="card card--forest">
+      <ul>
+        <li>Vos fichiers <strong>GPX / KML</strong> et les traces enregistrées en direct.</li>
+        <li>Vos <strong>photos</strong>.</li>
+        <li>Vos <strong>albums composés</strong> et vos réglages.</li>
+        <li>
+          Le <strong>petit texte d'ambiance</strong> de chaque étape : il est rédigé par
+          l'application, sur votre appareil, à partir de la distance et du dénivelé de la trace.
+        </li>
+      </ul>
+      <p style="margin:6px 0 0">
+        Tout est rangé dans la mémoire de votre navigateur (IndexedDB). La fonction
+        <strong>«&nbsp;Sauvegarder&nbsp;»</strong> crée un fichier que vous enregistrez où vous voulez —
+        rien ne transite par nous.
+      </p>
+    </div>
+
+    <h2>Ce qui sort — et seulement pour ça</h2>
+    <div class="card">
+      <ul>
+        <li>
+          <strong>Les fonds de carte.</strong> Votre navigateur demande les tuiles à l'IGN
+          (et, pour le relief 3D, à Esri et AWS), comme n'importe quelle carte en ligne. Ces services voient votre
+          adresse IP et la zone affichée.
+        </li>
+        <li>
+          <strong>Les noms de lieux, les points d'intérêt et la météo.</strong> Les coordonnées de
+          votre étape, ou la zone affichée, sont envoyées à des services de géocodage (IGN, Photon,
+          OpenStreetMap), à Overpass (refuges, sommets…) et à un service de météo (Open-Meteo),
+          pour récupérer les noms de cols, les points d'intérêt et la météo du jour.
+        </li>
+        <li>
+          <strong>Si vous cliquez sur un lien « faire imprimer mon album ».</strong> Ce lien
+          (WhiteWall) est un <strong>lien d'affiliation</strong> : Sillonphane-Rando peut toucher une
+          commission sur votre commande, sans surcoût pour vous. En cliquant, vous quittez notre
+          site et le partenaire (via le réseau d'affiliation Awin) peut déposer un cookie de suivi
+          sur son propre domaine pour associer votre commande à ce lien.
+        </li>
+      </ul>
+    </div>
+
+    <h2>Ce qu'on ne fait pas</h2>
+    <div class="card">
+      <ul>
+        <li class="no">Pas de compte, pas de mot de passe.</li>
+        <li class="no">Pas de publicité, pas de mouchard sur Sillonphane-Rando lui-même. Aucune mesure d'audience.</li>
+        <li class="no">Pas de revente ni de partage de vos données.</li>
+        <li class="no">Pas d'IA : aucun de vos textes, tracés ou photos n'est envoyé à un service d'intelligence artificielle.</li>
+        <li class="no">Aucun bandeau cookies — parce qu'il n'y a rien à accepter.</li>
+      </ul>
+    </div>
+
+    <h2>Effacer vos données</h2>
+    <p>
+      Videz les données du site dans votre navigateur, ou désinstallez l'application. Il n'y a rien
+      à nous demander : nous ne détenons rien vous concernant.
+    </p>
+
+    <div class="more">
+      Le détail complet et formel :
+      <a href="legal.html#confidentialite">Politique de confidentialité</a> ·
+      <a href="legal.html#mentions">Mentions légales</a>
+    </div>
+    <p class="back-bottom"><a class="hdr__back" href="./">← Accueil</a></p>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__in">
+      <span class="foot__brand">Sillonphane-Rando</span>
+      <a href="./">Accueil</a>
+      <a href="legal.html#confidentialite">Confidentialité</a>
+      <a href="mailto:sillonphane@gmail.com">Contact</a>
+      <small>© 2026 Sillonphane</small>
+    </div>
+  </footer>
+</body>
+</html>

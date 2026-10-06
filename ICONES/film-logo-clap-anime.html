@@ -1,0 +1,52 @@
+<div style="display:flex;align-items:center;justify-content:center;min-height:100%;background:#0D0F12;">
+<svg viewBox="0 0 320 320" width="220" height="220">
+  <defs>
+    <linearGradient id="bgFa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2A2723"/>
+      <stop offset="100%" stop-color="#15130F"/>
+    </linearGradient>
+    <linearGradient id="strokeFa" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#2F5C45"/>
+      <stop offset="50%" stop-color="#D97A3D"/>
+      <stop offset="100%" stop-color="#F4EDE0"/>
+    </linearGradient>
+    <clipPath id="barClipFa">
+      <rect x="108" y="142" width="104" height="24" rx="6"/>
+    </clipPath>
+  </defs>
+
+  <rect width="320" height="320" rx="60" fill="url(#bgFa)"/>
+
+  <!-- single frame, centered, static -->
+  <rect x="72" y="72" width="176" height="176" rx="28"
+        fill="url(#bgFa)" stroke="url(#strokeFa)" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- clapperboard body, static -->
+  <rect x="108" y="164" width="104" height="46" rx="8" fill="#F4EDE0"/>
+  <circle cx="108" cy="166" r="6" fill="#D97A3D"/>
+
+  <!-- clapperboard top bar: claps shut then reopens, looping -->
+  <g style="transform-box: fill-box; transform-origin: 0% 100%; animation: clapMove 3.2s ease-in-out infinite;">
+    <rect x="108" y="142" width="104" height="24" rx="6" fill="#F4EDE0"/>
+    <g clip-path="url(#barClipFa)">
+      <rect x="116" y="140" width="10" height="30" fill="#D97A3D" transform="skewX(-20)"/>
+      <rect x="138" y="140" width="10" height="30" fill="#2A2723" transform="skewX(-20)"/>
+      <rect x="160" y="140" width="10" height="30" fill="#D97A3D" transform="skewX(-20)"/>
+      <rect x="182" y="140" width="10" height="30" fill="#2A2723" transform="skewX(-20)"/>
+      <rect x="204" y="140" width="10" height="30" fill="#D97A3D" transform="skewX(-20)"/>
+    </g>
+  </g>
+
+  <style>
+    @keyframes clapMove {
+      0%   { transform: rotate(-16deg); }
+      44%  { transform: rotate(-16deg); }
+      48%  { transform: rotate(3deg); }
+      52%  { transform: rotate(0deg); }
+      75%  { transform: rotate(0deg); }
+      90%  { transform: rotate(-16deg); }
+      100% { transform: rotate(-16deg); }
+    }
+  </style>
+</svg>
+</div>

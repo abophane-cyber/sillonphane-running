@@ -1,0 +1,6 @@
+/** Empreinte exacte (SHA-256) — détecte les doublons strictement identiques. */
+export async function hashFileExact(file: Blob): Promise<string> {
+  const buf = await file.arrayBuffer()
+  const digest = await crypto.subtle.digest('SHA-256', buf)
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')
+}

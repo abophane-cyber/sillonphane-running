@@ -1,0 +1,47 @@
+<div style="display:flex;align-items:center;justify-content:center;min-height:100%;background:#0D0F12;">
+<svg viewBox="0 0 320 320" width="220" height="220">
+  <defs>
+    <linearGradient id="bgLa2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2A2723"/>
+      <stop offset="100%" stop-color="#15130F"/>
+    </linearGradient>
+    <linearGradient id="altGradLa2" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#2F5C45"/>
+      <stop offset="50%" stop-color="#D97A3D"/>
+      <stop offset="100%" stop-color="#F4EDE0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="320" height="320" rx="60" fill="url(#bgLa2)"/>
+
+  <path pathLength="1"
+        d="M 138,225
+           C 168,232 212,230 224,206
+           C 234,188 226,166 188,160
+           C 160,156 122,146 122,114
+           C 122,82 156,60 220,60"
+        fill="none"
+        stroke="url(#altGradLa2)"
+        stroke-width="29"
+        stroke-linecap="round"
+        style="stroke-dasharray:1; stroke-dashoffset:1; animation: drawIconLA2 4.4s ease-in-out infinite;"/>
+
+  <circle cx="220" cy="60" r="10" fill="#2F5C45" stroke="#F4EDE0" stroke-width="3"
+          style="opacity:0; animation: dotInLA2 4.4s ease-in-out infinite; animation-delay:1.55s"/>
+  <circle cx="138" cy="225" r="10" fill="#F4EDE0"
+          style="opacity:0; animation: dotInLA2 4.4s ease-in-out infinite; animation-delay:0.05s"/>
+
+  <style>
+    @keyframes drawIconLA2 {
+      0%   { stroke-dashoffset: 1; }
+      40%  { stroke-dashoffset: 0; }
+      100% { stroke-dashoffset: 0; }
+    }
+    @keyframes dotInLA2 {
+      0%, 2%  { opacity: 0; }
+      4%, 82% { opacity: 1; }
+      100%    { opacity: 0; }
+    }
+  </style>
+</svg>
+</div>
