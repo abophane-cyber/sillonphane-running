@@ -231,6 +231,10 @@ export interface VoyageTrack {
   panelSuppressed?: string[]           // noms des panneaux décochés/masqués
   panelCustomLocalities?: PanelLocality[]  // panneaux ajoutés manuellement
   panelWizardDone?: boolean            // le wizard a déjà été validé une fois pour ce tracé
+  // Bornes kilométriques et temps de passage (cf. raceSplits.ts)
+  panelBornesOff?: boolean             // bornes masquées (affichées par défaut)
+  panelPlannedTimes?: boolean          // temps prévus plutôt que les temps réels du GPX
+  panelRaceSpeeds?: number[]           // vitesse attendue (km/h) par tranche de 10 km
 }
 
 export type PhotoTone = 'neutre' | 'culturel' | 'amusant' | 'poetique'

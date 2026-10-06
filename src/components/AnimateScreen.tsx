@@ -10,6 +10,7 @@ import type { CharacterId } from '../lib/characters'
 import type { ActivityMode } from '../hooks/useAnimationSettings'
 import type { EndpointKind } from '../hooks/useTrackNaming'
 import { formatEta } from '../lib/exportEta'
+import type { Borne, RaceSettings } from '../lib/raceSplits'
 import type { useAnimation } from '../hooks/useAnimation'
 import type { useLocalityPanels } from '../hooks/useLocalityPanels'
 import type { useLocality, useColMarkers } from '../hooks/useLocality'
@@ -58,6 +59,14 @@ interface Props {
   endLieudit?: boolean
   onStartKindChange: (k: EndpointKind) => void
   onEndKindChange: (k: EndpointKind) => void
+  /** Bornes tous les 5 km et temps de passage (cf. raceSplits.ts). */
+  race: RaceSettings
+  onRaceChange: (r: RaceSettings) => void
+  /** Le GPX porte des heures réelles. */
+  realTimes: boolean
+  bornes: Borne[]
+  departureTime: string
+  onDepartureTimeChange: (v: string) => void
   onMapCanvasReady: (canvas: HTMLCanvasElement | null) => void
   countdown: number | null
   waitingMap: boolean
@@ -109,6 +118,7 @@ export function AnimateScreen({
   locality, colMarkers, panels, endDelayMsRef, startDelayMsRef,
   startName, endName, onStartNameChange, onEndNameChange,
   effectiveStartName, effectiveEndName, startColEle, endColEle, startLieudit, endLieudit, onStartKindChange, onEndKindChange, onMapCanvasReady,
+  race, onRaceChange, realTimes, bornes, departureTime, onDepartureTimeChange,
   countdown, waitingMap, weather, filmProgress, handleCreateFilm, lastFilmUrl,
   filmEtaS, film3dProgress, film3dPhase, film3dEtaS, handleCreateFilm3d, onFilm3dIntent, lastFilm3dUrl,
   trackHasSavedFilm, onViewFilm,
@@ -179,6 +189,7 @@ export function AnimateScreen({
           colMarkers={visibleColMarkers}
           previewLocalities={previewLocalities}
           customLocalities={customLocalities}
+          bornes={bornes}
           onRemoveCustomLocality={handleRemoveCustomLocality}
           onMoveCustomLocality={handleMoveCustomLocality}
           onSuppressLocality={suppressLocality}
@@ -223,6 +234,12 @@ export function AnimateScreen({
             endIsCol={endColEle != null}
             onStartKindChange={onStartKindChange}
             onEndKindChange={onEndKindChange}
+            race={race}
+            onRaceChange={onRaceChange}
+            realTimes={realTimes}
+            totalDistance={activeTrack.distance}
+            departureTime={departureTime}
+            onDepartureTimeChange={onDepartureTimeChange}
             onToggleLocality={toggleSuppressLocality}
             onAddPanel={handleAddPanel}
             onRemoveCustomLocality={handleRemoveCustomLocality}

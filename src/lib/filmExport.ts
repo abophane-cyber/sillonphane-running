@@ -16,6 +16,7 @@ import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
+import { borneTimeLine, type Borne } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -43,6 +44,8 @@ export interface FilmExportOptions {
   trailDate?:        string
   weather?:          { tempMin: number; tempMax: number; departure?: { temp: number; icon?: string; description?: string } | null; arrival?: { temp: number; icon?: string; description?: string } | null } | null
   characters:        CharacterId[]
+  /** Bornes tous les 5 km (km + temps de passage), couchées sur la carte comme les panneaux. */
+  bornes?:           Borne[]
   speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
   trackName:         string
   durationS:         number // Défaut: 30s (correspond à la Preview)
@@ -221,7 +224,7 @@ function drawTrack(
 // (Arrondir la position à l'entier avait été tenté avant et donnait un autre défaut : un saut
 // d'1 px quand la position franchit un seuil entier — d'où l'usage d'un cache par appel de film.)
 
-type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi'
+type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi' | 'borne'
 
 // Running : panneaux COUCHÉS sur la carte (sans mât, centrés sur le lieu), à la taille des personnages selon le zoom
 // (cf. hiker3dScaleForZoom) ; pré-rendus en haute résolution (SIGN_RES) pour rester nets dans les plans serrés.
@@ -230,7 +233,7 @@ const SIGN_RES = 2.5
 interface LocSignSprite { canvas: HTMLCanvasElement; offX: number; offY: number }
 type LocSignCache = Map<string, LocSignSprite>
 
-function buildLocSignSprite(name: string, style: SignStyle, ele?: number): LocSignSprite {
+function buildLocSignSprite(name: string, style: SignStyle, ele?: number, sub?: string): LocSignSprite {
   const FONT_SIZE = 15
   const PAD_X = 12, PAD_Y = 6
   const BORDER = 3.5, RADIUS = 7
@@ -239,6 +242,7 @@ function buildLocSignSprite(name: string, style: SignStyle, ele?: number): LocSi
   const isLieudit = style === 'lieudit'
   const isCol     = style === 'col'
   const isPoi     = style === 'poi' // point d'intérêt : panneau touristique marron, liseré blanc
+  const isBorne   = style === 'borne' // borne kilométrique : bleu nuit, km + temps de passage (cf. raceSplits.ts)
 
   const label     = isLieudit || isPoi ? name : name.toUpperCase()
   const fontStyle = isLieudit ? 'italic 800' : isPoi ? '700' : '800'
@@ -248,11 +252,11 @@ function buildLocSignSprite(name: string, style: SignStyle, ele?: number): LocSi
   const measureCtx = document.createElement('canvas').getContext('2d')!
   measureCtx.font = FONT
   const textW  = measureCtx.measureText(label).width
-  const eleStr = isCol && ele != null ? `Alt. ${ele} m` : ''
+  const eleStr = isCol && ele != null ? `Alt. ${ele} m` : isBorne && sub ? sub : ''
   measureCtx.font = FONT2
   const eleW   = eleStr ? measureCtx.measureText(eleStr).width : 0
   const boardW = Math.max(textW, eleW) + PAD_X * 2
-  const boardH = isCol && eleStr ? FONT_SIZE + 12 + PAD_Y * 2 : FONT_SIZE + PAD_Y * 2
+  const boardH = eleStr ? FONT_SIZE + 12 + PAD_Y * 2 : FONT_SIZE + PAD_Y * 2
 
   const W = Math.ceil(boardW + BORDER * 2 + MARGIN * 2)
   const H = Math.ceil(boardH + BORDER * 2 + MARGIN * 2)
@@ -269,9 +273,9 @@ function buildLocSignSprite(name: string, style: SignStyle, ele?: number): LocSi
   const boardX = px - boardW / 2
   const boardY = py - boardH / 2
 
-  const bgColor     = isLieudit ? '#b84400' : isCol ? '#253d17' : isPoi ? '#5b3a1e' : '#fff'
-  const textColor   = isLieudit || isCol || isPoi ? '#fff' : '#111'
-  const borderColor = isLieudit || isCol || isPoi ? 'transparent' : '#c0000c'
+  const bgColor     = isLieudit ? '#b84400' : isCol ? '#253d17' : isPoi ? '#5b3a1e' : isBorne ? '#14213d' : '#fff'
+  const textColor   = isLieudit || isCol || isPoi || isBorne ? '#fff' : '#111'
+  const borderColor = isLieudit || isCol || isPoi || isBorne ? 'transparent' : '#c0000c'
 
   ctx.save()
   // Ombre courte : la pancarte est au sol, pas dressée.
@@ -295,11 +299,12 @@ function buildLocSignSprite(name: string, style: SignStyle, ele?: number): LocSi
 
   ctx.font = FONT; ctx.fillStyle = textColor
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  const textY = isCol && eleStr ? boardY + PAD_Y + FONT_SIZE / 2 : boardY + boardH / 2
+  const textY = eleStr ? boardY + PAD_Y + FONT_SIZE / 2 : boardY + boardH / 2
   ctx.fillText(label, px, textY)
 
-  if (isCol && eleStr) {
+  if (eleStr) {
     ctx.font = FONT2
+    if (isBorne) ctx.fillStyle = '#ffd166'
     ctx.fillText(eleStr, px, boardY + boardH - PAD_Y - 5)
   }
 
@@ -315,11 +320,12 @@ function drawLocSign(
   ele?: number,
   alpha = 1,
   scale = 1,
+  sub?: string,
 ) {
   if (alpha <= 0) return
-  const key = `${style}|${name}|${ele ?? ''}`
+  const key = `${style}|${name}|${ele ?? ''}|${sub ?? ''}`
   let sprite = cache.get(key)
-  if (!sprite) { sprite = buildLocSignSprite(name, style, ele); cache.set(key, sprite) }
+  if (!sprite) { sprite = buildLocSignSprite(name, style, ele, sub); cache.set(key, sprite) }
   const w = (sprite.canvas.width / SIGN_RES) * scale, h = (sprite.canvas.height / SIGN_RES) * scale
   const draw = () => ctx.drawImage(sprite.canvas, px - sprite.offX * scale, py - sprite.offY * scale, w, h)
   if (alpha >= 1) draw()
@@ -1023,6 +1029,15 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   let hkMergeWas = false                                // mise en file du second en cours à l'image précédente
   /** Taille des panneaux couchés au zoom affiché : celle des personnages (1 pendant la course). */
   const signScale = () => hiker3dScaleForZoom(exportMap.getZoom(), zoom)
+  /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
+  function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1) {
+    if (alpha <= 0) return
+    for (const b of opts.bornes ?? []) {
+      const pt = project(b.lon, b.lat)
+      if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
+        drawLocSign(ctx, locSignCache, b.label, pt.x, pt.y, 'borne', undefined, alpha, scale, borneTimeLine(b) || undefined)
+    }
+  }
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))
   /** Avance les personnages d'une image et les dessine, pieds en (x, y). `scale` : 1 = taille de marche. */
   function drawHikers3d(x: number, y: number, scale: number, alpha = 1) {
@@ -1265,6 +1280,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
     // 2. Tracé GPX (projeté de manière synchrone)
     drawTrack(ctx, project, visualPoints, distances, totalDistance, progress)
+    drawBornes(project, 1) // bornes kilométriques, au sol sous les panneaux
 
     // 3. Panneaux localités
     // Évite la collision visuelle avec le randonneur : un panneau de lieu-dit qui se déclenche
@@ -1352,6 +1368,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       catch { ctx.fillStyle = '#e8e0d5'; ctx.fillRect(0, 0, OUT_W, OUT_H) }
 
       drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 1)
+      drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale())
 
       for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const pt = exportMap.project([ev.lon, ev.lat])
@@ -1451,6 +1468,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Vue d'ensemble, alignée sur le film 3D : cols, départ et arrivée restent ; les localités
       // intermédiaires s'effacent en fondu pendant le premier tiers du dézoom (image finale allégée).
       const locFade = 1 - Math.min(1, f / Math.max(1, EASE_OV * 0.35))
+      drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale(), locFade)
       for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const isEndpoint = ev === departureEvent || ev === arrivalEvent
         const a = isEndpoint || ev.style === 'col' ? 1 : locFade

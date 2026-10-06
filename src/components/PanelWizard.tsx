@@ -4,6 +4,19 @@ import type { AddPanelInfo } from './AnimationControls'
 import { OnboardingBubble } from './OnboardingBubble'
 import { PANEL_DRAG_MIME } from '../lib/panelDrag'
 import type { EndpointKind } from '../hooks/useTrackNaming'
+import {
+  DEFAULT_SPEED_KMH, SPEED_SLICE_KM, formatElapsed, hasPlannedSpeeds, plannedElapsedS, speedSliceCount,
+  type RaceSettings,
+} from '../lib/raceSplits'
+
+/** « 12 h 41 (3 h 41'00") », ou la durée seule sans heure de départ. */
+function plannedFinish(startTime: string, elapsedS: number): string {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(startTime)
+  if (!m) return formatElapsed(elapsedS)
+  const t = (Number(m[1]) * 60 + Number(m[2])) * 60 + elapsedS
+  const h = Math.floor(t / 3600) % 24, min = Math.floor((t % 3600) / 60)
+  return `${h} h ${String(min).padStart(2, '0')} (${formatElapsed(elapsedS)})`
+}
 
 interface Props {
   startName: string
@@ -25,6 +38,14 @@ interface Props {
   onAddPanel: (info: AddPanelInfo) => void
   onRemoveCustomLocality: (name: string) => void
   onComplete: () => void
+  /** Bornes tous les 5 km et temps de passage. */
+  race: RaceSettings
+  onRaceChange: (r: RaceSettings) => void
+  /** Le GPX porte des heures réelles : choix entre temps du GPX et temps prévus. */
+  realTimes: boolean
+  totalDistance: number
+  departureTime: string
+  onDepartureTimeChange: (v: string) => void
   showHint?: boolean
   onDismissHint?: () => void
 }
@@ -34,6 +55,7 @@ export function PanelWizard({
   excluded, customLocalities, onStartNameChange, onEndNameChange,
   startKind, endKind, startIsCol, endIsCol, onStartKindChange, onEndKindChange,
   onToggleLocality, onAddPanel, onRemoveCustomLocality, onComplete,
+  race, onRaceChange, realTimes, totalDistance, departureTime, onDepartureTimeChange,
   showHint, onDismissHint,
 }: Props) {
   const depHidden = excluded.has(startName)
@@ -183,6 +205,78 @@ export function PanelWizard({
           </div>
           {!arrHidden && !endIsCol && kindPicker(endKind, onEndKindChange)}
         </div>}
+
+        {/* ── Bornes tous les 5 km et temps de passage (cf. raceSplits.ts) ── */}
+        <div className="pwiz-section pwiz-section--bornes">
+          <div className="pwiz-row">
+            <span className="pwiz-section-label">⏱ Bornes tous les 5 km</span>
+            <label className="pwiz-toggle" title="Afficher / masquer les bornes">
+              <input
+                type="checkbox"
+                checked={!race.bornesOff}
+                onChange={() => onRaceChange({ ...race, bornesOff: !race.bornesOff })}
+              />
+              <span className="pwiz-toggle-track" />
+            </label>
+          </div>
+          {!race.bornesOff && (
+            <>
+              {realTimes && (
+                <div className="add-panel-form__row pwiz-kind">
+                  {([false, true] as const).map(planned => (
+                    <button
+                      key={String(planned)} type="button"
+                      className={`add-panel-form__type-btn${race.plannedTimes === planned ? ' active' : ''}`}
+                      onClick={() => onRaceChange({ ...race, plannedTimes: planned })}
+                    >
+                      {planned ? 'Temps prévus' : 'Temps du GPX'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {realTimes && !race.plannedTimes ? (
+                <p className="pwiz-empty">Temps de passage réels, lus dans la trace enregistrée.</p>
+              ) : (
+                <>
+                  <label className="pwiz-race-row">
+                    <span>Heure de départ</span>
+                    <input
+                      type="time" className="pwiz-input pwiz-input--time"
+                      value={departureTime}
+                      onChange={e => onDepartureTimeChange(e.target.value)}
+                    />
+                  </label>
+                  <span className="pwiz-race-hint">Vitesse prévue (km/h), par tranche de {SPEED_SLICE_KM} km :</span>
+                  {Array.from({ length: speedSliceCount(totalDistance) }, (_, i) => {
+                    const a = i * SPEED_SLICE_KM
+                    const b = Math.min((i + 1) * SPEED_SLICE_KM, totalDistance / 1000)
+                    return (
+                      <label key={i} className="pwiz-race-row">
+                        <span>{a}–{Math.round(b * 10) / 10} km</span>
+                        <input
+                          type="number" min={3} max={30} step={0.1} inputMode="decimal"
+                          className="pwiz-input pwiz-input--speed"
+                          placeholder={i === 0 ? String(DEFAULT_SPEED_KMH) : 'idem'}
+                          value={race.speeds[i] || ''}
+                          onChange={e => {
+                            const speeds = [...race.speeds]
+                            speeds[i] = parseFloat(e.target.value.replace(',', '.')) || 0
+                            onRaceChange({ ...race, speeds })
+                          }}
+                        />
+                      </label>
+                    )
+                  })}
+                  {hasPlannedSpeeds(race.speeds) && (
+                    <p className="pwiz-race-total">
+                      Arrivée prévue : {plannedFinish(departureTime, plannedElapsedS(totalDistance / 1000, race.speeds))}
+                    </p>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
 
         {/* ── Panneaux ajoutés manuellement (après l'arrivée) ── */}
         <div className="pwiz-section pwiz-section--custom">

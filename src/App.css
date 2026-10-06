@@ -709,6 +709,25 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   letter-spacing: 0.04em;
 }
 
+/* Borne kilométrique (cf. raceSplits.ts) — bleu nuit, km en blanc, temps de passage en jaune (comme le film 2D) */
+.loc-sign--borne .loc-sign__board {
+  background: #14213d;
+  color: #fff;
+  border: none;
+  box-shadow: none;
+  text-align: center;
+  padding: 6px 14px 7px;
+}
+.loc-sign__borne-time {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffd166;
+  margin-top: 2px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
 /* Poteau (masqué : pancartes couchées sur la carte) */
 .loc-sign__pole {
   display: none;
@@ -2236,6 +2255,16 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .pwiz-section--cols     { background: rgba(193,92,61,0.10); }
 .pwiz-section--places   { background: rgba(52,112,170,0.09); }
 .pwiz-section--custom   { background: rgba(170,135,60,0.12); }
+/* Bornes et temps de passage : bleu nuit des bornes (cf. .loc-sign--borne). */
+.pwiz-section--bornes {
+  padding: 10px 12px 12px; border-radius: 10px;
+  background: rgba(20,33,61,0.10);
+}
+.pwiz-section--bornes .pwiz-row .pwiz-section-label { flex: 1; }
+.pwiz-race-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
+.pwiz-input--time, .pwiz-input--speed { flex: 0 0 96px; padding: 6px 9px; text-align: right; }
+.pwiz-race-hint { font-size: 12px; opacity: .7; }
+.pwiz-race-total { margin: 2px 0 0; font-size: 13px; font-weight: 600; }
 .pwiz-section-label {
   font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
   opacity: .5; padding-bottom: 2px;

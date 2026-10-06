@@ -17,6 +17,7 @@ import {
   HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
+import { borneTimeLine, type Borne } from '../lib/raceSplits'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -162,6 +163,8 @@ interface Props {
   colMarkers?: ColMarker[]
   previewLocalities?: LocalityInfo[]
   customLocalities?: LocalityInfo[]
+  /** Bornes tous les 5 km (km + temps de passage), couchées sur le tracé. */
+  bornes?: Borne[]
   onRemoveCustomLocality?: (name: string) => void
   onMoveCustomLocality?: (name: string, lon: number, lat: number) => void
   onSuppressLocality?: (name: string) => void
@@ -224,7 +227,7 @@ export function TrackMap({
   panelDuration = 3000,
   localityDedupKm = 5,
   localityDedupMinScore = 6,
-  locality, colMarkers = [], previewLocalities, customLocalities = [], onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
+  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
   departureNameOverride, arrivalNameOverride, departureColEle, arrivalColEle, departureLieudit, arrivalLieudit,
   detectedDepartureName, detectedArrivalName,
   onMapCanvasReady, animationEnded = false,
@@ -756,6 +759,21 @@ export function TrackMap({
     startDelayMsRef.current = HIKER3D && characters.length ? HIKER3D_START_DEZOOM_MS : 0
     return () => { startDelayMsRef.current = 0 }
   }, [startDelayMsRef, characters.length])
+
+  // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, affichées en permanence ──
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !bornes?.length) return
+    const markers = bornes.map(b => {
+      const el = document.createElement('div')
+      const time = borneTimeLine(b)
+      el.innerHTML = `<div class="loc-sign loc-sign--borne"><div class="loc-sign__board">` +
+        `<span class="loc-sign__col-name">${b.label}</span>` +
+        (time ? `<span class="loc-sign__borne-time">${time}</span>` : '') + '</div></div>'
+      return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([b.lon, b.lat]).addTo(map)
+    })
+    return () => markers.forEach(m => m.remove())
+  }, [bornes])
 
   // ── Randonneur 3D : sa taille suit le zoom de la carte (plans serrés de départ et d'arrivée) ──
   useEffect(() => {

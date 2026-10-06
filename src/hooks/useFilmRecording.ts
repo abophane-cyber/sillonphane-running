@@ -10,6 +10,7 @@ import type { LocalityInfo } from './useLocality'
 import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
+import type { Borne } from '../lib/raceSplits'
 
 export interface CreateFilmContext {
   activeTrack: GpxTrack
@@ -27,6 +28,8 @@ export interface CreateFilmContext {
   manualDate?: string
   weather: WeatherInfo | null
   characters: CharacterId[]
+  /** Bornes tous les 5 km avec temps de passage (cf. raceSplits.ts). */
+  bornes: Borne[]
   trackName: string
   speedLevel: 1 | 2
   activeSillonId: string | null
@@ -119,6 +122,7 @@ export function useFilmRecording() {
         trailDate: formatTrailDate(ctx.manualDate ?? ctx.activeTrack.startTime),
         weather:   ctx.weather ?? null,
         characters: ctx.characters,
+        bornes: ctx.bornes,
         speedLevel: ctx.speedLevel,
         trackName: ctx.trackName,
         durationS,

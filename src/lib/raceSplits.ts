@@ -1,0 +1,146 @@
+// Bornes kilométriques et temps de passage (course sur route) : une borne tous les 5 km, plus le semi sur un
+// parcours assez long. Temps réels d'un GPX enregistré, ou temps PRÉVUS calculés depuis l'heure de départ et une
+// vitesse attendue par tranche de 10 km (course pas encore faite). Partagé par l'aperçu (TrackMap) et le film 2D.
+import type { GpxPoint } from '../types'
+
+export const BORNE_EVERY_KM = 5
+export const SEMI_KM = 21.0975
+/** Taille d'une tranche de vitesse prévue (km). */
+export const SPEED_SLICE_KM = 10
+export const DEFAULT_SPEED_KMH = 10
+
+/** Réglages des bornes, saisis dans le widget des panneaux et mémorisés avec le tracé. */
+export interface RaceSettings {
+  bornesOff: boolean
+  /** Temps prévus même si le GPX a des heures réelles. */
+  plannedTimes: boolean
+  /** Vitesse attendue (km/h) par tranche de SPEED_SLICE_KM ; 0 = non renseignée. */
+  speeds: number[]
+}
+export const DEFAULT_RACE_SETTINGS: RaceSettings = { bornesOff: false, plannedTimes: false, speeds: [] }
+
+export interface Borne {
+  /** Libellé principal : « 10 KM », « SEMI ». */
+  label: string
+  km: number
+  lat: number
+  lon: number
+  /** Temps depuis le départ (s), si connu. */
+  elapsedS?: number
+  /** Heure de passage « 10 h 52 », si l'heure de départ est connue. */
+  clock?: string
+}
+
+/** Temps réels exploitables : horodatage sur presque tous les points, croissant, à une allure de course plausible
+ * (un tracé de planification porte souvent des heures fictives : toutes identiques ou à vitesse irréaliste). */
+export function hasRealTimes(points: GpxPoint[], distances: number[]): boolean {
+  if (points.length < 2) return false
+  const timed = points.filter(p => p.time).length
+  if (timed < points.length * 0.9) return false
+  const t0 = points.find(p => p.time)!.time!.getTime()
+  const t1 = [...points].reverse().find(p => p.time)!.time!.getTime()
+  const durS = (t1 - t0) / 1000
+  if (durS <= 60) return false
+  const kmh = (distances[distances.length - 1] / 1000) / (durS / 3600)
+  return kmh > 2 && kmh < 30
+}
+
+/** Nombre de tranches de vitesse prévue pour une distance (au moins une). */
+export function speedSliceCount(totalM: number): number {
+  return Math.max(1, Math.ceil(totalM / 1000 / SPEED_SLICE_KM))
+}
+
+/** Vitesse saisie utilisable (km/h). */
+const validSpeed = (v: number | undefined): v is number => typeof v === 'number' && v > 0 && v < 40
+
+/** Au moins une vitesse prévue saisie. */
+export function hasPlannedSpeeds(speedsKmh: number[] | undefined): boolean {
+  return !!speedsKmh?.some(validSpeed)
+}
+
+/** Temps prévu (s) pour parcourir `km` depuis le départ, tranche par tranche ; une tranche non renseignée reprend
+ * la vitesse de la précédente (ou de la première renseignée). */
+export function plannedElapsedS(km: number, speedsKmh: number[]): number {
+  let v = speedsKmh.find(validSpeed) ?? DEFAULT_SPEED_KMH
+  let s = 0
+  for (let a = 0, i = 0; a < km; a += SPEED_SLICE_KM, i++) {
+    if (validSpeed(speedsKmh[i])) v = speedsKmh[i]
+    s += (Math.min(SPEED_SLICE_KM, km - a) / v) * 3600
+  }
+  return s
+}
+
+/** « 1 h 02'31" », « 52'31" ». */
+export function formatElapsed(s: number): string {
+  const t = Math.round(s)
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = t % 60
+  const mm = String(m).padStart(h ? 2 : 1, '0'), ss = String(sec).padStart(2, '0')
+  return h ? `${h} h ${mm}'${ss}"` : `${mm}'${ss}"`
+}
+
+/** « 10 h 52 ». */
+export function formatClock(d: Date): string {
+  return `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function pointAtM(points: GpxPoint[], distances: number[], m: number) {
+  let i = 1
+  while (i < distances.length - 1 && distances[i] < m) i++
+  const t = (m - distances[i - 1]) / ((distances[i] - distances[i - 1]) || 1)
+  const a = points[i - 1], b = points[i]
+  const ta = a.time?.getTime(), tb = b.time?.getTime()
+  return {
+    lat: a.lat + t * (b.lat - a.lat),
+    lon: a.lon + t * (b.lon - a.lon),
+    timeMs: ta != null && tb != null ? ta + t * (tb - ta) : undefined,
+  }
+}
+
+export interface BorneOptions {
+  /** Temps du GPX (s'ils sont réels) plutôt que les temps prévus. */
+  useRealTimes: boolean
+  /** Heure de départ prévue « HH:MM » (temps prévus). */
+  startTime?: string
+  /** Date de la course « AAAA-MM-JJ » (temps prévus), sinon aujourd'hui. */
+  date?: string
+  /** Vitesse attendue (km/h) par tranche de SPEED_SLICE_KM ; absente = pas de temps prévus. */
+  speedsKmh?: number[]
+}
+
+export function computeBornes(points: GpxPoint[], distances: number[], opts: BorneOptions): Borne[] {
+  const total = distances[distances.length - 1] ?? 0
+  if (points.length < 2 || total < BORNE_EVERY_KM * 1000) return []
+  const kms: { km: number; label: string }[] = []
+  for (let km = BORNE_EVERY_KM; km * 1000 < total - 200; km += BORNE_EVERY_KM) kms.push({ km, label: `${km} KM` })
+  // Semi : seulement sur un parcours nettement plus long (sinon c'est l'arrivée).
+  if (total > (SEMI_KM + 1) * 1000) kms.push({ km: SEMI_KM, label: 'SEMI' })
+  kms.sort((a, b) => a.km - b.km)
+
+  const t0 = points[0].time?.getTime()
+  let plannedStart: Date | undefined
+  if (!opts.useRealTimes && opts.startTime && /^\d{1,2}:\d{2}$/.test(opts.startTime)) {
+    const [h, m] = opts.startTime.split(':').map(Number)
+    plannedStart = opts.date ? new Date(`${opts.date}T00:00:00`) : new Date()
+    plannedStart.setHours(h, m, 0, 0)
+  }
+
+  return kms.map(({ km, label }) => {
+    const p = pointAtM(points, distances, km * 1000)
+    const b: Borne = { label, km, lat: p.lat, lon: p.lon }
+    if (opts.useRealTimes) {
+      if (t0 != null && p.timeMs != null) {
+        b.elapsedS = (p.timeMs - t0) / 1000
+        b.clock = formatClock(new Date(p.timeMs))
+      }
+    } else if (opts.speedsKmh && hasPlannedSpeeds(opts.speedsKmh)) {
+      b.elapsedS = plannedElapsedS(km, opts.speedsKmh)
+      if (plannedStart) b.clock = formatClock(new Date(plannedStart.getTime() + b.elapsedS * 1000))
+    }
+    return b
+  })
+}
+
+/** Deuxième ligne d'une borne : « 10 h 52 · 52'31" », ou l'un des deux, ou rien. */
+export function borneTimeLine(b: Borne): string {
+  return [b.clock, b.elapsedS != null ? formatElapsed(b.elapsedS) : undefined].filter(Boolean).join(' · ')
+}

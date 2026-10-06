@@ -214,6 +214,9 @@ export async function saveTrackPanelSettings(
     suppressed?: string[]
     customLocalities?: PanelLocality[]
     wizardDone?: boolean
+    bornesOff?: boolean
+    plannedTimes?: boolean
+    raceSpeeds?: number[]
   },
 ): Promise<void> {
   return withVoyageLock(voyageId, async () => {
@@ -228,6 +231,9 @@ export async function saveTrackPanelSettings(
       panelSuppressed: settings.suppressed,
       panelCustomLocalities: settings.customLocalities,
       panelWizardDone: settings.wizardDone,
+      panelBornesOff: settings.bornesOff,
+      panelPlannedTimes: settings.plannedTimes,
+      panelRaceSpeeds: settings.raceSpeeds,
     } : t)
     await saveVoyage(voyage)
   })

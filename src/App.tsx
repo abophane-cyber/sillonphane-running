@@ -28,6 +28,7 @@ import { useVoyageSaveModal } from './hooks/useVoyageSaveModal'
 import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
+import { computeBornes, hasRealTimes, DEFAULT_RACE_SETTINGS, type RaceSettings } from './lib/raceSplits'
 import { useAnimationSettings, ZOOMS, animSpeed } from './hooks/useAnimationSettings'
 import { useGpxSession } from './hooks/useGpxSession'
 import { hasActiveRecording } from './hooks/useGpsRecorder'
@@ -93,6 +94,13 @@ export default function App() {
   const endCol   = endpointCol(colMarkers, points[points.length - 1])
   const { customTitle, setCustomTitle, startName, setStartName, endName, setEndName, restoreNames, startLieudit: startLieuditGeo, endLieudit: endLieuditGeo, startKind, endKind, setStartKind, setEndKind } = useTrackNaming(activeTrack, startCol?.name, endCol?.name)
   const weather = useWeather(activeTrack, manualDate, departureTime, arrivalTime)
+  // Bornes tous les 5 km et temps de passage : réels (GPX enregistré) ou prévus (heure de départ + vitesses).
+  const [race, setRace] = useState<RaceSettings>(DEFAULT_RACE_SETTINGS)
+  const realTimes = useMemo(() => hasRealTimes(points, distances), [points, distances])
+  const bornes = useMemo(() => race.bornesOff ? [] : computeBornes(points, distances, {
+    useRealTimes: realTimes && !race.plannedTimes,
+    startTime: departureTime, date: manualDate, speedsKmh: race.speeds,
+  }), [points, distances, race, realTimes, departureTime, manualDate])
   const { fitBoundsCount, seekCount, zoomToStartCount, bumpFitBounds, bumpSeek, bumpZoomToStart } = useMapTriggers()
   const [hasPlayedPreview, setHasPlayedPreview] = useState(false)
   const [previewFinished, setPreviewFinished] = useState(false)
@@ -271,6 +279,7 @@ export default function App() {
     suppressed?: string[]
     customLocalities?: PanelLocality[]
     wizardDone?: boolean
+    race?: RaceSettings
     // Le tracé a déjà une composition (film, pages d'album, ou assistant panneaux validé) : on
     // reprend la progression (aperçu considéré comme fait). Sinon — tracé brut, dont un
     // enregistrement direct tout juste rangé dans Mes sillons — on repart de zéro.
@@ -303,6 +312,7 @@ export default function App() {
     setCustomTitle(parsed.name ?? parsed.tracks[0]?.name ?? '')
     restoreNames(restore?.startName || '', restore?.endName || '', restore?.startKind, restore?.endKind)
     setCustomLocalities(restore?.customLocalities ?? [])
+    setRace(restore?.race ?? DEFAULT_RACE_SETTINGS)
     pendingPanelRestoreRef.current = restore ? { suppressed: restore.suppressed, wizardDone: restore.wizardDone } : null
     reset()
     // Vitesse initiale selon le mode et la distance
@@ -356,10 +366,13 @@ export default function App() {
         suppressed: suppressedLocalities.size > 0 ? Array.from(suppressedLocalities) : undefined,
         customLocalities: customLocalities.length > 0 ? customLocalities : undefined,
         wizardDone,
+        bornesOff: race.bornesOff || undefined,
+        plannedTimes: race.plannedTimes || undefined,
+        raceSpeeds: race.speeds.length > 0 ? race.speeds : undefined,
       }).catch(e => console.error('[panels] save:', e))
     }, 600)
     return () => clearTimeout(timer)
-  }, [activeSillonId, activeSillonTrackId, startName, endName, startKind, endKind, suppressedLocalities, customLocalities, wizardDone])
+  }, [activeSillonId, activeSillonTrackId, startName, endName, startKind, endKind, suppressedLocalities, customLocalities, wizardDone, race])
 
   const { countdown, waitingMap, mapIdleRef, handleMapIdle, handlePlay, handlePause, handleReset, handleRestart } = usePlaybackCountdown(
     state, play, pause, reset, speedLevel, ZOOMS, setTargetZoom, () => setZoomResetSeq(s => s + 1),
@@ -403,6 +416,7 @@ export default function App() {
       manualDate,
       weather,
       characters,
+      bornes,
       trackName: customTitle || activeTrack.name,
       speedLevel,
       activeSillonId,
@@ -600,6 +614,11 @@ export default function App() {
                   suppressed: track.panelSuppressed,
                   customLocalities: track.panelCustomLocalities,
                   wizardDone: track.panelWizardDone,
+                  race: {
+                    bornesOff: !!track.panelBornesOff,
+                    plannedTimes: !!track.panelPlannedTimes,
+                    speeds: track.panelRaceSpeeds ?? [],
+                  },
                   hasComposition,
                   hasFilm,
                   date: track.date,
@@ -785,6 +804,12 @@ export default function App() {
             endLieudit={endLieudit}
             onStartKindChange={setStartKind}
             onEndKindChange={setEndKind}
+            race={race}
+            onRaceChange={setRace}
+            realTimes={realTimes}
+            bornes={bornes}
+            departureTime={departureTime}
+            onDepartureTimeChange={setDepartureTime}
             onMapCanvasReady={canvas => { mapCanvasRef.current = canvas }}
             countdown={countdown}
             waitingMap={waitingMap}
