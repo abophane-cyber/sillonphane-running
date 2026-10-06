@@ -1,4 +1,4 @@
-// coureuse1 (allures enchaînées selon la distance), randonneur1 (modèle par défaut, Walking.fbx converti), randonneuse1 et randonneur2 ont chacun leur
+// coureuse1 (course), randonneur1 (modèle par défaut, Walking.fbx converti), randonneuse1 et randonneur2 ont chacun leur
 // propre modèle.
 
 export interface CharacterDef {
@@ -35,16 +35,9 @@ export interface CharacterDef {
 }
 
 export const CHARACTERS: CharacterDef[] = [
-  // Course : allure qui change au fil du parcours (départ, croisière, fatigue, finish) ; attente au départ, victoire à l'arrivée.
+  // Course (jogging) ; attente au départ, victoire à l'arrivée ; numéro plaqué sur le dossard blanc.
   { id: 'coureuse1', label: 'Coureuse', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1_idle.glb`, greetUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1_victoire.glb`, clipFps: 30, trimDuplicateLastFrame: true,
-    bib: { x: 0, y: 0.699, w: 0.085, h: 0.05, bone: 'mixamorigSpine2' },
-    gaits: [
-      { from: 0, url: `${import.meta.env.BASE_URL}perso/models/coureuse1_running4.glb` },
-      { from: 0.15 },
-      { from: 0.5, url: `${import.meta.env.BASE_URL}perso/models/coureuse1_slowrun.glb` },
-      { from: 0.75, url: `${import.meta.env.BASE_URL}perso/models/coureuse1_jogging.glb` },
-      { from: 0.92, url: `${import.meta.env.BASE_URL}perso/models/coureuse1_runforward.glb` },
-    ] },
+    bib: { x: 0, y: 0.706, w: 0.085, h: 0.05, bone: 'mixamorigSpine2' } },
   // Départ : attente (respiration) ; marche ; fin : révérence (clip « s'assoit », sans pose finale).
   { id: 'randonneur1', label: 'Randonneur', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/randonneur1.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/randonneur1_idle.glb`, sitDownUrl: `${import.meta.env.BASE_URL}perso/models/randonneur1_salut.glb`, exactLoop: true, clipFps: 30, trimDuplicateLastFrame: true },
   { id: 'randonneuse1', label: 'Randonneuse', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/randonneuse1c.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/randonneuse1c_idle.glb`, lieDownUrl: `${import.meta.env.BASE_URL}perso/models/randonneuse1c_debout.glb`, trimDuplicateLastFrame: true },
