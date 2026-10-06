@@ -10,7 +10,7 @@ export const HIKER3D_ENABLED = (() => {
 export const HIKER3D_CLOSE_ZOOM = 3.5
 /** Zoom d'arrivée, dézoom de départ et vue d'ensemble finale. */
 export const HIKER3D_END_ZOOM_MS = 3000
-export const HIKER3D_START_DEZOOM_MS = 4000
+export const HIKER3D_START_DEZOOM_MS = 2000
 export const HIKER3D_OVERVIEW_MS = 5000
 /** Duo : écart côte à côte (départ, arrivée) de chaque marcheur au point, et distance en file pendant la marche
  * (px à l'écran, taille de marche). */
@@ -24,6 +24,9 @@ export const HIKER3D_MERGE_TAU_S = 1.5
 export const HIKER3D_SCALE_PER_ZOOM = 0.45
 export const HIKER3D_MIN_SCALE = 0.6
 export const HIKER3D_MAX_SCALE = 4.5
+/** Running : taille du coureur sur la carte (× la taille de marche d'origine), plus petit avec la caméra rapprochée.
+ * Ne touche que les personnages (pas les noms de lieux ni les bornes, cf. --ground-scale). */
+export const HIKER3D_BODY_SCALE = 0.75
 /** Running : coureur choisi avant la lecture, présenté en grand PAR-DESSUS la carte (qui ne bouge pas), pieds sur le
  * bas du cadre : il occupe cette part de la hauteur de la carte (borné par HIKER3D_MAX_SCALE). Il reste ainsi pendant
  * le décompte, puis rapetisse jusqu'à sa taille de course au départ pendant que la carte zoome dessus. */

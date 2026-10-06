@@ -50,6 +50,10 @@ export function ribbonColorAt(f: number): string {
   return rgb(x <= 0.5 ? mix(GREEN, ORANGE, x / 0.5) : mix(ORANGE, CREAM, (x - 0.5) / 0.5))
 }
 
+/** Pendant la course, le ruban s'arrête juste derrière le coureur : écart (px à l'écran, taille de marche) ×
+ * l'échelle du personnage. Sinon il passait sous ses pieds, voire devant lui. */
+export const RIBBON_LAG_PX = 16
+
 /** Longueur de la tête du ruban (m) : 2 % du parcours, entre 80 et 500 m. */
 export function ribbonHeadM(totalDistance: number): number {
   return Math.max(80, Math.min(500, totalDistance * 0.02))

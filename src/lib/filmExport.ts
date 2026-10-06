@@ -13,7 +13,7 @@ import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './t
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPoints } from './gpx'
 import { BASEMAP_BACKGROUND } from './tileSources'
-import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
+import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
@@ -22,7 +22,7 @@ import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard, typ
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
-  START_SIGN_OFFSET_PX,
+  START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE,
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 
@@ -1271,7 +1271,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))
   /** Avance les personnages d'une image et les dessine, pieds en (x, y). `scale` : 1 = taille de marche. */
   function drawHikers3d(x: number, y: number, scale: number, alpha = 1) {
-    const s = scale * FILM_SCALE
+    const s = scale * FILM_SCALE * HIKER3D_BODY_SCALE
     const targets = hikers.length === 1 ? [{ x: 0, y: 0 }]
       : hkFollow ? [{ x: 0, y: 0 }, { x: hkFollow.x / s, y: hkFollow.y / s }]
       : [{ x: -HIKER3D_PAIR_PX, y: 0 }, { x: HIKER3D_PAIR_PX, y: 0 }]
@@ -1508,8 +1508,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     }
 
-    // 2. Tracé GPX (projeté de manière synchrone)
-    drawTrack(ctx, project, visualPoints, distances, totalDistance, progress)
+    // 2. Tracé GPX (projeté de manière synchrone) : le ruban s'arrête juste derrière la coureuse (RIBBON_LAG_PX).
+    const lagM = hikers3d && progress < 1
+      ? RIBBON_LAG_PX * FILM_SCALE * metersPerPixel(points[0].lat, mapMosaic ? mapMosaic.zoom : zoom) : 0
+    drawTrack(ctx, project, visualPoints, distances, totalDistance, Math.max(0, progress - lagM / totalDistance))
     drawBornes(project, 1, 1, progress * totalDistance) // bornes approchées, au sol sous les panneaux
 
     // 3. Panneaux localités

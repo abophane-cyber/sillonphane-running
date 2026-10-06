@@ -13,7 +13,8 @@ export const ANIM_SETTINGS = {
   },
 }
 
-export const ZOOMS: [number, number] = [13.5, 12.5]
+// Running : caméra de course plus proche (14,5 ; 13,5 pour un niveau ×2, plus utilisé).
+export const ZOOMS: [number, number] = [14.5, 13.5]
 
 /** Durée de marche (s) pour un tracé de distKm, bornée [min, max]. Sur un tracé court, le plancher
  * `min` ferait tomber la vitesse apparente (distance / durée) très bas — le randonneur semble

@@ -14,11 +14,11 @@ import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX, HIKER3D_FOLLOW_PX,
-  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_HEIGHT, HIKER3D_PRESENT_FEET, HIKER3D_MAX_SCALE, hiker3dScaleForZoom, smoothEase, metersPerPixel,
+  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_HEIGHT, HIKER3D_PRESENT_FEET, HIKER3D_MAX_SCALE, HIKER3D_BODY_SCALE, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
-import { RIBBON_FULL_GRADIENT, RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
+import { RIBBON_FULL_GRADIENT, RIBBON_HEAD_COLOR, RIBBON_LAG_PX, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -300,7 +300,7 @@ export function TrackMap({
     const map = mapRef.current
     if (!sprites.length || !map) return
     const base = targetZoomRef.current ?? ZOOMS[0]
-    const f = hiker3dScaleForZoom(map.getZoom(), base)
+    const f = hiker3dScaleForZoom(map.getZoom(), base) * HIKER3D_BODY_SCALE
     hikerScaleRef.current = f
     // Décalages exprimés en taille de MARCHE (×f à l'affichage) : l'écart grandit et rapetisse avec les personnages.
     // Avant, lissé en px écran et seulement quand la carte bougeait, il restait figé pendant le décompte puis
@@ -701,12 +701,21 @@ export function TrackMap({
     }
     prevLngLatRef.current = lngLat
 
-    // Tracé parcouru
-    const covered = progress * totalDistance
+    // Tracé parcouru : jusqu'à la position exacte du coureur, moins un petit écart (RIBBON_LAG_PX) pour qu'il soit
+    // un peu devant le ruban ; sans personnage ou course finie, jusqu'au bout.
+    const fullCovered = progress * totalDistance
+    const lagM = hiker3dRef.current.length && progress < 1
+      ? RIBBON_LAG_PX * hikerScaleRef.current * metersPerPixel(lngLat[1], map.getZoom()) : 0
+    const covered = Math.max(0, fullCovered - lagM)
     const doneCoords: [number, number][] = []
     for (let i = 0; i < points.length; i++) {
+      if (i > 0 && distances[i] > covered) {
+        const t = (covered - distances[i - 1]) / ((distances[i] - distances[i - 1]) || 1)
+        const a = smoothedCoords[i - 1], b = smoothedCoords[i]
+        doneCoords.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])])
+        break
+      }
       doneCoords.push(smoothedCoords[i])
-      if (distances[i] >= covered) break
     }
     const doneFC: FeatureCollection = {
       type: 'FeatureCollection',
@@ -874,7 +883,7 @@ export function TrackMap({
       if (presentRef.current?.token !== token) return
       const t = Math.min(1, (now - t0) / durationMs), e = smoothEase(t)
       const o = map.project([points[0].lon, points[0].lat])
-      const s1 = hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ZOOMS[0])
+      const s1 = hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ZOOMS[0]) * HIKER3D_BODY_SCALE
       placePresented(x0 + (o.x - x0) * e, y0 + (o.y - y0) * e, s0 + (s1 - s0) * e)
       if (t < 1) requestAnimationFrame(frame)
       else removePresentation()
