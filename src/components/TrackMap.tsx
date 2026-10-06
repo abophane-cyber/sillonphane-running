@@ -14,7 +14,7 @@ import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX, HIKER3D_FOLLOW_PX,
-  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_ZOOM, HIKER3D_PRESENT_MS, hiker3dScaleForZoom, smoothEase, metersPerPixel,
+  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_HEIGHT, HIKER3D_PRESENT_FEET, HIKER3D_PRESENT_MS, HIKER3D_MAX_SCALE, HIKER3D_SCALE_PER_ZOOM, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
@@ -757,10 +757,15 @@ export function TrackMap({
       const map = mapRef.current
       if (!map || countdownRef.current !== null) return
       hiker3dRef.current.forEach(s => s.resetToStart())
+      // Taille visée : HIKER3D_PRESENT_HEIGHT de la carte (taille du corps à l'échelle 1 mesurée sur le modèle
+      // chargé, sinon ≈ 98 px), d'où le zoom ; pieds posés en bas du cadre.
+      const h = map.getContainer().clientHeight
+      const s0 = hiker3dRef.current[0]
+      const body1 = s0 ? s0.layout().body / Math.max(0.01, hikerScaleRef.current) : 98
+      const scale = Math.min(HIKER3D_MAX_SCALE, (h * HIKER3D_PRESENT_HEIGHT) / body1)
       map.easeTo({
-        center: [points[0].lon, points[0].lat], zoom: (targetZoomRef.current ?? ZOOMS[0]) + HIKER3D_PRESENT_ZOOM,
-        // Point de départ abaissé : le coureur, debout dessus, tient en entier dans le cadre.
-        offset: [0, map.getContainer().clientHeight * 0.22],
+        center: [points[0].lon, points[0].lat], zoom: (targetZoomRef.current ?? ZOOMS[0]) + (scale - 1) / HIKER3D_SCALE_PER_ZOOM,
+        offset: [0, h * (0.5 - HIKER3D_PRESENT_FEET)],
         duration: HIKER3D_PRESENT_MS, easing: smoothEase, essential: true,
       })
     }
