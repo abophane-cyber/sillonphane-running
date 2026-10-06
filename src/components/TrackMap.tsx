@@ -5,7 +5,7 @@ import 'maplibre-gl/dist/maplibre-gl.css'
 import type { GpxPoint } from '../types'
 import type { LocalityInfo, ColMarker } from '../hooks/useLocality'
 import { fetchLocalityInfo } from '../hooks/useLocality'
-import { IGN_TILE_URL } from '../lib/tileSources'
+import { BASEMAP_ADJUST, BASEMAP_BACKGROUND, BASEMAP_TILE_URL } from '../lib/tileSources'
 import { ZOOMS } from '../hooks/useAnimationSettings'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from '../lib/tilePrefetch'
 import { DEFAULT_CHARACTERS, type CharacterId } from '../lib/characters'
@@ -67,20 +67,21 @@ export function makeStyle(): maplibregl.StyleSpecification {
     version: 8,
     glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
     sources: {
-      'tiles-ign':  { type: 'raster', tiles: [IGN_TILE_URL], tileSize: 256, attribution: '© IGN' },
+      'tiles-ign':  { type: 'raster', tiles: [BASEMAP_TILE_URL], tileSize: 256, maxzoom: 19, attribution: '© IGN' },
       'track-full': { type: 'geojson', data: EMPTY_FC },
       // lineMetrics: nécessaire pour line-gradient (dégradé le long du tracé parcouru)
       'track-done': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
     },
     layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': '#e8e0d5' } },
-      // Contraste renforcé : le rendu IGN brut est assez délavé, ces réglages font ressortir le tracé
-      // et le personnage sur le fond de carte (purement visuel, n'affecte pas les données des tuiles).
-      // Valeurs reproduites à la main dans filmMapMosaic.ts (applyIgnColorAdjust) : les reporter là-bas si elles changent.
-      { id: 'bg-ign', type: 'raster', source: 'tiles-ign', paint: { 'raster-fade-duration': 0, 'raster-contrast': 0.48, 'raster-saturation': 0.21, 'raster-brightness-max': 0.58, 'raster-hue-rotate': 17 } },
+      { id: 'background', type: 'background', paint: { 'background-color': BASEMAP_BACKGROUND } },
+      // Vues aériennes assombries (BASEMAP_ADJUST, reproduit sur la mosaïque du film dans filmMapMosaic.ts).
+      { id: 'bg-ign', type: 'raster', source: 'tiles-ign', paint: {
+        'raster-fade-duration': 0, 'raster-contrast': BASEMAP_ADJUST.contrast, 'raster-saturation': BASEMAP_ADJUST.saturation,
+        'raster-brightness-max': BASEMAP_ADJUST.brightnessMax, 'raster-hue-rotate': BASEMAP_ADJUST.hueRotate,
+      } },
       {
         id: 'track-full-line', type: 'line', source: 'track-full',
-        paint: { 'line-color': '#1a6b3c', 'line-width': 4.5, 'line-opacity': 0.85, 'line-dasharray': [4, 4] },
+        paint: { 'line-color': '#ffffff', 'line-width': 3.5, 'line-opacity': 0.7, 'line-dasharray': [3, 3] }, // clair sur les vues aériennes assombries
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
       {

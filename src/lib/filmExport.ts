@@ -12,6 +12,7 @@ import type { CharacterId } from './characters'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './tilePrefetch'
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPoints } from './gpx'
+import { BASEMAP_BACKGROUND } from './tileSources'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
@@ -1226,7 +1227,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   for (let fi = 0; fi < introFrames && !signal?.aborted; fi++) {
     ctx.clearRect(0, 0, OUT_W, OUT_H)
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
-    catch { ctx.fillStyle = '#e8e0d5'; ctx.fillRect(0, 0, OUT_W, OUT_H) }
+    catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
     if (departureEvent) {
       const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
@@ -1272,7 +1273,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (signal?.aborted) break
     ctx.clearRect(0, 0, OUT_W, OUT_H)
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
-    catch { ctx.fillStyle = '#e8e0d5'; ctx.fillRect(0, 0, OUT_W, OUT_H) }
+    catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
     if (departureEvent) {
       const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
@@ -1338,7 +1339,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (mapMosaic) {
       const origin = mosaicCropOrigin(mapMosaic, camLng, camLat, OUT_W, OUT_H)
       try { ctx.drawImage(mapMosaic.canvas, origin.x, origin.y, OUT_W, OUT_H, 0, 0, OUT_W, OUT_H) }
-      catch { ctx.fillStyle = '#e8e0d5'; ctx.fillRect(0, 0, OUT_W, OUT_H) }
+      catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     } else {
       // Appliquer la position finale de la caméra, attendre que ses tuiles soient chargées (pas
       // seulement qu'une frame ait été peinte) pour éviter de capturer le fond beige par défaut.
@@ -1346,7 +1347,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       await waitForMapIdle(exportMap, signal)
       if (signal?.aborted) break
       try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
-      catch { ctx.fillStyle = '#e8e0d5'; ctx.fillRect(0, 0, OUT_W, OUT_H) }
+      catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     }
 
     // 2. Tracé GPX (projeté de manière synchrone)
@@ -1436,7 +1437,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
       ctx.clearRect(0, 0, OUT_W, OUT_H)
       try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
-      catch { ctx.fillStyle = '#e8e0d5'; ctx.fillRect(0, 0, OUT_W, OUT_H) }
+      catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
 
       drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 1)
       drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale())
@@ -1531,7 +1532,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       try {
         ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H)
       } catch {
-        ctx.fillStyle = '#e8e0d5'; ctx.fillRect(0, 0, OUT_W, OUT_H)
+        ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H)
       }
 
       drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 1)

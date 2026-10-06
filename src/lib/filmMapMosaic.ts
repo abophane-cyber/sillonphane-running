@@ -20,12 +20,12 @@
  */
 
 import type { GpxPoint } from '../types'
-import { IGN_TILE_URL } from './tileSources'
+import { BASEMAP_ADJUST, BASEMAP_BACKGROUND, BASEMAP_TILE_URL } from './tileSources'
 import { lonLatToTileXY } from './tilePrefetch'
 
 const TILE_SIZE = 256
 // Fond de la carte quand une tuile manque : même couleur que le calque « background » de TrackMap.tsx.
-const MAP_BACKGROUND = '#e8e0d5'
+const MAP_BACKGROUND = BASEMAP_BACKGROUND
 const MOSAIC_CONCURRENCY = 8 // le WMTS de l'IGN n'a pas de limite de débit (CGU Géoplateforme)
 const TILE_ATTEMPTS = 3
 const TILE_TIMEOUT_MS = 15000
@@ -61,7 +61,7 @@ async function runPool<T>(items: T[], limit: number, task: (item: T) => Promise<
 }
 
 function tileUrl(z: number, x: number, y: number) {
-  return IGN_TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
+  return BASEMAP_TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
 }
 
 interface MosaicTile { url: string; x: number; y: number }
@@ -152,14 +152,14 @@ export async function buildMapMosaic(
       } catch { stillMissing.push(t) }
     })
     if (signal?.aborted) return null
-    console.warn(`[film2d] mosaïque : ${failed.length} tuile(s) en échec, ${failed.length - stillMissing.length} remplacée(s) par le zoom inférieur, ${stillMissing.length} laissée(s) au fond beige`)
+    console.warn(`[film2d] mosaïque : ${failed.length} tuile(s) en échec, ${failed.length - stillMissing.length} remplacée(s) par le zoom inférieur, ${stillMissing.length} laissée(s) au fond uni`)
   }
 
   // Le Plan IGN brut est assez délavé : TrackMap.tsx (makeStyle) lui applique un retraitement
   // visuel (contraste/saturation/teinte) via les paint properties raster-* de MapLibre. La
   // mosaïque contourne le pipeline de rendu MapLibre (c'est tout l'intérêt), donc ce retraitement
   // doit être reproduit ici à la main pour garder le même rendu que l'aperçu/le reste du film.
-  applyIgnColorAdjust(ctx, w, h)
+  applyBasemapColorAdjust(ctx, w, h)
 
   // Cases restées vides — tuiles introuvables, et cases du rectangle trop loin du tracé pour avoir
   // été demandées : couleur du fond de la carte (calque « background » de TrackMap.tsx), posée
@@ -180,8 +180,9 @@ export async function buildMapMosaic(
 // rasterUniformValues dans maplibre-gl) pour les valeurs fixes utilisées par bg-ign dans
 // TrackMap.tsx (raster-contrast: 0.48, raster-saturation: 0.21, raster-brightness-max: 0.58,
 // raster-hue-rotate: 17). Si ces valeurs changent là-bas, les reporter ici aussi.
-function applyIgnColorAdjust(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  const CONTRAST = 0.48, SATURATION = 0.21, BRIGHTNESS_MIN = 0, BRIGHTNESS_MAX = 0.58, HUE_DEG = 17
+function applyBasemapColorAdjust(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  const { contrast: CONTRAST, saturation: SATURATION, brightnessMax: BRIGHTNESS_MAX, hueRotate: HUE_DEG } = BASEMAP_ADJUST
+  const BRIGHTNESS_MIN = 0
 
   const contrastFactor = CONTRAST > 0 ? 1 / (1 - CONTRAST) : 1 + CONTRAST
   const saturationFactor = SATURATION > 0 ? 1 - 1 / (1.001 - SATURATION) : -SATURATION

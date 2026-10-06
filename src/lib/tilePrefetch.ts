@@ -1,5 +1,5 @@
 import type { GpxPoint } from '../types'
-import { IGN_TILE_URL } from './tileSources'
+import { BASEMAP_TILE_URL } from './tileSources'
 
 export function lonLatToTileXY(lon: number, lat: number, zoom: number) {
   const latRad = lat * Math.PI / 180
@@ -10,7 +10,7 @@ export function lonLatToTileXY(lon: number, lat: number, zoom: number) {
 }
 
 function tileUrl(z: number, x: number, y: number) {
-  return IGN_TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
+  return BASEMAP_TILE_URL.replace('{z}', String(z)).replace('{x}', String(x)).replace('{y}', String(y))
 }
 
 /** Construit l'ensemble dédupliqué des URLs de tuiles couvrant le tracé, pour les niveaux de
