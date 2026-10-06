@@ -1378,7 +1378,30 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // ── Écran-titre d'ouverture : carte figée sur le départ, voile noir + titre par-dessus ────
   // Randonneurs 3D : plan serré sur eux (en attente, face à nous) ; ils commencent à se lever quand le voile se lève.
   const closeZoom = zoom + HIKER3D_CLOSE_ZOOM
-  exportMap.jumpTo({ center: [points[0].lon, points[0].lat], zoom: hikers3d && introFrames ? closeZoom : zoom })
+  // Plan serré du départ : coureuse en grand, entièrement visible (corps = FILM_START_BODY de la hauteur de
+  // l'image), pieds en bas à gauche (FILM_START_FEET, en part de l'image) ; elle revient en douceur au centre et à sa
+  // taille de course pendant le dézoom (part `frac` du plan serré).
+  const FILM_START_BODY = 0.5
+  const FILM_START_FEET = { x: 0.12, y: 0.93 }
+  const startFrac = (z: number) => Math.max(0, Math.min(1, (z - zoom) / HIKER3D_CLOSE_ZOOM))
+  const body1 = hikers[0] ? hikers[0].layout().body : 98 // ≈ taille du corps à l'échelle 1 (hiker3dSprite : H × 0,53)
+  const closeScale = (OUT_H * FILM_START_BODY) / (body1 * FILM_SCALE * HIKER3D_BODY_SCALE)
+  const startScale = (z: number) => {
+    const f = startFrac(z)
+    return hiker3dScaleForZoom(z, zoom) * (1 - f) + closeScale * f
+  }
+  /** Caméra du départ au zoom z : au plan serré, le point de départ (pieds) est placé en FILM_START_FEET. */
+  const jumpToStart = (z: number) => {
+    const start: [number, number] = [points[0].lon, points[0].lat]
+    exportMap.jumpTo({ center: start, zoom: z })
+    const f = hikers3d ? startFrac(z) : 0
+    if (f > 0) {
+      const ps = exportMap.project(start)
+      const dx = (0.5 - FILM_START_FEET.x) * OUT_W * f, dy = (0.5 - FILM_START_FEET.y) * OUT_H * f
+      exportMap.jumpTo({ center: exportMap.unproject([ps.x + dx, ps.y + dy]), zoom: z })
+    }
+  }
+  jumpToStart(hikers3d && introFrames ? closeZoom : zoom)
   await waitForMapIdle(exportMap, signal)
   if (hikers3d) hikers.forEach(h => h.resetToStart())
   const standUpFrame = Math.round(TITLE_IN_S * fps)
@@ -1395,7 +1418,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
       const p0 = exportMap.project([points[0].lon, points[0].lat])
-      drawHikers3d(p0.x, p0.y, hiker3dScaleForZoom(closeZoom, zoom))
+      drawHikers3d(p0.x, p0.y, startScale(closeZoom))
     }
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
@@ -1426,7 +1449,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   for (let k = 0; k < START_DEZOOM_FRAMES && !signal?.aborted; k++) {
     const fi = introFrames + k
     const z = closeZoom - HIKER3D_CLOSE_ZOOM * smoothEase((k + 1) / START_DEZOOM_FRAMES)
-    exportMap.jumpTo({ center: [points[0].lon, points[0].lat], zoom: z })
+    jumpToStart(z)
     await waitForMapIdle(exportMap, signal)
     if (signal?.aborted) break
     ctx.clearRect(0, 0, OUT_W, OUT_H)
@@ -1439,7 +1462,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, signY(departureEvent, pt.y, signScale()), departureEvent.style, departureEvent.ele, 1, signScale())
     }
     const p0 = exportMap.project([points[0].lon, points[0].lat])
-    drawHikers3d(p0.x, p0.y, hiker3dScaleForZoom(z, zoom))
+    drawHikers3d(p0.x, p0.y, startScale(z))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance,
