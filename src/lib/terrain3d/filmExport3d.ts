@@ -28,7 +28,8 @@ import {
 } from '../filmAudio'
 import waterNormalsUrl from './waternormals.jpg'
 import { makeProgressCreep } from '../progressCreep'
-import { ENCODER_FAIL_MSG, waitEncoderQueue, yieldTask } from '../encoderWait'
+import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue, yieldTask } from '../encoderWait'
+import { diag } from '../diag'
 import {
   computeCoverage, fetchOrthoTiles, fetchElevationTiles, inpaintOrthoHoles,
   gradeTerrainColors, fetchHydroFeatures, paintHydroOnCanvas,
@@ -1916,6 +1917,7 @@ async function exportFilm3dImpl(
           encoder = new VideoEncoder({ output: (c, m) => { onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film3d] encoder:', e); encoderError = e } })
           encoder.configure(qpOk ? qpCfg : vbrCfg)
           useQP = qpOk
+          noteEncoderSetup(`film 3D, ${codec} ${qpOk ? 'QP' : 'VBR'} ${OUT_W}×${OUT_H}`)
           useWC = true; break
         }
       } catch { /* codec suivant */ }
@@ -1956,9 +1958,19 @@ async function exportFilm3dImpl(
   const motionStartFrame = Math.round(PHASE1_END * fps)
   let simElapsed = 0
   let lastOverlay: Overlay = { distanceM: 0, profileT: 0 }
+  // Journal (diag.ts, copy(__sillonDiag()) dans la console) : début du rendu, puis un point toutes les
+  // 10 s — de quoi voir à distance si et où le rendu s'arrête (image atteinte, file de l'encodeur, onglet).
+  diag('film 3D : début du rendu', {
+    encodeur: useWC ? (useQP ? 'WebCodecs QP' : 'WebCodecs VBR') : `MediaRecorder ${mrMime}`, images: totalFrames,
+  })
+  let lastDiagAt = performance.now()
 
   try {
   for (let f = 0; f <= totalFrames; f++) {
+    if (performance.now() - lastDiagAt > 10_000) {
+      lastDiagAt = performance.now()
+      diag('film 3D : rendu', { image: f, file: encoder?.encodeQueueSize, état: encoder?.state, onglet: document.hidden ? 'caché' : 'visible' })
+    }
     if (signal?.aborted) {
       cleanup()
       if (mr && mr.state !== 'inactive') mr.stop()
@@ -2060,7 +2072,11 @@ async function exportFilm3dImpl(
       // payer sur encoder.flush() en fin de rendu (c'était ça, la « finalisation longue » — et
       // des centaines de VideoFrame 1080p en file = ~8 Mo pièce, grosse pression mémoire).
       // Garde-fou encodeur bloqué / en erreur, attentes non ralenties en arrière-plan : encoderWait.ts.
-      if (!await waitEncoderQueue(encoder, 6, () => encoderError != null, signal)) throw new Error(ENCODER_FAIL_MSG)
+      noteEncoderFrame(f, totalFrames)
+      if (!await waitEncoderQueue(encoder, 6, () => encoderError != null, signal)) {
+        diag('film 3D : encodeur en échec', encoderFailMessage())
+        throw new Error(encoderFailMessage())
+      }
       if (f % 15 === 0) await yieldTask()
     } else if (mrTrack) {
       mrTrack.requestFrame?.()

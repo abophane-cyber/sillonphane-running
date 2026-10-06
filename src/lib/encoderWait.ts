@@ -44,13 +44,51 @@ export async function waitEncoderQueue(
 ): Promise<boolean> {
   let waitStart = performance.now()
   let lastQueue = encoder.encodeQueueSize
+  const fail = (cause: string) => {
+    lastFailure = `${cause}, file ${encoder.encodeQueueSize}, état ${encoder.state}, onglet ${document.hidden ? 'caché' : 'visible'}`
+    return false
+  }
   while (encoder.encodeQueueSize > maxQueue) {
-    if (hasError() || encoder.state === 'closed') return false
+    if (hasError()) return fail('erreur encodeur')
+    if (encoder.state === 'closed') return fail('encodeur fermé')
     if (encoder.encodeQueueSize < lastQueue || document.hidden) waitStart = performance.now()
     lastQueue = encoder.encodeQueueSize
-    if (performance.now() - waitStart > ENCODER_STALL_MS) return false
+    if (performance.now() - waitStart > ENCODER_STALL_MS) return fail('file bloquée')
     if (signal?.aborted) return true
     await waitEncoderDequeue(encoder)
   }
-  return !hasError() && encoder.state !== 'closed'
+  if (hasError()) return fail('erreur encodeur')
+  if (encoder.state === 'closed') return fail('encodeur fermé')
+  return true
+}
+
+// ─── Détails techniques joints au message d'échec ─────────────────────────────────────────────
+// Le message seul ne dit pas OÙ ça coince ; ces détails (navigateur, réglage de l'encodeur, image
+// atteinte, cause) permettent un diagnostic à distance sur une simple capture d'écran.
+
+let encoderSetup = ''
+let encoderFrame = ''
+let lastFailure = ''
+
+/** Réglage retenu pour l'encodeur, à appeler après `configure` (ex. « film 3D, avc1.4d0029 QP 1920×1080 »). */
+export function noteEncoderSetup(setup: string) { encoderSetup = setup; encoderFrame = ''; lastFailure = '' }
+/** Image en cours d'encodage (ex. « image 120/2400 »). */
+export function noteEncoderFrame(frame: number, total?: number) { encoderFrame = `image ${frame}${total ? `/${total}` : ''}` }
+
+function browserLabel(): string {
+  const ua = navigator.userAgent
+  const m = ua.match(/Edg\/(\d+)/) ? `Edge ${ua.match(/Edg\/(\d+)/)![1]}`
+    : ua.match(/Firefox\/(\d+)/) ? `Firefox ${ua.match(/Firefox\/(\d+)/)![1]}`
+    : ua.match(/Chrome\/(\d+)/) ? `Chrome ${ua.match(/Chrome\/(\d+)/)![1]}`
+    : ua.match(/Version\/([\d.]+).*Safari/) ? `Safari ${ua.match(/Version\/([\d.]+)/)![1]}`
+    : 'navigateur inconnu'
+  const os = /Mac OS X/.test(ua) && !/iPhone|iPad/.test(ua) ? 'Mac' : /Windows/.test(ua) ? 'Windows'
+    : /Android/.test(ua) ? 'Android' : /iPhone|iPad/.test(ua) ? 'iOS' : /Linux/.test(ua) ? 'Linux' : ''
+  return [m, os].filter(Boolean).join(', ')
+}
+
+/** Message d'échec complet : ENCODER_FAIL_MSG + une ligne de détails techniques. */
+export function encoderFailMessage(): string {
+  const details = [browserLabel(), encoderSetup, encoderFrame, lastFailure].filter(Boolean).join(' · ')
+  return `${ENCODER_FAIL_MSG}\n\nDétails techniques : ${details}`
 }

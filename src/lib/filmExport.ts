@@ -13,7 +13,7 @@ import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './t
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPoints } from './gpx'
 import { createQpRateControl } from './qpRateControl'
-import { ENCODER_FAIL_MSG, waitEncoderQueue } from './encoderWait'
+import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import {
@@ -622,10 +622,10 @@ export async function exportFilm(opts: FilmExportOptions): Promise<Blob> {
   if (outer?.aborted) ctrl.abort(); else outer?.addEventListener('abort', onOuterAbort)
   try {
     const blob = await exportFilmImpl({ ...opts, signal: ctrl.signal }, () => { encoderFailed = true; ctrl.abort() })
-    if (encoderFailed) throw new Error(ENCODER_FAIL_MSG)
+    if (encoderFailed) throw new Error(encoderFailMessage())
     return blob
   } catch (e) {
-    if (encoderFailed) throw new Error(ENCODER_FAIL_MSG, { cause: e })
+    if (encoderFailed) throw new Error(encoderFailMessage(), { cause: e })
     throw e
   } finally {
     outer?.removeEventListener('abort', onOuterAbort)
@@ -828,9 +828,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // d'images vieilles de plusieurs secondes et ne tenait pas le plafond de débit.
   // Garde-fou (encoderWait.ts) : encodeur en erreur ou bloqué -> onEncoderFail() annule le rendu par le même
   // chemin qu'une annulation (toutes les boucles testent signal.aborted et nettoient la carte), et exportFilm
-  // remonte alors ENCODER_FAIL_MSG.
+  // remonte alors encoderFailMessage().
   async function encodeFrame(fi: number, keyFrame: boolean) {
     if (encoderError != null || encoder!.state === 'closed') { onEncoderFail(); return }
+    noteEncoderFrame(fi)
     const vf = new VideoFrame(canvas, { timestamp: Math.round(fi * 1_000_000 / fps) })
     try {
       encoder!.encode(vf, { keyFrame: keyFrame || fi % GOP === 0, ...(useQP ? { avc: { quantizer: rc.next(fi) } } : {}) })
@@ -853,6 +854,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
           encoder = new VideoEncoder({ output: (c, m) => { rc.onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film] encoder:', e); encoderError = e } })
           encoder.configure(qpOk ? qpCfg : vbrCfg)
           useQP = qpOk
+          noteEncoderSetup(`film 2D, ${codec} ${qpOk ? 'QP' : 'VBR'} ${OUT_W}×${OUT_H}`)
           useWC = true; break
         }
       } catch { /**/ }

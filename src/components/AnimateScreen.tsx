@@ -294,7 +294,10 @@ export function AnimateScreen({
                   {prog === 1 ? 'Presque prêt…' : `${Math.round(Math.abs(prog) * 100)} %`}
                   {prog < 1 && etaS != null && ` · ${formatEta(etaS)}`}
                 </p>
-                <p className="film-modal__hint">Vous pouvez aller sur une autre page (album, Mes sillons…) : la création continue.</p>
+                <p className="film-modal__hint">
+                  Vous pouvez aller sur une autre page de l'appli (album, Mes sillons…) : la création continue.
+                  Gardez cependant cet onglet affiché : sur certains navigateurs, elle se met en pause dans un onglet caché.
+                </p>
                 <button className="film-modal__cancel" onClick={is3d ? handleCreateFilm3d : handleCreateFilm}>
                   Annuler
                 </button>
