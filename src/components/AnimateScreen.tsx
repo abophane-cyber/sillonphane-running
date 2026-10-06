@@ -70,6 +70,8 @@ interface Props {
   ravitos: Ravito[]
   /** Inscription par défaut de l'épreuve (exemples des champs du widget). */
   bannerDefaults: BannerText
+  /** Titre du film, modifiable dans le widget (rubrique Épreuve). */
+  onCustomTitleChange: (v: string) => void
   departureTime: string
   onDepartureTimeChange: (v: string) => void
   onMapCanvasReady: (canvas: HTMLCanvasElement | null) => void
@@ -129,7 +131,7 @@ export function AnimateScreen({
   dismissedHints, dismissHint,
   handlePlay, handlePause, handleReset, handleRestart, onSeek,
   handleModeChange, lookahead, setLookahead,
-  hasPlayedPreview, previewFinished, trackSaved, customTitle,
+  hasPlayedPreview, previewFinished, trackSaved, customTitle, onCustomTitleChange,
   onVoyages, onSaveTrack, onAlbum,
   guideOn, guideReplayNonce, onGuideClose,
 }: Props) {
@@ -246,6 +248,8 @@ export function AnimateScreen({
             totalDistance={activeTrack.distance}
             ravitoCount={ravitos.length}
             bannerDefaults={bannerDefaults}
+            filmTitle={customTitle}
+            onFilmTitleChange={onCustomTitleChange}
             departureTime={departureTime}
             onDepartureTimeChange={onDepartureTimeChange}
             onToggleLocality={toggleSuppressLocality}

@@ -48,6 +48,9 @@ interface Props {
   ravitoCount: number
   /** Inscription par défaut de l'épreuve (exemples des champs). */
   bannerDefaults: BannerText
+  /** Titre du film (= nom de l'épreuve). */
+  filmTitle: string
+  onFilmTitleChange: (v: string) => void
   departureTime: string
   onDepartureTimeChange: (v: string) => void
   showHint?: boolean
@@ -59,7 +62,7 @@ export function PanelWizard({
   excluded, customLocalities, onStartNameChange, onEndNameChange,
   startKind, endKind, startIsCol, endIsCol, onStartKindChange, onEndKindChange,
   onToggleLocality, onAddPanel, onRemoveCustomLocality, onComplete,
-  race, onRaceChange, realTimes, totalDistance, ravitoCount, bannerDefaults, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, totalDistance, ravitoCount, bannerDefaults, filmTitle, onFilmTitleChange, departureTime, onDepartureTimeChange,
   showHint, onDismissHint,
 }: Props) {
   const depHidden = excluded.has(startName)
@@ -190,10 +193,11 @@ export function PanelWizard({
         {/* ── Inscription de l'épreuve (nom, date, distance), mémorisée avec le tracé ; vide = valeur par défaut ── */}
         <div className="pwiz-section pwiz-section--banner">
           <span className="pwiz-section-label">🏁 Épreuve</span>
+          {/* Nom de l'épreuve = titre du film (écran-titre, carton de fin, Mes sillons). */}
+          <label className="pwiz-field-label" htmlFor="pwiz-film-title">Titre du film</label>
           <input
-            className="pwiz-input" value={race.eventName ?? ''} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
-            aria-label="Nom de l'épreuve"
-            onChange={e => onRaceChange({ ...race, eventName: e.target.value })}
+            id="pwiz-film-title" className="pwiz-input" value={filmTitle} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
+            onChange={e => onFilmTitleChange(e.target.value)}
           />
           <div className="pwiz-row">
             <input

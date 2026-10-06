@@ -117,7 +117,7 @@ export default function App() {
     if (!activeTrack) return undefined
     const dur = raceDurationS(points, activeTrack.distance, { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds })
     return {
-      title: race.eventName?.trim() || bannerDefaults.title,
+      title: bannerDefaults.title, // titre du film (= nom de l'épreuve, saisi dans le widget)
       date: race.bannerDate?.trim() || bannerDefaults.date,
       distance: (race.bannerDistance?.trim() || bannerDefaults.distance)?.replace(/ ?KM$/i, ' km'),
       elevGain: activeTrack.elevGain > 0 ? `+${Math.round(activeTrack.elevGain)} m` : undefined,
@@ -841,6 +841,7 @@ export default function App() {
             bornes={bornes}
             ravitos={ravitos}
             bannerDefaults={bannerDefaults}
+            onCustomTitleChange={setCustomTitle}
             departureTime={departureTime}
             onDepartureTimeChange={setDepartureTime}
             onMapCanvasReady={canvas => { mapCanvasRef.current = canvas }}
