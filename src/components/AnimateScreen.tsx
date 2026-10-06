@@ -10,7 +10,7 @@ import type { CharacterId } from '../lib/characters'
 import type { ActivityMode } from '../hooks/useAnimationSettings'
 import type { EndpointKind } from '../hooks/useTrackNaming'
 import { formatEta } from '../lib/exportEta'
-import type { Borne, RaceSettings } from '../lib/raceSplits'
+import type { Borne, Ravito, RaceSettings } from '../lib/raceSplits'
 import type { BannerText } from '../lib/raceSplits'
 import type { useAnimation } from '../hooks/useAnimation'
 import type { useLocalityPanels } from '../hooks/useLocalityPanels'
@@ -66,6 +66,8 @@ interface Props {
   /** Le GPX porte des heures réelles. */
   realTimes: boolean
   bornes: Borne[]
+  /** Ravitaillements placés sur le tracé (km saisis dans le widget). */
+  ravitos: Ravito[]
   /** Inscription par défaut de l'épreuve (exemples des champs du widget). */
   bannerDefaults: BannerText
   departureTime: string
@@ -120,7 +122,7 @@ export function AnimateScreen({
   locality, colMarkers, panels, endDelayMsRef, startDelayMsRef,
   startName, endName, onStartNameChange, onEndNameChange,
   effectiveStartName, effectiveEndName, startColEle, endColEle, startLieudit, endLieudit, onStartKindChange, onEndKindChange, onMapCanvasReady,
-  race, onRaceChange, realTimes, bornes, bannerDefaults, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, bornes, ravitos, bannerDefaults, departureTime, onDepartureTimeChange,
   countdown, waitingMap, weather, filmProgress, handleCreateFilm, lastFilmUrl,
   filmEtaS, film3dProgress, film3dPhase, film3dEtaS, handleCreateFilm3d, onFilm3dIntent, lastFilm3dUrl,
   trackHasSavedFilm, onViewFilm,
@@ -192,6 +194,7 @@ export function AnimateScreen({
           previewLocalities={previewLocalities}
           customLocalities={customLocalities}
           bornes={bornes}
+          ravitos={ravitos}
           bibNumber={race.bibNumber}
           onRemoveCustomLocality={handleRemoveCustomLocality}
           onMoveCustomLocality={handleMoveCustomLocality}
@@ -241,6 +244,7 @@ export function AnimateScreen({
             onRaceChange={onRaceChange}
             realTimes={realTimes}
             totalDistance={activeTrack.distance}
+            ravitoCount={ravitos.length}
             bannerDefaults={bannerDefaults}
             departureTime={departureTime}
             onDepartureTimeChange={onDepartureTimeChange}

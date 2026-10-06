@@ -17,7 +17,7 @@ import {
   HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_HEIGHT, HIKER3D_PRESENT_FEET, HIKER3D_MAX_SCALE, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
-import { borneNumber, borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
+import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
 import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
@@ -186,6 +186,8 @@ interface Props {
   bornes?: Borne[]
   /** Numéro inscrit sur le dossard du personnage. */
   bibNumber?: string
+  /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé. */
+  ravitos?: Ravito[]
   onRemoveCustomLocality?: (name: string) => void
   onMoveCustomLocality?: (name: string, lon: number, lat: number) => void
   onSuppressLocality?: (name: string) => void
@@ -248,7 +250,7 @@ export function TrackMap({
   panelDuration = 3000,
   localityDedupKm = 5,
   localityDedupMinScore = 6,
-  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, bibNumber = '', onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
+  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, ravitos, bibNumber = '', onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
   departureNameOverride, arrivalNameOverride, departureColEle, arrivalColEle, departureLieudit, arrivalLieudit,
   detectedDepartureName, detectedArrivalName,
   onMapCanvasReady, animationEnded = false,
@@ -895,6 +897,28 @@ export function TrackMap({
   // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, elles apparaissent au fil de la course, à
   // l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM »), et sont toutes là à la fin ──
   const borneElsRef = useRef<HTMLDivElement[]>([])
+  // Ravitaillements : même apparition au fil de la course que les bornes, écriture « ravitaillement » (goutte bleue).
+  const ravitoElsRef = useRef<HTMLDivElement[]>([])
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !ravitos?.length) return
+    ravitoElsRef.current = []
+    const markers = ravitos.map(r => {
+      const el = document.createElement('div')
+      el.innerHTML = `<div class="loc-sign loc-sign--ravito"><div class="loc-sign__board">${r.label}</div></div>`
+      ravitoElsRef.current.push(el)
+      return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([r.lon, r.lat]).addTo(map)
+    })
+    return () => { markers.forEach(m => m.remove()); ravitoElsRef.current = [] }
+  }, [ravitos])
+  useEffect(() => {
+    if (!ravitos?.length) return
+    const coveredM = progress * (distances[distances.length - 1] ?? 0)
+    ravitos.forEach((r, i) => {
+      const el = ravitoElsRef.current[i]
+      if (el) el.style.visibility = progress >= 1 || borneReached(r, coveredM) ? '' : 'hidden'
+    })
+  }, [ravitos, progress, distances])
   useEffect(() => {
     const map = mapRef.current
     if (!map || !bornes?.length) return

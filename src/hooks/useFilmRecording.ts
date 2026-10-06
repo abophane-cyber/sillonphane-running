@@ -10,7 +10,7 @@ import type { LocalityInfo } from './useLocality'
 import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
-import type { Borne, EndCard } from '../lib/raceSplits'
+import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 
 export interface CreateFilmContext {
   activeTrack: GpxTrack
@@ -32,6 +32,8 @@ export interface CreateFilmContext {
   bornes: Borne[]
   /** Numéro inscrit sur le dossard du personnage. */
   bibNumber?: string
+  /** Ravitaillements placés sur le tracé. */
+  ravitos?: Ravito[]
   /** Carton de fin du film (intitulé, date, distance, dénivelé, temps, moyenne). */
   endCard?: EndCard
   trackName: string
@@ -128,6 +130,7 @@ export function useFilmRecording() {
         characters: ctx.characters,
         bornes: ctx.bornes,
         bibNumber: ctx.bibNumber,
+        ravitos: ctx.ravitos,
         endCard: ctx.endCard,
         speedLevel: ctx.speedLevel,
         trackName: ctx.trackName,

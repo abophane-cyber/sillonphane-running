@@ -29,7 +29,7 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, DEFAULT_RACE_SETTINGS,
+  computeBornes, computeRavitos, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ZOOMS, animSpeed } from './hooks/useAnimationSettings'
@@ -104,6 +104,7 @@ export default function App() {
     useRealTimes: realTimes && !race.plannedTimes,
     startTime: departureTime, date: manualDate, speedsKmh: race.speeds,
   }), [points, distances, race, realTimes, departureTime, manualDate])
+  const ravitos = useMemo(() => computeRavitos(points, distances, parseRavitoKms(race.ravitos)), [points, distances, race.ravitos])
   // Inscription de l'épreuve : nom, date, distance — saisis dans le widget des panneaux,
   // sinon titre du parcours, date de la sortie, distance du tracé.
   const bannerDefaults = useMemo<BannerText>(() => ({
@@ -397,6 +398,7 @@ export default function App() {
         bannerDate: race.bannerDate?.trim() || undefined,
         bannerDistance: race.bannerDistance?.trim() || undefined,
         bibNumber: race.bibNumber?.trim() || undefined,
+        ravitos: race.ravitos?.trim() || undefined,
       }).catch(e => console.error('[panels] save:', e))
     }, 600)
     return () => clearTimeout(timer)
@@ -446,6 +448,7 @@ export default function App() {
       characters,
       bornes,
       bibNumber: race.bibNumber?.trim() || undefined,
+      ravitos,
       endCard,
       trackName: customTitle || activeTrack.name,
       speedLevel,
@@ -645,6 +648,7 @@ export default function App() {
                     bannerDate: track.panelBannerDate,
                     bannerDistance: track.panelBannerDistance,
                     bibNumber: track.panelBibNumber,
+                    ravitos: track.panelRavitos,
                   },
                   hasComposition,
                   hasFilm,
@@ -835,6 +839,7 @@ export default function App() {
             onRaceChange={setRace}
             realTimes={realTimes}
             bornes={bornes}
+            ravitos={ravitos}
             bannerDefaults={bannerDefaults}
             departureTime={departureTime}
             onDepartureTimeChange={setDepartureTime}

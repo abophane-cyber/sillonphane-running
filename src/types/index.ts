@@ -238,6 +238,7 @@ export interface VoyageTrack {
   panelEventName?: string              // inscription de l'épreuve : nom,
   panelBannerDate?: string             //   date et distance (vides = valeurs par défaut)
   panelBannerDistance?: string
+  panelRavitos?: string               // kilomètres des ravitaillements, tels que saisis
   panelBibNumber?: string              // numéro inscrit sur le dossard du personnage
 }
 

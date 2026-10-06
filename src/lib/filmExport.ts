@@ -18,7 +18,7 @@ import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
-import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard } from './raceSplits'
+import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -51,6 +51,8 @@ export interface FilmExportOptions {
   bornes?:           Borne[]
   /** Numéro inscrit sur le dossard du personnage (cf. Hiker3dSprite.setBibNumber). */
   bibNumber?:        string
+  /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé comme les bornes. */
+  ravitos?:          Ravito[]
   /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
   endCard?:          EndCard
   speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
@@ -327,8 +329,8 @@ function buildGroundLabelSprite(name: string, style: SignStyle): LocSignSprite {
   ctx.shadowColor = 'transparent'
   ctx.fillStyle = g.fill
   ctx.fillText(name, tx, cy)
-  // Ancre : centre du nom (la pastille déborde à gauche, comme dans l'aperçu).
-  return { canvas, offX: tx, offY: cy }
+  // Ancre : la goutte du ravitaillement sur le point exact (texte à sa droite) ; sinon, centre du nom.
+  return { canvas, offX: isRavito ? MARGIN + STROKE + ICON / 2 : tx, offY: cy }
 }
 
 /** Borne kilométrique « médaille » : jeton bleu nuit cerclé d'or (km en grand), pastille dorée (heure · chrono),
@@ -1250,6 +1252,12 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble). */
   function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity) {
     if (alpha <= 0) return
+    for (const r of opts.ravitos ?? []) {
+      if (!borneReached(r, coveredM)) continue
+      const pt = project(r.lon, r.lat)
+      if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
+        drawLocSign(ctx, locSignCache, r.label, pt.x, pt.y, 'ravito', undefined, alpha, Math.max(1, scale))
+    }
     for (const b of opts.bornes ?? []) {
       if (!borneReached(b, coveredM)) continue
       const pt = project(b.lon, b.lat)

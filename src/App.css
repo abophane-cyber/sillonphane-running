@@ -734,6 +734,8 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   color: #ffe3a3 !important; -webkit-text-stroke-color: #4a2a10 !important;
 }
 /* Ravitaillement : pastille bleue à goutte, nom blanc cerné de bleu. */
+/* Ravitaillement : la goutte (13 px à gauche du texte) se pose sur le point exact, le texte part à droite. */
+.loc-sign.loc-sign--ravito { transform: translate(calc(50% + 13px), 50%) scale(max(var(--ground-scale, 1), 1)); transform-origin: left center; }
 .loc-sign--ravito .loc-sign__board {
   font-size: 18px !important; -webkit-text-stroke-color: #0a3d6b !important; position: relative;
 }
@@ -2315,6 +2317,12 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .pwiz-section--banner .pwiz-input { min-width: 0; }
 .pwiz-input--distance { flex: 0 0 96px; }
 .pwiz-input--bib { flex: 0 0 96px; text-align: center; font-weight: 700; }
+
+/* Ravitaillements : bleu de la pastille à goutte (cf. .loc-sign--ravito). */
+.pwiz-section--ravitos {
+  padding: 10px 12px 12px; border-radius: 10px;
+  background: rgba(31,122,224,0.09);
+}
 
 /* Bornes et temps de passage : bleu nuit des bornes (cf. .borne-medal). */
 .pwiz-section--bornes {

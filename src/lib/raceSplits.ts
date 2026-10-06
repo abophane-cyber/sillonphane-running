@@ -22,6 +22,8 @@ export interface RaceSettings {
   bannerDistance?: string
   /** Numéro inscrit sur le dossard de la coureuse ; vide = dossard blanc. */
   bibNumber?: string
+  /** Kilomètres des ravitaillements, tels que saisis (« 5 ; 9 ; 14 ; 18,5 »). */
+  ravitos?: string
 }
 /** Inscription de l'épreuve (nom, date, distance), saisie dans le widget des panneaux. */
 export interface BannerText {
@@ -193,10 +195,36 @@ export function raceDurationS(points: GpxPoint[], totalM: number, opts: { useRea
   return undefined
 }
 
+/** Ravitaillement placé sur le tracé à un kilomètre donné. */
+export interface Ravito { km: number; lat: number; lon: number; label: string }
+
+/** Kilomètres lus dans la saisie : « Km 5, Km 9, 18,5 », « 5 ; 9 ; 14 ; 18.5 »… (virgule suivie d'un espace =
+ * séparateur, virgule collée = décimale), triés, sans doublon. */
+export function parseRavitoKms(text: string | undefined): number[] {
+  if (!text) return []
+  const nums = text.replace(/,\s/g, ';').match(/\d+(?:[.,]\d+)?/g) ?? []
+  return [...new Set(nums.map(n => parseFloat(n.replace(',', '.'))).filter(n => n > 0))].sort((a, b) => a - b)
+}
+
+/** « 18,5 » */
+export function formatKm(km: number): string {
+  return Number.isInteger(km) ? String(km) : km.toFixed(1).replace('.', ',')
+}
+
+/** Ravitaillements sur le tracé (ceux au-delà de l'arrivée sont ignorés). */
+export function computeRavitos(points: GpxPoint[], distances: number[], kms: number[]): Ravito[] {
+  const total = distances[distances.length - 1] ?? 0
+  if (points.length < 2) return []
+  return kms.filter(km => km * 1000 < total).map(km => {
+    const p = pointAtM(points, distances, km * 1000)
+    return { km, lat: p.lat, lon: p.lon, label: `Ravito · km ${formatKm(km)}` }
+  })
+}
+
 /** Une borne apparaît à l'approche (ce nombre de mètres avant elle), puis reste : sur une boucle, la borne des 20 km
  * passe près du départ et ne doit pas se montrer avant celle des 5 km. */
 export const BORNE_LEAD_M = 1000
-export function borneReached(b: Borne, coveredM: number): boolean {
+export function borneReached(b: { km: number }, coveredM: number): boolean {
   return coveredM >= b.km * 1000 - BORNE_LEAD_M
 }
 

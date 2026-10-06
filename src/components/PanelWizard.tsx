@@ -5,7 +5,7 @@ import { OnboardingBubble } from './OnboardingBubble'
 import { PANEL_DRAG_MIME } from '../lib/panelDrag'
 import type { EndpointKind } from '../hooks/useTrackNaming'
 import {
-  DEFAULT_SPEED_KMH, SPEED_SLICE_KM, formatElapsed, hasPlannedSpeeds, plannedElapsedS, speedSliceCount,
+  DEFAULT_SPEED_KMH, SPEED_SLICE_KM, formatElapsed, formatKm, parseRavitoKms, hasPlannedSpeeds, plannedElapsedS, speedSliceCount,
   type BannerText, type RaceSettings,
 } from '../lib/raceSplits'
 
@@ -44,6 +44,8 @@ interface Props {
   /** Le GPX porte des heures réelles : choix entre temps du GPX et temps prévus. */
   realTimes: boolean
   totalDistance: number
+  /** Ravitaillements effectivement placés sur le tracé. */
+  ravitoCount: number
   /** Inscription par défaut de l'épreuve (exemples des champs). */
   bannerDefaults: BannerText
   departureTime: string
@@ -57,7 +59,7 @@ export function PanelWizard({
   excluded, customLocalities, onStartNameChange, onEndNameChange,
   startKind, endKind, startIsCol, endIsCol, onStartKindChange, onEndKindChange,
   onToggleLocality, onAddPanel, onRemoveCustomLocality, onComplete,
-  race, onRaceChange, realTimes, totalDistance, bannerDefaults, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, totalDistance, ravitoCount, bannerDefaults, departureTime, onDepartureTimeChange,
   showHint, onDismissHint,
 }: Props) {
   const depHidden = excluded.has(startName)
@@ -307,6 +309,22 @@ export function PanelWizard({
                 </>
               )}
             </>
+          )}
+        </div>
+
+        {/* ── Ravitaillements : kilomètres saisis, placés automatiquement sur le tracé ── */}
+        <div className="pwiz-section pwiz-section--ravitos">
+          <span className="pwiz-section-label">💧 Ravitaillements</span>
+          <input
+            className="pwiz-input" value={race.ravitos ?? ''} placeholder="Km : 5 ; 9 ; 14 ; 18,5"
+            aria-label="Kilomètres des ravitaillements"
+            onChange={e => onRaceChange({ ...race, ravitos: e.target.value })}
+          />
+          {parseRavitoKms(race.ravitos).length > 0 && (
+            <p className="pwiz-race-hint">
+              {parseRavitoKms(race.ravitos).map(km => `km ${formatKm(km)}`).join(' · ')}
+              {ravitoCount < parseRavitoKms(race.ravitos).length && ' (au-delà de l’arrivée : ignorés)'}
+            </p>
           )}
         </div>
 
