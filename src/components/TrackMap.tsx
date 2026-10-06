@@ -18,7 +18,7 @@ import {
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
-import { RIBBON_HEAD_COLOR, ribbonHeadM } from '../lib/ribbon'
+import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -74,7 +74,7 @@ export function makeStyle(): maplibregl.StyleSpecification {
       'track-done': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
       // Tête du ruban (derniers mètres parcourus), redessinée par-dessus : sur une boucle, le ruban repasse sur
       // lui-même et sa tête disparaissait sous un passage antérieur.
-      'track-head': { type: 'geojson', data: EMPTY_FC },
+      'track-head': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
     },
     layers: [
       { id: 'background', type: 'background', paint: { 'background-color': BASEMAP_BACKGROUND } },
@@ -89,32 +89,36 @@ export function makeStyle(): maplibregl.StyleSpecification {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
       {
-        // Liseré sombre sous le dégradé : sans lui, la fin du tracé (blanc cassé) devient
-        // quasi invisible sur un fond de carte clair.
+        // Liseré de contour très léger sous le ruban.
         id: 'track-done-halo', type: 'line', source: 'track-done',
-        paint: { 'line-color': 'rgba(20,30,20,0.55)', 'line-width': 8 },
+        paint: { 'line-color': RIBBON_OUTLINE, 'line-width': 7.5 },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
       {
-        // Dégradé du symbole Sillon (vert → orangé → blanc cassé) le long du chemin parcouru
         id: 'track-done-line', type: 'line', source: 'track-done',
+        // Crème au coureur, puis orange et vert derrière lui (ribbonGradient, recalculé à chaque avancée).
         paint: {
-          'line-gradient': [
-            'interpolate', ['linear'], ['line-progress'],
-            0, '#2F5C45', 0.5, '#D97A3D', 1, '#F4EDE0',
-          ],
+          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, RIBBON_HEAD_COLOR, 1, RIBBON_HEAD_COLOR],
           'line-width': 5.5, 'line-opacity': 0.97,
         },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
       {
+        // Liseré et tête apparaissent en fondu depuis leur début : un bout arrondi net y dessinait un petit trait
+        // sombre en travers du ruban, qui avançait avec lui.
         id: 'track-head-halo', type: 'line', source: 'track-head',
-        paint: { 'line-color': 'rgba(20,30,20,0.75)', 'line-width': 9 },
+        paint: {
+          'line-width': 7.5,
+          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(20,30,20,0)', 0.35, RIBBON_OUTLINE],
+        },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
       {
         id: 'track-head-line', type: 'line', source: 'track-head',
-        paint: { 'line-color': RIBBON_HEAD_COLOR, 'line-width': 5.5 },
+        paint: {
+          'line-width': 5.5,
+          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, RIBBON_HEAD_FADE, 0.35, RIBBON_HEAD_COLOR],
+        },
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
     ],
@@ -709,6 +713,9 @@ export function TrackMap({
         : [],
     }
     ;(map.getSource('track-done') as maplibregl.GeoJSONSource | undefined)?.setData(doneFC)
+    if (map.getLayer('track-done-line') && covered > 0) {
+      map.setPaintProperty('track-done-line', 'line-gradient', ribbonGradient(covered, totalDistance) as maplibregl.ExpressionSpecification)
+    }
     // Tête du ruban : derniers mètres parcourus, au-dessus de tout (cf. ribbonHeadM).
     const headFrom = covered - ribbonHeadM(totalDistance)
     let h0 = doneCoords.length - 1

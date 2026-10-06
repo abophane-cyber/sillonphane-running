@@ -13,7 +13,7 @@ import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './t
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPoints } from './gpx'
 import { BASEMAP_BACKGROUND } from './tileSources'
-import { RIBBON_HEAD_COLOR, ribbonColorAt, ribbonHeadM } from './ribbon'
+import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, ribbonAgeColor, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
@@ -199,16 +199,14 @@ function drawTrack(
     }
     const path = buildPath()
 
-    // Liseré sombre sous le dégradé (même traitement que TrackMap/track-done-halo) : sans lui,
-    // la fin du dégradé (blanc cassé) devient quasi invisible sur un fond de carte clair.
-    ctx.strokeStyle = 'rgba(20,30,20,0.55)'
-    ctx.lineWidth   = 7
+    // Liseré de contour très léger sous le ruban (comme TrackMap/track-done-halo).
+    ctx.strokeStyle = RIBBON_OUTLINE
+    ctx.lineWidth   = 6.5
     ctx.globalAlpha = 1
     ctx.stroke(path)
 
-    // Dégradé du symbole Sillon (vert → orangé → blanc cassé), même palette que TrackMap, réparti le long de la
-    // DISTANCE parcourue (tronçons dessinés dans l'ordre : le plus récent passe dessus). Un dégradé en ligne droite
-    // départ → tête devenait faux sur une boucle (départ et tête confondus).
+    // Couleur selon la distance DERRIÈRE le coureur (ribbonAgeColor : crème, puis orange, puis vert), par tronçons
+    // dessinés dans l'ordre (le plus récent passe dessus) : juste sur les boucles aussi.
     const CHUNKS = 120
     ctx.lineWidth   = 4.5
     ctx.globalAlpha = 0.97
@@ -222,7 +220,7 @@ function drawTrack(
       while (i < lo && distances[i + 1] <= until) { i++; const pt = project(points[i].lon, points[i].lat); seg.lineTo(pt.x, pt.y); n++ }
       if (c === CHUNKS) { seg.lineTo(tipPt.x, tipPt.y); n++ }
       if (!n) continue // tronçon plus court qu'un écart entre deux points : la couleur suivante prend le relais
-      ctx.strokeStyle = ribbonColorAt((c - 0.5) / CHUNKS)
+      ctx.strokeStyle = ribbonAgeColor(t - (t * (c - 0.5)) / CHUNKS, totalDistance)
       ctx.stroke(seg)
     }
 
@@ -235,11 +233,17 @@ function drawTrack(
     head.moveTo(hp.x, hp.y)
     for (let k = h + 1; k <= lo; k++) { const pt = project(points[k].lon, points[k].lat); head.lineTo(pt.x, pt.y) }
     head.lineTo(tipPt.x, tipPt.y)
+    // Fondu depuis le début de la tête (comme l'aperçu) : pas de petit trait sombre en travers du ruban.
+    const fade = (from: string, to: string) => {
+      const g = ctx.createLinearGradient(hp.x, hp.y, tipPt.x, tipPt.y)
+      g.addColorStop(0, from); g.addColorStop(0.35, to); g.addColorStop(1, to)
+      return g
+    }
     ctx.globalAlpha = 1
-    ctx.strokeStyle = 'rgba(20,30,20,0.75)'
-    ctx.lineWidth   = 8
+    ctx.strokeStyle = fade('rgba(20,30,20,0)', RIBBON_OUTLINE)
+    ctx.lineWidth   = 6.5
     ctx.stroke(head)
-    ctx.strokeStyle = RIBBON_HEAD_COLOR
+    ctx.strokeStyle = fade(RIBBON_HEAD_FADE, RIBBON_HEAD_COLOR)
     ctx.lineWidth   = 4.5
     ctx.stroke(head)
   }
