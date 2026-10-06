@@ -98,7 +98,6 @@ interface Props {
   handleRestart: () => void
   onSeek: (t: number) => void
   handleModeChange: (mode: ActivityMode, speedLevel?: 1 | 2) => void
-  handleSpeedLevel: (level: 1 | 2) => void
   lookahead: number
   setLookahead: (v: number) => void
   hasPlayedPreview: boolean
@@ -127,7 +126,7 @@ export function AnimateScreen({
   trackHasSavedFilm, onViewFilm,
   dismissedHints, dismissHint,
   handlePlay, handlePause, handleReset, handleRestart, onSeek,
-  handleModeChange, handleSpeedLevel, lookahead, setLookahead,
+  handleModeChange, lookahead, setLookahead,
   hasPlayedPreview, previewFinished, trackSaved, customTitle,
   onVoyages, onSaveTrack, onAlbum,
   guideOn, guideReplayNonce, onGuideClose,
@@ -361,7 +360,6 @@ export function AnimateScreen({
             activityMode={activityMode}
             speedLevel={speedLevel}
             onModeChange={handleModeChange}
-            onSpeedLevel={handleSpeedLevel}
             lookahead={lookahead}
             onLookahead={setLookahead}
             characters={characters}

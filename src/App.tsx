@@ -192,7 +192,7 @@ export default function App() {
   const {
     activityMode, speedLevel, lookahead, setLookahead,
     targetZoom, setTargetZoom, zoomResetSeq, setZoomResetSeq,
-    handleModeChange, handleSpeedLevel,
+    handleModeChange,
   } = useAnimationSettings(activeTrack, setSpeed)
 
   // Bouton retour du header : cas gérés directement par App (les autres vues s'enregistrent via useHeaderBack).
@@ -514,13 +514,6 @@ export default function App() {
     if (next === characters) return
     setCharacters(next)
     clearCreatedFilms()
-  }
-
-  // Le niveau de vitesse influe aussi sur le film (durée, cadence de marche, zoom) : le changer
-  // doit donc rouvrir « Créer le film », comme le changement de personnages.
-  function handleSpeedLevelWithFilmReset(level: 1 | 2) {
-    if (level !== speedLevel) clearCreatedFilms()
-    handleSpeedLevel(level)
   }
 
   function goToLanding() {
@@ -852,7 +845,6 @@ export default function App() {
             handleRestart={handleRestart}
             onSeek={t => { seek(t); bumpSeek() }}
             handleModeChange={handleModeChange}
-            handleSpeedLevel={handleSpeedLevelWithFilmReset}
             lookahead={lookahead}
             setLookahead={setLookahead}
             hasPlayedPreview={hasPlayedPreview}

@@ -7,11 +7,12 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { CHARACTERS } from './characters3d'
+import { HIKER3D_MAX_SCALE } from './hiker3dStaging'
 import type { CharacterId } from './characters'
 
 const W = 155, H = 185
-/** Agrandissement maximal (plans serrés) : fixe la taille du rendu, cf. HIKER3D_MAX_SCALE dans TrackMap.tsx. */
-const MAX_SCALE = 2.4
+/** Agrandissement maximal (plans serrés, présentation au départ) : fixe la taille du rendu. */
+const MAX_SCALE = HIKER3D_MAX_SCALE
 /** Pivot borné : bien au-dessus de la vitesse de virage du ralenti (trackPacing.ts) pour que les personnages suivent
  * les lacets sans retard, tout en amortissant un à-coup ponctuel. */
 const MAX_TURN_DEG_PER_S = 250

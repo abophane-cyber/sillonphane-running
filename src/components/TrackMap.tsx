@@ -14,7 +14,7 @@ import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX, HIKER3D_FOLLOW_PX,
-  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
+  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, HIKER3D_PRESENT_ZOOM, HIKER3D_PRESENT_MS, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
@@ -751,9 +751,22 @@ export function TrackMap({
       markerRef.current?.remove(); markerRef.current = null; markerElRef.current = null
       return
     }
-    if (loadedRef.current) placeHikerAtStart()
-    else mapRef.current?.once('load', placeHikerAtStart)
-  }, [characters, points]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Running : le coureur choisi est présenté en grand au départ, de face (dossard lisible), jusqu'au lancement.
+    const present = () => {
+      placeHikerAtStart()
+      const map = mapRef.current
+      if (!map || countdownRef.current !== null) return
+      hiker3dRef.current.forEach(s => s.resetToStart())
+      map.easeTo({
+        center: [points[0].lon, points[0].lat], zoom: (targetZoomRef.current ?? ZOOMS[0]) + HIKER3D_PRESENT_ZOOM,
+        // Point de départ abaissé : le coureur, debout dessus, tient en entier dans le cadre.
+        offset: [0, map.getContainer().clientHeight * 0.22],
+        duration: HIKER3D_PRESENT_MS, easing: smoothEase, essential: true,
+      })
+    }
+    if (loadedRef.current) present()
+    else mapRef.current?.once('load', present)
+  }, [characters.join(','), points]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Randonneur 3D : la marche attend la fin du dézoom de départ ──
   useEffect(() => {
@@ -831,7 +844,11 @@ export function TrackMap({
     const map = mapRef.current
     if (!map || points.length < 2 || progressRef.current >= 0.01) return
     placeHikerAtStart()
-    map.jumpTo({ center: [points[0].lon, points[0].lat], zoom: (targetZoomRef.current ?? map.getZoom()) + HIKER3D_CLOSE_ZOOM })
+    // Depuis la présentation en grand : la caméra recule en douceur jusqu'au plan serré du départ (il « rejoint la
+    // ligne ») ; sinon, saut direct.
+    const closeZoom = (targetZoomRef.current ?? ZOOMS[0]) + HIKER3D_CLOSE_ZOOM
+    if (map.getZoom() > closeZoom + 0.2) map.easeTo({ center: [points[0].lon, points[0].lat], zoom: closeZoom, duration: 1200, easing: smoothEase, essential: true })
+    else map.jumpTo({ center: [points[0].lon, points[0].lat], zoom: closeZoom })
   }, [countdown]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Marqueurs de col permanents ───────────────────────────────────────────

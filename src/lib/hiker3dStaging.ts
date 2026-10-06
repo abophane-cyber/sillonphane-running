@@ -23,7 +23,11 @@ export const HIKER3D_MERGE_TAU_S = 1.5
 /** Taille des personnages selon le zoom : ×(1 + 0,45 par niveau au-dessus du zoom de marche), bornée. */
 export const HIKER3D_SCALE_PER_ZOOM = 0.45
 export const HIKER3D_MIN_SCALE = 0.6
-export const HIKER3D_MAX_SCALE = 2.4
+export const HIKER3D_MAX_SCALE = 3.5
+/** Running : coureur choisi avant la lecture, présenté en grand au départ (dossard lisible) — niveaux de zoom ajoutés
+ * au zoom de marche (≈ taille maximale). Au lancement de l'aperçu, la caméra recule au plan serré du départ. */
+export const HIKER3D_PRESENT_ZOOM = 5
+export const HIKER3D_PRESENT_MS = 1500
 
 /** Taille des personnages (1 = taille de marche) au zoom `zoom`, la marche se faisant au zoom `walkZoom`. */
 export function hiker3dScaleForZoom(zoom: number, walkZoom: number): number {
