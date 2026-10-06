@@ -33,12 +33,13 @@ const STEP_TEXT: Record<Step, ReactNode> = {
 const INTRO_SEEN_KEY = 'sillon.animGuide.introSeen'
 
 // Personnage illustrant la bulle à chaque étape : un différent par étape (portraits
-// pré-cadrés, voir CHARACTER_FACE), et les 4 réunis à la dernière étape.
+// pré-cadrés, voir CHARACTER_FACE), et tous réunis à la dernière étape. Les personnages sans portrait sont omis.
+const FACES = CHARACTER_IDS.flatMap(id => CHARACTER_FACE[id] ?? [])
 const STEP_FACES: Record<Step, string[]> = {
-  intro: [CHARACTER_FACE[CHARACTER_IDS[0]]],
-  panels: [CHARACTER_FACE[CHARACTER_IDS[1]]],
-  characters: [CHARACTER_FACE[CHARACTER_IDS[2]]],
-  create: CHARACTER_IDS.map(id => CHARACTER_FACE[id]),
+  intro: [FACES[0]],
+  panels: [FACES[1]],
+  characters: [FACES[2]],
+  create: FACES,
 }
 
 interface Props {

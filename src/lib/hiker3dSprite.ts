@@ -16,6 +16,8 @@ const MAX_SCALE = 2.4
  * les lacets sans retard, tout en amortissant un à-coup ponctuel. */
 const MAX_TURN_DEG_PER_S = 250
 const CROSSFADE_S = 0.4
+/** Fondu plus long entre deux allures de course : les cycles n'ont pas la même durée. */
+const GAIT_FADE_S = 0.8
 /** Cadence de marche : bornes du facteur de vitesse du clip (au-delà, jambes illisibles ou quasi figées), lissage, et
  * vitesse « naturelle » de repli si le clip n'a pas pu être mesuré (≈ 1,3 m/s pour 1,75 m). */
 const WALK_RATE_MIN = 0.3
@@ -35,6 +37,8 @@ export interface Hiker3dSprite {
   /** Vitesse d'avancement au sol, en hauteurs de corps par seconde (vitesse à l'écran ÷ taille du personnage à
    * l'écran) : la cadence des pas s'y cale pour que les pieds ne patinent pas (cf. clipGroundSpeed). */
   setGroundSpeed(bodyHeightsPerS: number): void
+  /** Part du parcours déjà faite (0 à 1) : choisit l'allure (def.gaits), par fondu si elle change en course. */
+  setProgress(fraction: number): void
   /** Avant la lecture : en attente (boucle) ou assis, prêt à se lever. */
   resetToStart(): void
   /** Décompte de départ : le personnage assis se lève (l'attente, elle, enchaîne sur la marche à la lecture). */
@@ -151,6 +155,12 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
   // Cadence de marche : facteur de vitesse du clip, calé sur l'avancement au sol (setGroundSpeed), lissé.
   let clipSpeed = FALLBACK_CLIP_SPEED
   let walkRate = 1, walkRateTarget = 1
+  let groundSpeed = -1 // dernière vitesse reçue (setGroundSpeed), pour recaler la cadence au changement d'allure
+  // Allures enchaînées (def.gaits) : action et vitesse au sol de chaque clip (null tant qu'il n'est pas chargé) ;
+  // -1 = pas encore choisie, `walk` désigne toujours l'allure en cours.
+  let gaitActions: (THREE.AnimationAction | null)[] = []
+  let gaitSpeeds: number[] = []
+  let gaitIdx = -1
   let bodyPx = H * 0.53 // taille du personnage à l'écran (scale 1), mesurée au chargement
   let targetYaw = 0 // face à nous (attente au départ)
   let yaw = targetYaw
@@ -232,6 +242,17 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
     if (Number.isFinite(walkBox.min.y)) model.position.y -= walkBox.min.y
     walk.stop()
     clipSpeed = clipGroundSpeed(model, mixer, walk)
+    if (def.gaits) {
+      const base = walk
+      gaitActions = def.gaits.map(g => (g.url ? null : base))
+      gaitSpeeds = def.gaits.map(() => clipSpeed)
+      def.gaits.forEach((g, i) => loadClip(g.url, c => {
+        const a = mixer!.clipAction(def.trimDuplicateLastFrame ? trimClosedLoop(c, def.clipFps ?? 24, def.exactLoop) : c)
+        gaitSpeeds[i] = clipGroundSpeed(model, mixer!, a)
+        gaitActions[i] = a
+        if (mode === 'start') enterStart()
+      }))
+    }
     enterStart()
     loadClip(def.greetUrl, c => { greet = once(mixer!.clipAction(c)) })
     loadClip(def.sitDownUrl, c => { sit = once(mixer!.clipAction(c)) })
@@ -313,7 +334,27 @@ export function createHiker3dSprite(id: CharacterId, opts: Hiker3dSpriteOptions 
     },
     setGroundSpeed(bodyHeightsPerS) {
       if (!(bodyHeightsPerS >= 0)) return
+      groundSpeed = bodyHeightsPerS
       walkRateTarget = Math.max(WALK_RATE_MIN, Math.min(WALK_RATE_MAX, (bodyHeightsPerS / clipSpeed) * CADENCE_SCALE))
+    },
+    setProgress(fraction) {
+      const gaits = def.gaits
+      if (!gaits || !walk) return
+      let i = 0
+      while (i + 1 < gaits.length && fraction >= gaits[i + 1].from) i++
+      const next = gaitActions[i]
+      if (i === gaitIdx || !next) return // allure inchangée, ou clip pas encore chargé (réessayé à l'image suivante)
+      gaitIdx = i
+      const prev = walk
+      walk = next
+      clipSpeed = gaitSpeeds[i]
+      if (groundSpeed >= 0) this.setGroundSpeed(groundSpeed)
+      if (mode !== 'walk' || prev === next) return // départ ou arrivée : la nouvelle allure servira à la reprise
+      // Même phase du cycle (pied d'appui) dans la nouvelle allure, puis fondu.
+      const phase = prev.time / (prev.getClip().duration || 1)
+      next.reset().play()
+      next.time = phase * next.getClip().duration
+      prev.crossFadeTo(next, GAIT_FADE_S, false)
     },
     resetToStart() {
       // Au départ il nous fait face ; il pivotera vers le chemin en se mettant en marche.

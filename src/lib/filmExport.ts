@@ -1067,6 +1067,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // Hors des lacets, le ruban accélère mais les pas gardent leur allure.
     const stepPx = hkSpeedPx * (pacing ? pacing.stepScaleAt(coveredM) : 1)
     hikers.forEach(h => h.setGroundSpeed(stepPx / bodyPx))
+    hikers.forEach(h => h.setProgress(coveredM / totalDistance)) // allure selon la distance parcourue (coureurs)
     // Cap : celui du chemin à l'endroit où se trouve chaque personnage (virages et lacets suivis).
     const d = headingToScreen(pacing ? pacing.headingAt(coveredM) : 0)
     hkDir.x = d.x; hkDir.y = d.y

@@ -1,12 +1,13 @@
-// ─── Personnages sélectionnables pour l'animation (1 ou 2 parmi les 4) ────────
+// ─── Personnages sélectionnables pour l'animation (1 ou 2) ────────
 
-export type CharacterId = 'randonneur1' | 'randonneuse1' | 'randonneur2' | 'randonneuse2'
+export type CharacterId = 'coureuse1' | 'randonneur1' | 'randonneuse1' | 'randonneur2' | 'randonneuse2'
 
-export const CHARACTER_IDS: CharacterId[] = ['randonneur1', 'randonneuse1', 'randonneur2', 'randonneuse2']
+export const CHARACTER_IDS: CharacterId[] = ['coureuse1', 'randonneur1', 'randonneuse1', 'randonneur2', 'randonneuse2']
 
 // Figurines rendues depuis les modèles 3D des randonneurs (cf. characters3d.ts) : elles montrent le personnage
 // tel qu'il apparaît à l'écran.
 export const CHARACTER_ICON: Record<CharacterId, string> = {
+  coureuse1: `${import.meta.env.BASE_URL}perso/icons/coureuse1.png`,
   randonneur1: `${import.meta.env.BASE_URL}perso/icons/randonneur1.png`,
   randonneuse1: `${import.meta.env.BASE_URL}perso/icons/randonneuse1.png`,
   randonneur2: `${import.meta.env.BASE_URL}perso/icons/randonneur2.png`,
@@ -15,7 +16,7 @@ export const CHARACTER_ICON: Record<CharacterId, string> = {
 
 // Portraits pré-cadrés (fond + cercle de couleur déjà inclus dans l'image) utilisés par le
 // guide d'animation (GuidedTour) : pas besoin de crop CSS.
-export const CHARACTER_FACE: Record<CharacterId, string> = {
+export const CHARACTER_FACE: Partial<Record<CharacterId, string>> = {
   randonneur1: `${import.meta.env.BASE_URL}randonneur1-face.jpg`,
   randonneuse1: `${import.meta.env.BASE_URL}randonneuse1-face.jpg`,
   randonneur2: `${import.meta.env.BASE_URL}randonneur2-face.jpg`,
@@ -23,6 +24,7 @@ export const CHARACTER_FACE: Record<CharacterId, string> = {
 }
 
 export const CHARACTER_LABEL: Record<CharacterId, string> = {
+  coureuse1: 'Coureuse',
   randonneur1: 'Randonneur',
   randonneuse1: 'Randonneuse',
   randonneur2: 'Randonneur',

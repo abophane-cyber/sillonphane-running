@@ -605,6 +605,7 @@ export function TrackMap({
           const stepMps = gs.mps * pacing.stepScaleAt(coveredM)
           sprites.forEach(s => s.setGroundSpeed(stepMps / mPerPx / Math.max(1, body)))
         }
+        sprites.forEach(s => s.setProgress(progress)) // allure selon la distance parcourue (coureurs)
         sprites[0].setDirection(dir.x, dir.y)
         // Duo en marche : le second suit sur le ruban, un peu en arrière.
         hikerFollowRef.current = null
