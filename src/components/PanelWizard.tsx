@@ -67,7 +67,7 @@ export function PanelWizard({
   // Boucle : le même nom au départ et à l'arrivée ne donne qu'un seul panneau.
   const isLoop = !!startName && !!endName && startName.trim().toLowerCase() === endName.trim().toLowerCase()
 
-  const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi' | 'ravito'>('localite')
+  const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi'>('localite')
   const [addName, setAddName] = useState('')
   const [addEle, setAddEle] = useState('')
 
@@ -77,7 +77,7 @@ export function PanelWizard({
       type: addType === 'col' ? 'col' : 'locality',
       name: addName.trim(),
       // Point d'intérêt / ravitaillement : une localité à placeType 'poi' / 'ravito', chacun avec son écriture sur la carte.
-      placeType: addType === 'lieudit' ? 'hamlet' : addType === 'localite' ? 'village' : addType === 'poi' ? 'poi' : addType === 'ravito' ? 'ravito' : undefined,
+      placeType: addType === 'lieudit' ? 'hamlet' : addType === 'localite' ? 'village' : addType === 'poi' ? 'poi' : undefined,
       ele: addType === 'col' ? (parseInt(addEle) || undefined) : undefined,
     })
     setAddName(''); setAddEle('')
@@ -139,36 +139,6 @@ export function PanelWizard({
           {!depHidden && !startIsCol && kindPicker(startKind, onStartKindChange)}
         </div>
 
-        {/* ── Inscription de l'épreuve (nom, date, distance), mémorisée avec le tracé ; vide = valeur par défaut ── */}
-        <div className="pwiz-section pwiz-section--banner">
-          <span className="pwiz-section-label">🏁 Épreuve</span>
-          <input
-            className="pwiz-input" value={race.eventName ?? ''} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
-            aria-label="Nom de l'épreuve"
-            onChange={e => onRaceChange({ ...race, eventName: e.target.value })}
-          />
-          <div className="pwiz-row">
-            <input
-              className="pwiz-input" value={race.bannerDate ?? ''} placeholder={bannerDefaults.date || 'Date'}
-              aria-label="Date de l'épreuve"
-              onChange={e => onRaceChange({ ...race, bannerDate: e.target.value })}
-            />
-            <input
-              className="pwiz-input pwiz-input--distance" value={race.bannerDistance ?? ''} placeholder={bannerDefaults.distance || 'Distance'}
-              aria-label="Distance"
-              onChange={e => onRaceChange({ ...race, bannerDistance: e.target.value })}
-            />
-          </div>
-          <label className="pwiz-race-row">
-            <span>N° de dossard</span>
-            <input
-              className="pwiz-input pwiz-input--bib" value={race.bibNumber ?? ''} placeholder="1234" maxLength={6}
-              inputMode="numeric"
-              onChange={e => onRaceChange({ ...race, bibNumber: e.target.value })}
-            />
-          </label>
-        </div>
-
         {/* ── Cols repérés (décochés par défaut) ── */}
         {cols.length > 0 && (
           <div className="pwiz-section pwiz-section--cols">
@@ -215,6 +185,36 @@ export function PanelWizard({
               ))}
             </ul>
           )}
+        </div>
+
+        {/* ── Inscription de l'épreuve (nom, date, distance), mémorisée avec le tracé ; vide = valeur par défaut ── */}
+        <div className="pwiz-section pwiz-section--banner">
+          <span className="pwiz-section-label">🏁 Épreuve</span>
+          <input
+            className="pwiz-input" value={race.eventName ?? ''} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
+            aria-label="Nom de l'épreuve"
+            onChange={e => onRaceChange({ ...race, eventName: e.target.value })}
+          />
+          <div className="pwiz-row">
+            <input
+              className="pwiz-input" value={race.bannerDate ?? ''} placeholder={bannerDefaults.date || 'Date'}
+              aria-label="Date de l'épreuve"
+              onChange={e => onRaceChange({ ...race, bannerDate: e.target.value })}
+            />
+            <input
+              className="pwiz-input pwiz-input--distance" value={race.bannerDistance ?? ''} placeholder={bannerDefaults.distance || 'Distance'}
+              aria-label="Distance"
+              onChange={e => onRaceChange({ ...race, bannerDistance: e.target.value })}
+            />
+          </div>
+          <label className="pwiz-race-row">
+            <span>N° de dossard</span>
+            <input
+              className="pwiz-input pwiz-input--bib" value={race.bibNumber ?? ''} placeholder="1234" maxLength={6}
+              inputMode="numeric"
+              onChange={e => onRaceChange({ ...race, bibNumber: e.target.value })}
+            />
+          </label>
         </div>
 
         {/* ── Arrivée (masquée sur une boucle : le panneau de départ fait office d'arrivée) ── */}
@@ -317,7 +317,7 @@ export function PanelWizard({
           <span className="pwiz-section-label">💧 Ravitaillements</span>
           <p className="pwiz-race-hint">
             Tapez le kilomètre de chaque poste, séparés par « ; » (ex. 5 ; 9 ; 14 ; 18,5), ou collez la phrase de
-            l’organisateur. Chaque poste est placé tout seul sur le tracé, à ce kilomètre, et gardé avec le tracé.
+            l’organisateur.
           </p>
           <input
             className="pwiz-input" value={race.ravitos ?? ''} placeholder="5 ; 9 ; 14 ; 18,5"
@@ -379,13 +379,13 @@ export function PanelWizard({
           )}
           <div className="pwiz-addform">
             <div className="add-panel-form__row">
-              {(['localite', 'lieudit', 'poi', 'ravito', 'col'] as const).map(t => (
+              {(['localite', 'lieudit', 'poi', 'col'] as const).map(t => (
                 <button
                   key={t}
                   className={`add-panel-form__type-btn${addType === t ? ' active' : ''}`}
                   onClick={() => setAddType(t)}
                 >
-                  {t === 'localite' ? 'Localité' : t === 'lieudit' ? 'Lieu-dit' : t === 'col' ? 'Col' : t === 'ravito' ? 'Ravitaillement' : "Point d'intérêt"}
+                  {t === 'localite' ? 'Localité' : t === 'lieudit' ? 'Lieu-dit' : t === 'col' ? 'Col' : "Point d'intérêt"}
                 </button>
               ))}
             </div>
