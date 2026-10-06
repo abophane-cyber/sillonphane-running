@@ -17,7 +17,7 @@ import {
   HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
-import { borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
+import { borneNumber, borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -778,9 +778,10 @@ export function TrackMap({
     const markers = bornes.map(b => {
       const el = document.createElement('div')
       const time = borneTimeLine(b)
-      el.innerHTML = `<div class="loc-sign loc-sign--borne"><div class="loc-sign__board">` +
-        `<span class="loc-sign__col-name">${b.label}</span>` +
-        (time ? `<span class="loc-sign__borne-time">${time}</span>` : '') + '</div></div>'
+      // Médaille (même dessin que buildBorneMedalSprite dans filmExport.ts) : km dans le jeton, heure · chrono dessous.
+      el.innerHTML = `<div class="loc-sign loc-sign--borne"><div class="borne-medal">` +
+        `<span class="borne-medal__num">${borneNumber(b)}</span><span class="borne-medal__km">K M</span></div>` +
+        (time ? `<div class="borne-medal__time">${time}</div>` : '') + '<div class="borne-medal__tip"></div></div>'
       borneElsRef.current.push(el)
       return new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat([b.lon, b.lat]).addTo(map)
     })

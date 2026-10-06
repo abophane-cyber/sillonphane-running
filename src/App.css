@@ -751,23 +751,30 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   transform: translateY(calc(50% + 40px * var(--ground-scale, 1))) scale(var(--ground-scale, 1));
 }
 
-/* Borne kilométrique (cf. raceSplits.ts) — bleu nuit, km en blanc, temps de passage en jaune (comme le film 2D) */
-.loc-sign--borne .loc-sign__board {
-  background: #14213d;
-  color: #fff;
-  border: none;
-  box-shadow: none;
-  text-align: center;
-  padding: 6px 14px 7px;
+/* Borne kilométrique « médaille » (cf. raceSplits.ts, buildBorneMedalSprite dans filmExport.ts) : jeton bleu nuit
+   cerclé d'or, pastille dorée heure · chrono, pointe posée sur le km exact (ancre du marqueur = bout de la pointe). */
+.loc-sign--borne {
+  transform: scale(var(--ground-scale, 1));
+  transform-origin: bottom center;
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45));
+  font-family: Arial, Helvetica, sans-serif;
 }
-.loc-sign__borne-time {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: #ffd166;
-  margin-top: 2px;
-  letter-spacing: 0.02em;
-  text-transform: none;
+.borne-medal {
+  width: 52px; height: 52px; border-radius: 50%;
+  background: #14213d; box-shadow: 0 0 0 4px #ffd166;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #fff; line-height: 1;
+}
+.borne-medal__num { font-family: 'Arial Narrow', Arial, sans-serif; font-size: 26px; font-weight: 700; }
+.borne-medal__km { font-size: 9.5px; font-weight: 700; margin-top: 2px; }
+.borne-medal__time {
+  margin-top: -4px; position: relative;
+  background: #ffd166; color: #14213d; border-radius: 9px;
+  font-size: 10.5px; font-weight: 700; padding: 3px 8px; white-space: nowrap;
+}
+.borne-medal__tip {
+  width: 0; height: 0; margin-top: -1px;
+  border-left: 7px solid transparent; border-right: 7px solid transparent; border-top: 9px solid #ffd166;
 }
 
 /* Poteau (masqué : pancartes couchées sur la carte) */
@@ -2306,7 +2313,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .pwiz-input--distance { flex: 0 0 96px; }
 .pwiz-input--bib { flex: 0 0 96px; text-align: center; font-weight: 700; }
 
-/* Bornes et temps de passage : bleu nuit des bornes (cf. .loc-sign--borne). */
+/* Bornes et temps de passage : bleu nuit des bornes (cf. .borne-medal). */
 .pwiz-section--bornes {
   padding: 10px 12px 12px; border-radius: 10px;
   background: rgba(20,33,61,0.10);

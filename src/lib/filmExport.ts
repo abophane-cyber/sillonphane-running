@@ -17,7 +17,7 @@ import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
-import { borneReached, borneTimeLine, type Borne } from './raceSplits'
+import { borneNumber, borneReached, borneTimeLine, type Borne } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -298,8 +298,50 @@ function buildGroundLabelSprite(name: string, style: SignStyle): LocSignSprite {
   return { canvas, offX: tx, offY: cy }
 }
 
+/** Borne kilométrique « médaille » : jeton bleu nuit cerclé d'or (km en grand), pastille dorée (heure · chrono),
+ * pointe sur le tracé — ancre = bout de la pointe. Même dessin que l'aperçu (.loc-sign--borne dans App.css). */
+function buildBorneMedalSprite(num: string, time?: string): LocSignSprite {
+  const R = 30, RING = 4, MARGIN = 8, TIP = 9
+  const PILL_H = 17, PILL_FONT = `700 10.5px Arial, Helvetica, sans-serif`
+  const m = document.createElement('canvas').getContext('2d')!
+  m.font = PILL_FONT
+  const pillW = time ? m.measureText(time).width + 16 : 0
+  const W = Math.ceil(Math.max(2 * R, pillW) + MARGIN * 2)
+  const pillY = MARGIN + 2 * R - 6 // la pastille chevauche le bas du jeton
+  const H = Math.ceil((time ? pillY + PILL_H : MARGIN + 2 * R) + TIP + MARGIN)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.ceil(W * SIGN_RES)
+  canvas.height = Math.ceil(H * SIGN_RES)
+  const ctx = canvas.getContext('2d')!
+  ctx.scale(SIGN_RES, SIGN_RES)
+  const cx = W / 2, cy = MARGIN + R
+  const tipTop = time ? pillY + PILL_H - 1 : MARGIN + 2 * R - 2
+  // Pointe dorée, puis jeton (ombre courte : posé au sol).
+  ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1
+  ctx.fillStyle = '#ffd166'
+  ctx.beginPath(); ctx.moveTo(cx - 7, tipTop); ctx.lineTo(cx + 7, tipTop); ctx.lineTo(cx, tipTop + TIP); ctx.closePath(); ctx.fill()
+  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI * 2); ctx.fill()
+  ctx.shadowColor = 'transparent'
+  ctx.fillStyle = '#14213d'
+  ctx.beginPath(); ctx.arc(cx, cy, R - RING, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  let px = 28
+  do { ctx.font = `700 ${px}px 'Arial Narrow', Arial, sans-serif`; px -= 1 } while (ctx.measureText(num).width > (R - RING) * 1.6 && px > 12)
+  ctx.fillText(num, cx, cy - 4)
+  ctx.font = `700 9.5px Arial, Helvetica, sans-serif`
+  ctx.fillText('K M', cx, cy + 15)
+  if (time) {
+    ctx.fillStyle = '#ffd166'
+    ctx.beginPath(); ctx.roundRect(cx - pillW / 2, pillY, pillW, PILL_H, PILL_H / 2); ctx.fill()
+    ctx.fillStyle = '#14213d'; ctx.font = PILL_FONT
+    ctx.fillText(time, cx, pillY + PILL_H / 2 + 0.5)
+  }
+  return { canvas, offX: cx, offY: tipTop + TIP }
+}
+
 function buildLocSignSprite(name: string, style: SignStyle, ele?: number, sub?: string): LocSignSprite {
-  if (style !== 'col' && style !== 'borne') return buildGroundLabelSprite(name, style)
+  if (style === 'borne') return buildBorneMedalSprite(name, sub)
+  if (style !== 'col') return buildGroundLabelSprite(name, style)
   const FONT_SIZE = 15
   const PAD_X = 12, PAD_Y = 6
   const BORDER = 3.5, RADIUS = 7
@@ -1107,7 +1149,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       if (!borneReached(b, coveredM)) continue
       const pt = project(b.lon, b.lat)
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, b.label, pt.x, pt.y, 'borne', undefined, alpha, scale, borneTimeLine(b) || undefined)
+        drawLocSign(ctx, locSignCache, borneNumber(b), pt.x, pt.y, 'borne', undefined, alpha, scale, borneTimeLine(b) || undefined)
     }
   }
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))

@@ -174,6 +174,11 @@ export function borneReached(b: Borne, coveredM: number): boolean {
   return coveredM >= b.km * 1000 - BORNE_LEAD_M
 }
 
+/** Nombre inscrit sur la borne : « 10 », « 21,1 » (semi). */
+export function borneNumber(b: Borne): string {
+  return Number.isInteger(b.km) ? String(b.km) : b.km.toFixed(1).replace('.', ',')
+}
+
 /** Deuxième ligne d'une borne : « 10 h 52 · 52'31" », ou l'un des deux, ou rien. */
 export function borneTimeLine(b: Borne): string {
   return [b.clock, b.elapsedS != null ? formatElapsed(b.elapsedS) : undefined].filter(Boolean).join(' · ')
