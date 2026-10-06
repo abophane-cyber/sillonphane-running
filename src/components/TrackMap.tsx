@@ -18,6 +18,7 @@ import {
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneReached, borneTimeLine, type Borne } from '../lib/raceSplits'
+import type { BannerText } from '../lib/startBanner'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
@@ -165,6 +166,8 @@ interface Props {
   customLocalities?: LocalityInfo[]
   /** Bornes tous les 5 km (km + temps de passage), couchées sur le tracé. */
   bornes?: Borne[]
+  /** Inscription de la banderole de départ. */
+  bannerText?: BannerText
   onRemoveCustomLocality?: (name: string) => void
   onMoveCustomLocality?: (name: string, lon: number, lat: number) => void
   onSuppressLocality?: (name: string) => void
@@ -227,7 +230,7 @@ export function TrackMap({
   panelDuration = 3000,
   localityDedupKm = 5,
   localityDedupMinScore = 6,
-  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
+  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, bannerText, onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
   departureNameOverride, arrivalNameOverride, departureColEle, arrivalColEle, departureLieudit, arrivalLieudit,
   detectedDepartureName, detectedArrivalName,
   onMapCanvasReady, animationEnded = false,
@@ -760,8 +763,8 @@ export function TrackMap({
     return () => { startDelayMsRef.current = 0 }
   }, [startDelayMsRef, characters.length])
 
-  // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé. Toutes visibles avant la lecture et à la
-  // fin ; pendant la course, chacune apparaît à l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM ») ──
+  // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, elles apparaissent au fil de la course, à
+  // l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM »), et sont toutes là à la fin ──
   const borneElsRef = useRef<HTMLDivElement[]>([])
   useEffect(() => {
     const map = mapRef.current
@@ -780,22 +783,26 @@ export function TrackMap({
   }, [bornes])
   useEffect(() => {
     if (!bornes?.length) return
-    const all = (!playing && progress < 0.01) || progress >= 1
+    const all = progress >= 1
     const coveredM = progress * (distances[distances.length - 1] ?? 0)
     bornes.forEach((b, i) => {
       const el = borneElsRef.current[i]
       if (el) el.style.visibility = all || borneReached(b, coveredM) ? '' : 'hidden'
     })
-  }, [bornes, progress, playing, distances])
+  }, [bornes, progress, distances])
 
-  // ── Banderole de départ (startBanner.ts) : derrière la coureuse, au point de départ, à son échelle ──
+  // ── Banderole de départ (startBanner.ts) : en travers du tracé au départ, à l'échelle de la coureuse ; devant
+  // elle (z-index 4) ou derrière (2) selon le côté de l'arche où elle se trouve (bannerInFront) ──
+  const bannerRef = useRef<{ el: HTMLDivElement; update: () => void } | null>(null)
   useEffect(() => {
     const map = mapRef.current
     const start = points[0]
     if (!HIKER3D || !map || !start) return
     let marker: maplibregl.Marker | null = null
     let cancelled = false
-    void import('../lib/startBanner').then(m => m.loadStartBanner()).then(img => {
+    void import('../lib/startBanner').then(async m => {
+      const dir = headingToScreen(getTrackPacing(points, distances).headingAt(0))
+      const img = await m.loadStartBanner(bannerText ?? { title: '' }, dir)
       if (cancelled || !img) return
       const el = document.createElement('div')
       el.className = 'start-banner'
@@ -810,9 +817,19 @@ export function TrackMap({
       c.style.height = `calc(${img.h}px * var(--ground-scale, 1))`
       el.appendChild(c)
       marker = new maplibregl.Marker({ element: el, anchor: 'top-left' }).setLngLat([start.lon, start.lat]).addTo(map)
+      const update = () => {
+        const ll = markerRef.current?.getLngLat()
+        if (!ll) return
+        const a = map.project(ll), o = map.project([start.lon, start.lat])
+        const f = hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ZOOMS[0])
+        el.style.zIndex = m.bannerInFront(img, (a.x - o.x) / f, (a.y - o.y) / f) ? '4' : '2'
+      }
+      bannerRef.current = { el, update }
+      update()
     })
-    return () => { cancelled = true; marker?.remove() }
-  }, [points])
+    return () => { cancelled = true; marker?.remove(); bannerRef.current = null }
+  }, [points, distances, bannerText])
+  useEffect(() => { bannerRef.current?.update() }, [progress])
 
   // ── Randonneur 3D : sa taille suit le zoom de la carte (plans serrés de départ et d'arrivée) ──
   useEffect(() => {

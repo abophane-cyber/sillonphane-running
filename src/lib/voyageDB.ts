@@ -217,6 +217,9 @@ export async function saveTrackPanelSettings(
     bornesOff?: boolean
     plannedTimes?: boolean
     raceSpeeds?: number[]
+    eventName?: string
+    bannerDate?: string
+    bannerDistance?: string
   },
 ): Promise<void> {
   return withVoyageLock(voyageId, async () => {
@@ -234,6 +237,9 @@ export async function saveTrackPanelSettings(
       panelBornesOff: settings.bornesOff,
       panelPlannedTimes: settings.plannedTimes,
       panelRaceSpeeds: settings.raceSpeeds,
+      panelEventName: settings.eventName,
+      panelBannerDate: settings.bannerDate,
+      panelBannerDistance: settings.bannerDistance,
     } : t)
     await saveVoyage(voyage)
   })

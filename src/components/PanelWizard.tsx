@@ -8,6 +8,7 @@ import {
   DEFAULT_SPEED_KMH, SPEED_SLICE_KM, formatElapsed, hasPlannedSpeeds, plannedElapsedS, speedSliceCount,
   type RaceSettings,
 } from '../lib/raceSplits'
+import type { BannerText } from '../lib/startBanner'
 
 /** « 12 h 41 (3 h 41'00") », ou la durée seule sans heure de départ. */
 function plannedFinish(startTime: string, elapsedS: number): string {
@@ -44,6 +45,8 @@ interface Props {
   /** Le GPX porte des heures réelles : choix entre temps du GPX et temps prévus. */
   realTimes: boolean
   totalDistance: number
+  /** Inscription par défaut de la banderole de départ (exemples des champs). */
+  bannerDefaults: BannerText
   departureTime: string
   onDepartureTimeChange: (v: string) => void
   showHint?: boolean
@@ -55,7 +58,7 @@ export function PanelWizard({
   excluded, customLocalities, onStartNameChange, onEndNameChange,
   startKind, endKind, startIsCol, endIsCol, onStartKindChange, onEndKindChange,
   onToggleLocality, onAddPanel, onRemoveCustomLocality, onComplete,
-  race, onRaceChange, realTimes, totalDistance, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, totalDistance, bannerDefaults, departureTime, onDepartureTimeChange,
   showHint, onDismissHint,
 }: Props) {
   const depHidden = excluded.has(startName)
@@ -133,6 +136,28 @@ export function PanelWizard({
             </label>
           </div>
           {!depHidden && !startIsCol && kindPicker(startKind, onStartKindChange)}
+        </div>
+
+        {/* ── Inscription de la banderole de départ (startBanner.ts) : vide = valeur par défaut ── */}
+        <div className="pwiz-section pwiz-section--banner">
+          <span className="pwiz-section-label">🏁 Banderole de départ</span>
+          <input
+            className="pwiz-input" value={race.eventName ?? ''} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
+            aria-label="Nom de l'épreuve"
+            onChange={e => onRaceChange({ ...race, eventName: e.target.value })}
+          />
+          <div className="pwiz-row">
+            <input
+              className="pwiz-input" value={race.bannerDate ?? ''} placeholder={bannerDefaults.date || 'Date'}
+              aria-label="Date de l'épreuve"
+              onChange={e => onRaceChange({ ...race, bannerDate: e.target.value })}
+            />
+            <input
+              className="pwiz-input pwiz-input--distance" value={race.bannerDistance ?? ''} placeholder={bannerDefaults.distance || 'Distance'}
+              aria-label="Distance"
+              onChange={e => onRaceChange({ ...race, bannerDistance: e.target.value })}
+            />
+          </div>
         </div>
 
         {/* ── Cols repérés (décochés par défaut) ── */}

@@ -235,6 +235,9 @@ export interface VoyageTrack {
   panelBornesOff?: boolean             // bornes masquées (affichées par défaut)
   panelPlannedTimes?: boolean          // temps prévus plutôt que les temps réels du GPX
   panelRaceSpeeds?: number[]           // vitesse attendue (km/h) par tranche de 10 km
+  panelEventName?: string              // inscription de la banderole de départ : nom de l'épreuve,
+  panelBannerDate?: string             //   date et distance (vides = valeurs par défaut)
+  panelBannerDistance?: string
 }
 
 export type PhotoTone = 'neutre' | 'culturel' | 'amusant' | 'poetique'

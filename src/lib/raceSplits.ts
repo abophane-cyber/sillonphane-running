@@ -16,8 +16,26 @@ export interface RaceSettings {
   plannedTimes: boolean
   /** Vitesse attendue (km/h) par tranche de SPEED_SLICE_KM ; 0 = non renseignée. */
   speeds: number[]
+  /** Inscription de la banderole de départ ; vide = valeur par défaut (titre du parcours, date, distance). */
+  eventName?: string
+  bannerDate?: string
+  bannerDistance?: string
 }
 export const DEFAULT_RACE_SETTINGS: RaceSettings = { bornesOff: false, plannedTimes: false, speeds: [] }
+
+/** Distance pour la banderole : « 42,195 KM » (marathon), « 21,1 KM » (semi), sinon au dixième. */
+export function formatBannerDistance(m: number): string {
+  if (Math.abs(m - 42195) < 500) return '42,195 KM'
+  if (Math.abs(m - 21097.5) < 300) return '21,1 KM'
+  return `${(m / 1000).toFixed(1).replace('.', ',').replace(/,0$/, '')} KM`
+}
+
+/** Date pour la banderole : « 25 octobre 2026 » (date « AAAA-MM-JJ »). */
+export function formatBannerDate(iso: string | undefined): string | undefined {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}/.test(iso)) return undefined
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
+}
 
 export interface Borne {
   /** Libellé principal : « 10 KM », « SEMI ». */

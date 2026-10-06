@@ -28,7 +28,10 @@ import { useVoyageSaveModal } from './hooks/useVoyageSaveModal'
 import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
-import { computeBornes, hasRealTimes, DEFAULT_RACE_SETTINGS, type RaceSettings } from './lib/raceSplits'
+import {
+  computeBornes, hasRealTimes, formatBannerDate, formatBannerDistance, DEFAULT_RACE_SETTINGS, type RaceSettings,
+} from './lib/raceSplits'
+import type { BannerText } from './lib/startBanner'
 import { useAnimationSettings, ZOOMS, animSpeed } from './hooks/useAnimationSettings'
 import { useGpxSession } from './hooks/useGpxSession'
 import { hasActiveRecording } from './hooks/useGpsRecorder'
@@ -101,6 +104,18 @@ export default function App() {
     useRealTimes: realTimes && !race.plannedTimes,
     startTime: departureTime, date: manualDate, speedsKmh: race.speeds,
   }), [points, distances, race, realTimes, departureTime, manualDate])
+  // Inscription de la banderole de départ : nom de l'épreuve, date, distance — saisis dans le widget des panneaux,
+  // sinon titre du parcours, date de la sortie, distance du tracé.
+  const bannerDefaults = useMemo<BannerText>(() => ({
+    title: customTitle || activeTrack?.name || '',
+    date: formatBannerDate(manualDate),
+    distance: activeTrack ? formatBannerDistance(activeTrack.distance) : undefined,
+  }), [customTitle, activeTrack, manualDate])
+  const bannerText = useMemo<BannerText>(() => ({
+    title: race.eventName?.trim() || bannerDefaults.title,
+    date: race.bannerDate?.trim() || bannerDefaults.date,
+    distance: race.bannerDistance?.trim() || bannerDefaults.distance,
+  }), [race.eventName, race.bannerDate, race.bannerDistance, bannerDefaults])
   const { fitBoundsCount, seekCount, zoomToStartCount, bumpFitBounds, bumpSeek, bumpZoomToStart } = useMapTriggers()
   const [hasPlayedPreview, setHasPlayedPreview] = useState(false)
   const [previewFinished, setPreviewFinished] = useState(false)
@@ -369,6 +384,9 @@ export default function App() {
         bornesOff: race.bornesOff || undefined,
         plannedTimes: race.plannedTimes || undefined,
         raceSpeeds: race.speeds.length > 0 ? race.speeds : undefined,
+        eventName: race.eventName?.trim() || undefined,
+        bannerDate: race.bannerDate?.trim() || undefined,
+        bannerDistance: race.bannerDistance?.trim() || undefined,
       }).catch(e => console.error('[panels] save:', e))
     }, 600)
     return () => clearTimeout(timer)
@@ -417,6 +435,7 @@ export default function App() {
       weather,
       characters,
       bornes,
+      bannerText,
       trackName: customTitle || activeTrack.name,
       speedLevel,
       activeSillonId,
@@ -618,6 +637,9 @@ export default function App() {
                     bornesOff: !!track.panelBornesOff,
                     plannedTimes: !!track.panelPlannedTimes,
                     speeds: track.panelRaceSpeeds ?? [],
+                    eventName: track.panelEventName,
+                    bannerDate: track.panelBannerDate,
+                    bannerDistance: track.panelBannerDistance,
                   },
                   hasComposition,
                   hasFilm,
@@ -808,6 +830,8 @@ export default function App() {
             onRaceChange={setRace}
             realTimes={realTimes}
             bornes={bornes}
+            bannerText={bannerText}
+            bannerDefaults={bannerDefaults}
             departureTime={departureTime}
             onDepartureTimeChange={setDepartureTime}
             onMapCanvasReady={canvas => { mapCanvasRef.current = canvas }}
