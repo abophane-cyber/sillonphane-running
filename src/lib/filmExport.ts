@@ -228,7 +228,7 @@ function drawTrack(
 // (Arrondir la position à l'entier avait été tenté avant et donnait un autre défaut : un saut
 // d'1 px quand la position franchit un seuil entier — d'où l'usage d'un cache par appel de film.)
 
-type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi' | 'borne'
+type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi' | 'ravito' | 'borne'
 
 // Running : panneaux COUCHÉS sur la carte (sans mât, centrés sur le lieu), à la taille des personnages selon le zoom
 // (cf. hiker3dScaleForZoom) ; pré-rendus en haute résolution (SIGN_RES) pour rester nets dans les plans serrés.
@@ -237,16 +237,79 @@ const SIGN_RES = 2.5
 interface LocSignSprite { canvas: HTMLCanvasElement; offX: number; offY: number }
 type LocSignCache = Map<string, LocSignSprite>
 
+/** Écriture des noms de lieux à même la carte, par type — mêmes valeurs que l'aperçu (.loc-sign dans App.css).
+ * Localité : grandes lettres blanches cernées de noir ; lieu-dit : idem en italique, plus petit ; point d'intérêt :
+ * italique doré à empattements cerné de brun ; ravitaillement : pastille bleue (goutte) + nom cerné de bleu. */
+const GROUND_LABEL: Partial<Record<SignStyle, { font: string; size: number; fill: string; stroke: string }>> = {
+  standard: { font: '700 {s}px Arial, Helvetica, sans-serif', size: 24, fill: '#fff', stroke: '#1b1b1b' },
+  lieudit:  { font: 'italic 700 {s}px Arial, Helvetica, sans-serif', size: 19, fill: '#fff', stroke: '#1b1b1b' },
+  poi:      { font: 'italic 700 {s}px Georgia, "Times New Roman", serif', size: 20, fill: '#ffe3a3', stroke: '#4a2a10' },
+  ravito:   { font: '700 {s}px Arial, Helvetica, sans-serif', size: 18, fill: '#fff', stroke: '#0a3d6b' },
+}
+
+/** Nom de lieu écrit à même la carte, sans pancarte (cf. GROUND_LABEL). */
+function buildGroundLabelSprite(name: string, style: SignStyle): LocSignSprite {
+  const g = GROUND_LABEL[style] ?? GROUND_LABEL.standard!
+  const isRavito = style === 'ravito'
+  const STROKE = 4.5
+  const MARGIN = 8
+  const ICON = isRavito ? 26 : 0 // pastille du ravitaillement, à gauche du nom
+  const GAP = isRavito ? 6 : 0
+  const FONT = g.font.replace('{s}', String(g.size))
+  const m = document.createElement('canvas').getContext('2d')!
+  m.font = FONT
+  const textW = m.measureText(name).width
+  const W = Math.ceil(ICON + GAP + textW + STROKE * 2 + MARGIN * 2)
+  const H = Math.ceil(Math.max(g.size * 1.3, ICON) + STROKE * 2 + MARGIN * 2)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.ceil(W * SIGN_RES)
+  canvas.height = Math.ceil(H * SIGN_RES)
+  const ctx = canvas.getContext('2d')!
+  ctx.scale(SIGN_RES, SIGN_RES)
+  const cy = H / 2
+  if (isRavito) {
+    // Pastille bleue cerclée de blanc, goutte d'eau blanche.
+    const cx = MARGIN + STROKE + ICON / 2
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1
+    ctx.fillStyle = '#1f7ae0'
+    ctx.beginPath(); ctx.arc(cx, cy, ICON / 2, 0, Math.PI * 2); ctx.fill()
+    ctx.shadowColor = 'transparent'
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2
+    ctx.stroke()
+    ctx.fillStyle = '#fff'
+    ctx.beginPath()
+    ctx.moveTo(cx, cy - 8)
+    ctx.bezierCurveTo(cx + 2, cy - 4, cx + 6, cy, cx + 6, cy + 3)
+    ctx.arc(cx, cy + 3, 6, 0, Math.PI)
+    ctx.bezierCurveTo(cx - 6, cy, cx - 2, cy - 4, cx, cy - 8)
+    ctx.fill()
+  }
+  const tx = MARGIN + STROKE + ICON + GAP + textW / 2
+  ctx.font = FONT
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.lineJoin = 'round'
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1
+  ctx.strokeStyle = g.stroke; ctx.lineWidth = STROKE
+  ctx.strokeText(name, tx, cy)
+  ctx.shadowColor = 'transparent'
+  ctx.fillStyle = g.fill
+  ctx.fillText(name, tx, cy)
+  // Ancre : centre du nom (la pastille déborde à gauche, comme dans l'aperçu).
+  return { canvas, offX: tx, offY: cy }
+}
+
 function buildLocSignSprite(name: string, style: SignStyle, ele?: number, sub?: string): LocSignSprite {
+  if (style !== 'col' && style !== 'borne') return buildGroundLabelSprite(name, style)
   const FONT_SIZE = 15
   const PAD_X = 12, PAD_Y = 6
   const BORDER = 3.5, RADIUS = 7
   const MARGIN = 8 // marge autour du sprite pour l'ombre au sol (blur 4 + offsetY 1)
 
-  const isLieudit = style === 'lieudit'
-  const isCol     = style === 'col'
-  const isPoi     = style === 'poi' // point d'intérêt : panneau touristique marron, liseré blanc
-  const isBorne   = style === 'borne' // borne kilométrique : bleu nuit, km + temps de passage (cf. raceSplits.ts)
+  const st = style as SignStyle // pancartes : col et borne (les noms de lieux passent par buildGroundLabelSprite)
+  const isLieudit = st === 'lieudit'
+  const isCol     = st === 'col'
+  const isPoi     = st === 'poi'
+  const isBorne   = st === 'borne' // borne kilométrique : bleu nuit, km + temps de passage (cf. raceSplits.ts)
 
   const label     = isLieudit || isPoi ? name : name.toUpperCase()
   const fontStyle = isLieudit ? 'italic 800' : isPoi ? '700' : '800'
@@ -937,7 +1000,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const triggerProgress = Math.min(closestDist / totalDistance, 1)
     const arriveFrame = walkWarp ? Math.round(walkWarp.timeAtM(triggerProgress * totalDistance) * fps) : Math.round(triggerProgress * estTotalFrames)
     const showFrame = Math.max(0, arriveFrame - SIGN_LEAD_FRAMES)
-    const style: SignStyle = loc.type === 'col' ? 'col' : loc.placeType === 'poi' ? 'poi' : (loc.placeType === 'hamlet' || loc.placeType === 'locality') ? 'lieudit' : 'standard'
+    const style: SignStyle = loc.type === 'col' ? 'col' : loc.placeType === 'poi' ? 'poi' : loc.placeType === 'ravito' ? 'ravito' : (loc.placeType === 'hamlet' || loc.placeType === 'locality') ? 'lieudit' : 'standard'
     return { name: loc.name, lon: loc.lon, lat: loc.lat, style, ele: loc.ele, showFrame, hideFrame: arriveFrame + SIGN_STAY_FRAMES, arriveFrame }
   })
 

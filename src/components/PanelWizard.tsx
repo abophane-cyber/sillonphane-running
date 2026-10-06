@@ -66,7 +66,7 @@ export function PanelWizard({
   // Boucle : le même nom au départ et à l'arrivée ne donne qu'un seul panneau.
   const isLoop = !!startName && !!endName && startName.trim().toLowerCase() === endName.trim().toLowerCase()
 
-  const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi'>('localite')
+  const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi' | 'ravito'>('localite')
   const [addName, setAddName] = useState('')
   const [addEle, setAddEle] = useState('')
 
@@ -75,8 +75,8 @@ export function PanelWizard({
     onAddPanel({
       type: addType === 'col' ? 'col' : 'locality',
       name: addName.trim(),
-      // Point d'intérêt : une localité à placeType 'poi', dessinée en panneau touristique marron.
-      placeType: addType === 'lieudit' ? 'hamlet' : addType === 'localite' ? 'village' : addType === 'poi' ? 'poi' : undefined,
+      // Point d'intérêt / ravitaillement : une localité à placeType 'poi' / 'ravito', chacun avec son écriture sur la carte.
+      placeType: addType === 'lieudit' ? 'hamlet' : addType === 'localite' ? 'village' : addType === 'poi' ? 'poi' : addType === 'ravito' ? 'ravito' : undefined,
       ele: addType === 'col' ? (parseInt(addEle) || undefined) : undefined,
     })
     setAddName(''); setAddEle('')
@@ -321,7 +321,7 @@ export function PanelWizard({
                 >
                   <span className="pwiz-check-name">⠿ {loc.name}</span>
                   <span className="pwiz-check-type">
-                    {loc.type === 'col' ? '▲ Col' : loc.placeType === 'hamlet' ? 'Lieu-dit' : loc.placeType === 'poi' ? "Point d'intérêt" : 'Localité'}
+                    {loc.type === 'col' ? '▲ Col' : loc.placeType === 'hamlet' ? 'Lieu-dit' : loc.placeType === 'poi' ? "Point d'intérêt" : loc.placeType === 'ravito' ? 'Ravitaillement' : 'Localité'}
                   </span>
                   <button
                     className="pwiz-custom-remove"
@@ -336,13 +336,13 @@ export function PanelWizard({
           )}
           <div className="pwiz-addform">
             <div className="add-panel-form__row">
-              {(['localite', 'lieudit', 'col', 'poi'] as const).map(t => (
+              {(['localite', 'lieudit', 'poi', 'ravito', 'col'] as const).map(t => (
                 <button
                   key={t}
                   className={`add-panel-form__type-btn${addType === t ? ' active' : ''}`}
                   onClick={() => setAddType(t)}
                 >
-                  {t === 'localite' ? 'Localité' : t === 'lieudit' ? 'Lieu-dit' : t === 'col' ? 'Col' : "Point d'intérêt"}
+                  {t === 'localite' ? 'Localité' : t === 'lieudit' ? 'Lieu-dit' : t === 'col' ? 'Col' : t === 'ravito' ? 'Ravitaillement' : "Point d'intérêt"}
                 </button>
               ))}
             </div>

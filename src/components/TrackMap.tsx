@@ -206,8 +206,7 @@ function signBoardHtml(loc: LocalityInfo, withClose: boolean): string {
       `</div><div class="loc-sign__pole"></div>`
   }
   const isLieuDit = loc.placeType === 'hamlet' || loc.placeType === 'locality'
-  // Point d'intérêt (panneau touristique) : casse d'origine, comme le lieu-dit.
-  const nameStr = isLieuDit || loc.placeType === 'poi' ? loc.name : loc.name.toUpperCase()
+  const nameStr = loc.name // casse d'origine : nom écrit à même la carte (cf. .loc-sign dans App.css)
   return `<div class="loc-sign__board">${close}${nameStr}</div><div class="loc-sign__pole"></div>`
 }
 
@@ -215,6 +214,7 @@ function signBoardHtml(loc: LocalityInfo, withClose: boolean): string {
 function signOuterClass(loc: LocalityInfo): string {
   if (loc.type === 'col') return 'loc-sign loc-sign--col'
   if (loc.placeType === 'poi') return 'loc-sign loc-sign--poi'
+  if (loc.placeType === 'ravito') return 'loc-sign loc-sign--ravito'
   const isLieuDit = loc.placeType === 'hamlet' || loc.placeType === 'locality'
   return isLieuDit ? 'loc-sign loc-sign--lieudit' : 'loc-sign'
 }
@@ -1027,7 +1027,7 @@ export function TrackMap({
       const isLieuDit = loc.placeType === 'hamlet' || loc.placeType === 'locality'
       const signClass = isLieuDit ? 'loc-sign loc-sign--lieudit' : 'loc-sign'
       const excludedClass = isExcluded ? ' loc-sign--unselected' : ''
-      const nameStr = isLieuDit ? loc.name : loc.name.toUpperCase()
+      const nameStr = loc.name
       el.innerHTML = `<div class="${signClass}${excludedClass}"><div class="loc-sign__board">${nameStr}</div><div class="loc-sign__pole"></div></div>`
       const marker = new maplibregl.Marker({ element: el, anchor: 'bottom', draggable: false })
         .setLngLat([loc.lon, loc.lat])
@@ -1318,7 +1318,7 @@ export function TrackMap({
           && !suppressedLocalitiesRef.current.has(loc.name)
         const baseClass = isLieuDit ? 'loc-sign loc-sign--lieudit loc-sign--preview' : 'loc-sign loc-sign--preview'
         const selClass = isSelected ? ' loc-sign--selected' : ' loc-sign--unselected'
-        const nameStr = isLieuDit ? loc.name : loc.name.toUpperCase()
+        const nameStr = loc.name
         el.innerHTML = `<div class="${baseClass}${selClass}"><div class="loc-sign__board">${nameStr}</div><div class="loc-sign__pole"></div></div>`
         const movedPos = movedLocalitiesRef.current.get(loc.name)
         const marker = new maplibregl.Marker({ element: el, anchor: 'bottom', draggable: false })
