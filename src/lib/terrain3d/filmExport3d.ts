@@ -1943,30 +1943,35 @@ async function exportFilm3dImpl(
   }
   /** Taille de la coureuse à l'écran : celle de la marche du film 2D en 1080p. */
   const RUNNER_SCALE = (OUT_H / 720) * HIKER3D_BODY_SCALE
+  /** Avance de la coureuse devant la tête du ruban, en hauteurs de corps à l'écran, dans la direction de course. */
+  const RUNNER_LEAD_BODY = 0.35
   let runnerStage: 'wait' | 'intro' | 'run' | 'outro' = 'wait'
-  let runnerSpeedPx = 0
-  let runnerLast: { x: number; y: number } | null = null
+  const runnerDir = { x: 1, y: 0 }
+  let runnerLead = 0
   const _rp = new THREE.Vector3(), _ra = new THREE.Vector3()
   function drawRunner(ctx: CanvasRenderingContext2D, elapsed: number, progress: number, dt: number) {
     if (!runner) return
     // Étapes : attente au départ, se lève avec la levée du voile, court pendant le survol, salue à l'arrivée.
     _rp.copy(runnerHead).project(camera)
     _ra.copy(runnerHead).addScaledVector(runnerFwd, 30).project(camera)
-    const x = (_rp.x + 1) / 2 * OUT_W, y = (1 - _rp.y) / 2 * OUT_H
+    const hx = (_rp.x + 1) / 2 * OUT_W, hy = (1 - _rp.y) / 2 * OUT_H
     const dx = (_ra.x - _rp.x) * OUT_W, dy = (_rp.y - _ra.y) * OUT_H
+    const dl = Math.hypot(dx, dy)
+    if (dl > 0.5 && runnerStage === 'run') { runnerDir.x = dx / dl; runnerDir.y = dy / dl }
     if (runnerStage === 'wait' && elapsed >= TITLE_IN_S) { runner.startIntro(); runnerStage = 'intro' }
     if (runnerStage === 'intro' && elapsed >= PHASE1_END) { runner.turnTo(dx, dy); runner.setPlaying(true); runnerStage = 'run' }
     if (runnerStage === 'run' && elapsed >= PHASE2_END) { runner.turnTo(0, 1); runner.startOutro(); runnerStage = 'outro' }
+    // Cadence naturelle du clip, constante : calée sur la vitesse à l'écran, elle variait avec la caméra (allures
+    // changeantes). Enchaînement des allures selon la distance parcourue, comme le film 2D.
     if (runnerStage === 'run') {
-      if (Math.hypot(dx, dy) > 0.5) runner.setDirection(dx, dy)
+      if (dl > 0.5) runner.setDirection(dx, dy)
       runner.setProgress(progress)
-      // Cadence des pas calée sur l'avancement à l'écran (lissé), en hauteurs de corps par seconde.
-      const step = runnerLast ? Math.hypot(x - runnerLast.x, y - runnerLast.y) / dt : 0
-      runnerSpeedPx += (Math.min(step, 600) - runnerSpeedPx) * Math.min(1, dt / 0.5)
-      runner.setGroundSpeed(runnerSpeedPx / Math.max(1, runner.layout().body * RUNNER_SCALE))
     }
-    runnerLast = { x, y }
     runner.renderFrame(dt)
+    // Pieds un peu devant la tête du ruban pendant la course (au départ et à l'arrivée : sur le point).
+    const leadTarget = runnerStage === 'run' ? RUNNER_LEAD_BODY * runner.layout().body * RUNNER_SCALE : 0
+    runnerLead += (leadTarget - runnerLead) * Math.min(1, dt / 0.4) // pas de saut au départ ni à l'arrivée
+    const x = hx + runnerDir.x * runnerLead, y = hy + runnerDir.y * runnerLead
     // Vue d'ensemble : s'efface pendant la première moitié de la montée de la caméra.
     const alpha = Math.max(0, Math.min(1, 1 - (elapsed - PHASE3_END) / (OVERVIEW_RISE_S * 0.5)))
     if (alpha <= 0 || _rp.z >= 1) return
