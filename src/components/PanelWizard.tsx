@@ -92,6 +92,10 @@ export function PanelWizard({
     byName.set(r.name, [...(byName.get(r.name) ?? []), r])
   const groups = [...byName.entries()].map(([name, runs]) => ({ name, runs: runs.sort((a, b) => a.startM - b.startM) }))
     .sort((a, b) => a.runs[0].startM - b.runs[0].startM)
+  const streetLength = (runs: StreetRun[]) => {
+    const m = runs.reduce((a, r) => a + r.endM - r.startM, 0)
+    return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`
+  }
   const isChosen = (name: string) => chosenStreets.some(c => c.name === name)
   const minorCount = groups.filter(g => !isMainStreet(g.runs) && !isChosen(g.name)).length
   const shownGroups = groups.filter(g => allStreets || isMainStreet(g.runs) || isChosen(g.name))
@@ -415,7 +419,10 @@ export function PanelWizard({
                   <label className="pwiz-check">
                     <input type="checkbox" checked={chosenNames.has(g.name)} onChange={() => toggleStreet(g.name)} />
                     <span className="pwiz-check-name">{g.name}</span>
-                    <span className="pwiz-check-type">km {g.runs.map(r => formatKm(r.startM / 1000)).join(' · ')}</span>
+                    {/* Longueur empruntée en tout (une rue trop courte passe trop vite à l'écran), puis km de passage. */}
+                    <span className="pwiz-check-type">
+                      <strong>{streetLength(g.runs)}</strong> · km {g.runs.map(r => formatKm(r.startM / 1000)).join(' · ')}
+                    </span>
                   </label>
                 </li>
               ))}
