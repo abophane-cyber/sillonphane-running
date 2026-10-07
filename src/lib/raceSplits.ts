@@ -71,8 +71,25 @@ export function hasRealTimes(points: GpxPoint[], distances: number[]): boolean {
   const durS = (t1 - t0) / 1000
   if (durS <= 60) return false
   const kmh = (distances[distances.length - 1] / 1000) / (durS / 3600)
-  return kmh > 2 && kmh < 30
+  if (!(kmh > 2 && kmh < 30)) return false
+  // Allure trop régulière d'un point à l'autre : heures calculées par un outil de planification (Openrunner…), à
+  // allure plausible mais constante (seule la pente la module). Écart relatif des vitesses : ≈ 0,08 pour un tel
+  // tracé, ≈ 0,3 pour une trace enregistrée (bruit GPS, virages, arrêts).
+  const speeds: number[] = []
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1].time, b = points[i].time
+    if (!a || !b) continue
+    const dt = (b.getTime() - a.getTime()) / 1000
+    if (dt > 0) speeds.push((distances[i] - distances[i - 1]) / dt)
+  }
+  if (speeds.length < 20) return true
+  const mean = speeds.reduce((s, v) => s + v, 0) / speeds.length
+  const sd = Math.sqrt(speeds.reduce((s, v) => s + (v - mean) ** 2, 0) / speeds.length)
+  return sd / mean >= PLANNED_PACE_MAX_CV
 }
+
+/** En dessous de cet écart relatif des vitesses entre points, les heures du GPX sont jugées fictives (cf. hasRealTimes). */
+const PLANNED_PACE_MAX_CV = 0.15
 
 /** Nombre de tranches de vitesse prévue pour une distance (au moins une). */
 export function speedSliceCount(totalM: number): number {
