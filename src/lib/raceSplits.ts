@@ -2,6 +2,7 @@
 // parcours assez long. Temps réels d'un GPX enregistré, ou temps PRÉVUS calculés depuis l'heure de départ et une
 // vitesse attendue par tranche de 10 km (course pas encore faite). Partagé par l'aperçu (TrackMap) et le film 2D.
 import type { GpxPoint } from '../types'
+import type { StreetRun } from './routeStreets'
 
 export const BORNE_EVERY_KM = 5
 export const SEMI_KM = 21.0975
@@ -24,6 +25,8 @@ export interface RaceSettings {
   bibNumber?: string
   /** Kilomètres des ravitaillements, tels que saisis (« 5 ; 9 ; 14 ; 18,5 »). */
   ravitos?: string
+  /** Rues empruntées choisies dans le widget (IGN), écrites le long du tracé dans le film 2D. */
+  streets?: StreetRun[]
 }
 /** Inscription de l'épreuve (nom, date, distance), saisie dans le widget des panneaux. */
 export interface BannerText {

@@ -222,6 +222,7 @@ export async function saveTrackPanelSettings(
     bannerDistance?: string
     bibNumber?: string
     ravitos?: string
+    streets?: { name: string; startM: number; endM: number }[]
     /** Titre du film (rubrique Épreuve) = nom du tracé ; changé seulement s'il diffère (renommer refait le PDF). */
     name?: string
     /** Date et heures saisies (heure de départ prévue de la rubrique Épreuve). */
@@ -254,6 +255,7 @@ export async function saveTrackPanelSettings(
       panelBannerDistance: settings.bannerDistance,
       panelBibNumber: settings.bibNumber,
       panelRavitos: settings.ravitos,
+      panelStreets: settings.streets,
     } : t)
     await saveVoyage(voyage)
   })
