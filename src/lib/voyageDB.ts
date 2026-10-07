@@ -222,6 +222,12 @@ export async function saveTrackPanelSettings(
     bannerDistance?: string
     bibNumber?: string
     ravitos?: string
+    /** Titre du film (rubrique Épreuve) = nom du tracé ; changé seulement s'il diffère (renommer refait le PDF). */
+    name?: string
+    /** Date et heures saisies (heure de départ prévue de la rubrique Épreuve). */
+    date?: string
+    departureTime?: string
+    arrivalTime?: string
   },
 ): Promise<void> {
   return withVoyageLock(voyageId, async () => {
@@ -229,6 +235,10 @@ export async function saveTrackPanelSettings(
     if (!voyage) return
     voyage.tracks = voyage.tracks.map(t => t.id === trackId ? {
       ...t,
+      ...(settings.name && settings.name !== t.name ? { name: settings.name, albumContentVersion: uuid() } : {}),
+      date: settings.date,
+      departureTime: settings.departureTime,
+      arrivalTime: settings.arrivalTime,
       panelStartName: settings.startName,
       panelEndName: settings.endName,
       panelStartKind: settings.startKind,

@@ -295,7 +295,7 @@ export default function App() {
       && c.name !== effectiveStartName && c.name !== effectiveEndName)
     .map(c => ({ type: 'col', name: c.name, ele: c.ele, lon: c.lon, lat: c.lat }))
 
-  function handleGpxLoad(parsed: ParsedGpx, _fileName?: string, raw?: string, restore?: {
+  function handleGpxLoad(parsed: ParsedGpx, fileName?: string, raw?: string, restore?: {
     voyageId: string
     trackId: string
     startName?: string
@@ -335,7 +335,8 @@ export default function App() {
     setActiveSillonId(restore?.voyageId ?? null)
     setActiveSillonTrackId(restore?.trackId ?? null)
     setShowSaveModal(false)
-    setCustomTitle(parsed.name ?? parsed.tracks[0]?.name ?? '')
+    // Réouverture : titre enregistré (nom du tracé dans le sillon), pas le nom inscrit dans le GPX.
+    setCustomTitle((restore && fileName) || parsed.name || parsed.tracks[0]?.name || '')
     restoreNames(restore?.startName || '', restore?.endName || '', restore?.startKind, restore?.endKind)
     setCustomLocalities(restore?.customLocalities ?? [])
     // Nouveau tracé (pas une réouverture avec ses panneaux) : repère le plus proche du départ ajouté d'office comme
@@ -409,10 +410,15 @@ export default function App() {
         bannerDistance: race.bannerDistance?.trim() || undefined,
         bibNumber: race.bibNumber?.trim() || undefined,
         ravitos: race.ravitos?.trim() || undefined,
+        name: customTitle.trim() || undefined,
+        date: manualDate || undefined,
+        departureTime: departureTime || undefined,
+        arrivalTime: arrivalTime || undefined,
       }).catch(e => console.error('[panels] save:', e))
     }, 600)
     return () => clearTimeout(timer)
-  }, [activeSillonId, activeSillonTrackId, startName, endName, startKind, endKind, suppressedLocalities, customLocalities, wizardDone, race])
+  }, [activeSillonId, activeSillonTrackId, startName, endName, startKind, endKind, suppressedLocalities, customLocalities, wizardDone, race,
+    customTitle, manualDate, departureTime, arrivalTime])
 
   const { countdown, waitingMap, mapIdleRef, handleMapIdle, handlePlay, handlePause, handleReset, handleRestart } = usePlaybackCountdown(
     state, play, pause, reset, speedLevel, ZOOMS, setTargetZoom, () => setZoomResetSeq(s => s + 1),
