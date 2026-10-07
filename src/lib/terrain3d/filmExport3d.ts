@@ -1944,7 +1944,7 @@ async function exportFilm3dImpl(
   /** Taille de la coureuse à l'écran : celle de la marche du film 2D en 1080p. */
   const RUNNER_SCALE = (OUT_H / 720) * HIKER3D_BODY_SCALE
   /** Avance de la coureuse devant la tête du ruban, en hauteurs de corps à l'écran, dans la direction de course. */
-  const RUNNER_LEAD_BODY = 0.35
+  const RUNNER_LEAD_BODY = 0.3
   let runnerStage: 'wait' | 'intro' | 'run' | 'outro' = 'wait'
   const runnerDir = { x: 1, y: 0 }
   let runnerLead = 0
