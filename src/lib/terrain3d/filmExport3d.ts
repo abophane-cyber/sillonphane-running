@@ -43,6 +43,8 @@ import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import { StreetCaption, type StreetSpan } from '../streetCaption'
+import { drawBorneLayer, drawEndCard, OVERVIEW_BORNE_SCALE, type LocSignCache } from '../filmExport'
+import type { Borne, EndCard, Ravito } from '../raceSplits'
 
 /** Adresse du site, signée sur l'écran-titre et en fin de film (comme le film 2D). */
 const SITE_ADDRESS = 'sillonphane.fr/running'
@@ -175,6 +177,13 @@ export interface FilmExport3dOptions {
   bibNumber?:     string
   /** Rues empruntées (part du parcours) : nom en haut de l'écran pendant que la tête du ruban y passe. */
   streets?:       StreetSpan[]
+  /** Bornes (km et temps de passage) et ravitaillements, comme le film 2D, placés sur le ruban à leur km. */
+  bornes?:        Borne[]
+  ravitos?:       Ravito[]
+  /** Distance du tracé dans l'appli (m) : km des bornes -> part du parcours. */
+  trackDistanceM?: number
+  /** Carton final du film 2D (titre, date, distance, D+, temps, moyenne), à la place de l'adresse seule. */
+  endCard?:       EndCard
 }
 
 // ─── Estimation du temps restant ───────────────────────────────────────────────────────────
@@ -2005,6 +2014,8 @@ async function exportFilm3dImpl(
   }
 
   const streetCaption = new StreetCaption(opts.streets ?? [])
+  const borneSignCache: LocSignCache = new Map()
+  const trackM = opts.trackDistanceM ?? TOTAL_DISTANCE_M
 
   const composite = document.createElement('canvas')
   composite.width = OUT_W; composite.height = OUT_H
@@ -2180,6 +2191,22 @@ async function exportFilm3dImpl(
     // Composition : image GL + overlays 2D
     ctx2d.clearRect(0, 0, OUT_W, OUT_H)
     ctx2d.drawImage(glCanvas, 0, 0, OUT_W, OUT_H)
+    // Bornes et ravitaillements (comme le film 2D) : au passage de la tête du ruban pendant la course, tous à
+    // l'arrivée ; effacés au début de la montée vers la vue d'ensemble, puis de retour, agrandis et sans
+    // chevauchement, après OVERVIEW_CLEAN_S de vue d'ensemble sans infos.
+    if (opts.bornes?.length || opts.ravitos?.length) {
+      const place = (it: Borne | Ravito) => {
+        const p = ribbonScreenAt((it.km * 1000 / trackM) * RIBBON_SEGMENTS)
+        return p.z < 1 ? p : null
+      }
+      const ovU = (simElapsed - PHASE3_END) / OVERVIEW_RISE_S
+      const draw = (scale: number, alpha: number, coveredM: number, overview = false) =>
+        drawBorneLayer(ctx2d, borneSignCache, opts.bornes ?? [], opts.ravitos ?? [], place, scale, alpha, coveredM, overview)
+      if (simElapsed < PHASE2_END) draw(1, 1, simElapsed < PHASE1_END ? -Infinity : headFrac * trackM)
+      else if (ovU <= 0) draw(1, 1, Infinity)
+      else if (ovU < 1) draw(1, Math.max(0, 1 - ovU / 0.35), Infinity)
+      else draw(OVERVIEW_BORNE_SCALE, Math.max(0, Math.min(1, (simElapsed - PHASE3_END - OVERVIEW_RISE_S - OVERVIEW_CLEAN_S) / 0.5)), Infinity, true)
+    }
     drawRunner(ctx2d, simElapsed, lastOverlay.profileT, 1 / fps)
     // Rue empruntée, en haut de l'écran : après l'effacement du nom de départ, jusqu'à la fin du survol.
     streetCaption.update(simElapsed >= PHASE1_END + 2.2 && simElapsed < PHASE2_END ? headFrac : null, 1 / fps)
@@ -2192,13 +2219,16 @@ async function exportFilm3dImpl(
       profileT: lastOverlay.profileT,
       weather: opts.weatherCard ?? null,
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
-      watermarkReveal: Math.max(0, Math.min(1, intoWatermark / 0.5)),
+      // Carton final saisi : il porte déjà l'adresse, on n'ajoute pas l'adresse seule.
+      watermarkReveal: opts.endCard ? 0 : Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
     // Nom du départ et heure de départ, en haut de l'écran sous le titre. L'heure s'efface sur START_CLOCK_FADE_S à
     // la fin de la pause sur le départ ; le nom reste jusqu'à la première seconde du survol, puis s'efface sur 0,6 s.
     const startA = Math.max(0, Math.min(1, (PHASE1_END + 1.6 - simElapsed) / 0.6))
     const clockA = Math.max(0, Math.min(1, (PHASE1_END - simElapsed) / START_CLOCK_FADE_S))
     if (startA > 0) drawStartHeader(ctx2d, departurePanel ? opts.departureName : null, opts.departureLieudit, startTimeText, startA, clockA)
+    // Carton final (comme le film 2D) : sur la vue d'ensemble, après OVERVIEW_CLEAN_S sans infos, en fondu sur 0,5 s.
+    if (opts.endCard && intoWatermark > 0) drawEndCard(ctx2d, OUT_W, OUT_H, opts.endCard, Math.min(1, intoWatermark / 0.5))
 
     // Ouverture. (1) Voile noir : plein pendant TITLE_IN_S (le titre s'y inscrit), puis se lève
     // sur SCENE_REVEAL_S -> le paysage se découvre DERRIÈRE le titre. Dessiné AVANT l'écran-titre.

@@ -8,6 +8,7 @@ import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
+import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 
 export interface CreateFilm3dContext {
   activeTrack: GpxTrack
@@ -36,6 +37,10 @@ export interface CreateFilm3dContext {
   bibNumber?: string
   /** Rues empruntées choisies (m depuis le départ), affichées en haut de l'écran. */
   streets?: StreetRun[]
+  /** Bornes, ravitaillements et carton final, comme le film 2D. */
+  bornes?: Borne[]
+  ravitos?: Ravito[]
+  endCard?: EndCard
   trackName: string
   speedLevel: 1 | 2
   activeSillonId: string | null
@@ -125,6 +130,10 @@ export function useFilm3dExport() {
         trackStart: ctx.activeTrack.startTime,
         characters: ctx.characters,
         bibNumber: ctx.bibNumber,
+        bornes: ctx.bornes,
+        ravitos: ctx.ravitos,
+        endCard: ctx.endCard,
+        trackDistanceM: ctx.activeTrack.distance,
         streets: ctx.streets?.map(s => ({ name: s.name, from: s.startM / ctx.activeTrack.distance, to: s.endM / ctx.activeTrack.distance })),
         durationS,
         fps: 30,

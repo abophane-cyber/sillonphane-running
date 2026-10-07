@@ -281,10 +281,10 @@ type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi' | 'ravito' | 'borne'
 // (cf. hiker3dScaleForZoom) ; pré-rendus en haute résolution (SIGN_RES) pour rester nets dans les plans serrés.
 const SIGN_RES = 2.5
 /** Taille minimale des bornes sur la vue d'ensemble de fin : km et temps de passage lisibles en 1080p. */
-const OVERVIEW_BORNE_SCALE = 1.15
+export const OVERVIEW_BORNE_SCALE = 1.15
 
 interface LocSignSprite { canvas: HTMLCanvasElement; offX: number; offY: number }
-type LocSignCache = Map<string, LocSignSprite>
+export type LocSignCache = Map<string, LocSignSprite>
 
 /** Écriture des noms de lieux à même la carte, par type — mêmes valeurs que l'aperçu (.loc-sign dans App.css).
  * Localité : grandes lettres blanches cernées de noir ; lieu-dit : idem en italique, plus petit ; point d'intérêt :
@@ -489,6 +489,68 @@ function drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: nu
   ctx.strokeStyle = '#ffd166'; ctx.fillStyle = '#ffd166'; ctx.lineWidth = 2.5 * scale
   path(); ctx.fill()
   ctx.restore()
+}
+
+/** Bornes kilométriques (km et temps de passage) et ravitaillements, au sol sur le tracé ; partagé par les films 2D
+ * et 3D. `place` : position à l'écran d'une borne ou d'un ravitaillement (null = hors champ, derrière la caméra).
+ * `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble).
+ * `overview` (vue d'ensemble de fin) : une borne qui chevauche une autre borne ou un ravitaillement est décalée
+ * du plus petit écart qui la dégage, et une flèche pointe son endroit sur le tracé. */
+export function drawBorneLayer(
+  ctx: CanvasRenderingContext2D, locSignCache: LocSignCache, bornes: Borne[], ravitos: Ravito[],
+  place: (it: Borne | Ravito) => { x: number; y: number } | null,
+  scale: number, alpha = 1, coveredM = Infinity, overview = false,
+) {
+  const outW = ctx.canvas.width, outH = ctx.canvas.height
+  if (alpha <= 0) return
+  const s = Math.max(1, scale)
+  type Box = { x: number; y: number; w: number; h: number }
+  const placed: Box[] = []
+  const hits = (a: Box) => placed.some(p => a.x < p.x + p.w && a.x + a.w > p.x && a.y < p.y + p.h && a.y + a.h > p.y)
+  const sprite = (name: string, style: SignStyle, sub?: string) => {
+    const key = `${style}|${name}||${sub ?? ''}`
+    let sp = locSignCache.get(key)
+    if (!sp) { sp = buildLocSignSprite(name, style, undefined, sub); locSignCache.set(key, sp) }
+    return sp
+  }
+  const inView = (pt: { x: number; y: number } | null): pt is { x: number; y: number } => !!pt && pt.x > -300 && pt.x < outW + 300 && pt.y > -200 && pt.y < outH + 200
+  for (const r of ravitos) {
+    if (!borneReached(r, coveredM)) continue
+    const pt = place(r)
+    if (!inView(pt)) continue
+    if (overview) {
+      // Ravitaillement : reste à sa place, mais les bornes l'évitent (marge d'ombre de 8 px retirée).
+      const sp = sprite(r.label, 'ravito')
+      placed.push({ x: pt.x - (sp.offX - 8) * s, y: pt.y - (sp.offY - 8) * s, w: (sp.canvas.width / SIGN_RES - 16) * s, h: (sp.canvas.height / SIGN_RES - 16) * s })
+    }
+    drawLocSign(ctx, locSignCache, r.label, pt.x, pt.y, 'ravito', undefined, alpha, s)
+  }
+  for (const b of bornes) {
+    if (!borneReached(b, coveredM)) continue
+    const pt = place(b)
+    if (!inView(pt)) continue
+    const num = borneNumber(b), sub = borneTimeLine(b) || undefined
+    let x = pt.x, y = pt.y
+    if (overview) {
+      const sp = sprite(num, 'borne', sub)
+      const w = (sp.canvas.width / SIGN_RES - 16) * s, h = (sp.canvas.height / SIGN_RES - 16) * s
+      const box = (cx: number, cy: number): Box => ({ x: cx - w / 2, y: cy - h, w, h })
+      // Écarts croissants dans 8 directions (vers le haut d'abord) : le premier qui dégage la borne.
+      const dirs = [[0, -1], [0.7, -0.7], [-0.7, -0.7], [1, 0], [-1, 0], [0.7, 0.7], [-0.7, 0.7], [0, 1]]
+      let off: [number, number] = [0, 0]
+      if (hits(box(x, y))) {
+        search: for (let k = 0.25; k <= 2; k += 0.25)
+          for (const [dx, dy] of dirs) {
+            const o: [number, number] = [dx * w * k, dy * h * k]
+            if (!hits(box(pt.x + o[0], pt.y + o[1]))) { off = o; break search }
+          }
+      }
+      x = pt.x + off[0]; y = pt.y + off[1]
+      placed.push(box(x, y))
+      if (off[0] || off[1]) drawArrow(ctx, x, y, pt.x, pt.y, s, alpha)
+    }
+    drawLocSign(ctx, locSignCache, num, x, y, 'borne', undefined, alpha, s, sub)
+  }
 }
 
 function drawLocSign(
@@ -1317,60 +1379,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 20 * s, timeAlpha)
     }
   }
-  /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
-  /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble).
-   * `overview` (vue d'ensemble de fin) : une borne qui chevauche une autre borne ou un ravitaillement est décalée
-   * du plus petit écart qui la dégage, et une flèche pointe son endroit sur le tracé. */
+  /** Bornes et ravitaillements (cf. drawBorneLayer), à leur point lon/lat. */
   function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity, overview = false) {
-    if (alpha <= 0) return
-    const s = Math.max(1, scale)
-    type Box = { x: number; y: number; w: number; h: number }
-    const placed: Box[] = []
-    const hits = (a: Box) => placed.some(p => a.x < p.x + p.w && a.x + a.w > p.x && a.y < p.y + p.h && a.y + a.h > p.y)
-    const sprite = (name: string, style: SignStyle, sub?: string) => {
-      const key = `${style}|${name}||${sub ?? ''}`
-      let sp = locSignCache.get(key)
-      if (!sp) { sp = buildLocSignSprite(name, style, undefined, sub); locSignCache.set(key, sp) }
-      return sp
-    }
-    const inView = (pt: { x: number; y: number }) => pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200
-    for (const r of opts.ravitos ?? []) {
-      if (!borneReached(r, coveredM)) continue
-      const pt = project(r.lon, r.lat)
-      if (!inView(pt)) continue
-      if (overview) {
-        // Ravitaillement : reste à sa place, mais les bornes l'évitent (marge d'ombre de 8 px retirée).
-        const sp = sprite(r.label, 'ravito')
-        placed.push({ x: pt.x - (sp.offX - 8) * s, y: pt.y - (sp.offY - 8) * s, w: (sp.canvas.width / SIGN_RES - 16) * s, h: (sp.canvas.height / SIGN_RES - 16) * s })
-      }
-      drawLocSign(ctx, locSignCache, r.label, pt.x, pt.y, 'ravito', undefined, alpha, s)
-    }
-    for (const b of opts.bornes ?? []) {
-      if (!borneReached(b, coveredM)) continue
-      const pt = project(b.lon, b.lat)
-      if (!inView(pt)) continue
-      const num = borneNumber(b), sub = borneTimeLine(b) || undefined
-      let x = pt.x, y = pt.y
-      if (overview) {
-        const sp = sprite(num, 'borne', sub)
-        const w = (sp.canvas.width / SIGN_RES - 16) * s, h = (sp.canvas.height / SIGN_RES - 16) * s
-        const box = (cx: number, cy: number): Box => ({ x: cx - w / 2, y: cy - h, w, h })
-        // Écarts croissants dans 8 directions (vers le haut d'abord) : le premier qui dégage la borne.
-        const dirs = [[0, -1], [0.7, -0.7], [-0.7, -0.7], [1, 0], [-1, 0], [0.7, 0.7], [-0.7, 0.7], [0, 1]]
-        let off: [number, number] = [0, 0]
-        if (hits(box(x, y))) {
-          search: for (let k = 0.25; k <= 2; k += 0.25)
-            for (const [dx, dy] of dirs) {
-              const o: [number, number] = [dx * w * k, dy * h * k]
-              if (!hits(box(pt.x + o[0], pt.y + o[1]))) { off = o; break search }
-            }
-        }
-        x = pt.x + off[0]; y = pt.y + off[1]
-        placed.push(box(x, y))
-        if (off[0] || off[1]) drawArrow(ctx, x, y, pt.x, pt.y, s, alpha)
-      }
-      drawLocSign(ctx, locSignCache, num, x, y, 'borne', undefined, alpha, s, sub)
-    }
+    drawBorneLayer(ctx, locSignCache, opts.bornes ?? [], opts.ravitos ?? [], it => project(it.lon, it.lat), scale, alpha, coveredM, overview)
   }
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))
   /** Avance les personnages d'une image et les dessine, pieds en (x, y). `scale` : 1 = taille de marche. */
