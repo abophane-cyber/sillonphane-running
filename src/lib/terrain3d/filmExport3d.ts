@@ -182,6 +182,8 @@ export interface FilmExport3dOptions {
   ravitos?:       Ravito[]
   /** Distance du tracé dans l'appli (m) : km des bornes -> part du parcours. */
   trackDistanceM?: number
+  /** Distance annoncée de l'épreuve (m, celle du carton final) : fin du compteur, écran-titre, profil. */
+  shownDistanceM?: number
   /** Carton final du film 2D (titre, date, distance, D+, temps, moyenne), à la place de l'adresse seule. */
   endCard?:       EndCard
 }
@@ -1135,6 +1137,9 @@ async function exportFilm3dImpl(
   /** Distance affichée (compteur, bornes) : celle du tracé dans l'appli, comme le film 2D ; le ruban 3D, lissé, est
    * un peu plus court (20,5 km au lieu de 21,1 sur le semi de Lille). */
   const TRACK_M = opts.trackDistanceM ?? TOTAL_DISTANCE_M
+  /** Distance annoncée (carton final : 21,1 km pour un semi, même si le GPX mesure 21,17 km) : le compteur s'y arrête,
+   * l'écran-titre et le profil l'affichent. Les bornes restent au km mesuré sur le tracé. */
+  const SHOWN_M = opts.shownDistanceM ?? TRACK_M
 
   // Dénivelé positif cumulé (pour l'écran-titre) : celui du tracé s'il est fourni, pour afficher
   // la même valeur que le bandeau de profil. Sinon, estimation depuis le relief, échantillonnage
@@ -1878,7 +1883,7 @@ async function exportFilm3dImpl(
       if (arrivalPanel) arrivalPanel.visible = elapsed >= PHASE2_END - ARRIVAL_PANEL_LEAD_S
       // Compteur et curseur du profil sur la tête du ruban (coureuse, bornes), pas sur la caméra qui la suit en
       // retard : sinon « 14,0 km » au passage de la borne 15.
-      distanceM = lookT * TRACK_M
+      distanceM = Math.min(lookT * TRACK_M, SHOWN_M)
       profileT = lookT
     } else if (elapsed < PHASE3_END) {
       if (!pauseCaptured) {
@@ -1901,7 +1906,7 @@ async function exportFilm3dImpl(
       updateTipCap(RIBBON_SEGMENTS, 1)
       if (departurePanel) departurePanel.visible = true
       if (arrivalPanel) arrivalPanel.visible = true
-      distanceM = TRACK_M
+      distanceM = SHOWN_M
       profileT = 1
     } else {
       // Vue d'ensemble : on part de la dernière pose d'arrivée et on monte vers le cadrage global.
@@ -1939,7 +1944,7 @@ async function exportFilm3dImpl(
       }
       if (departurePanel) departurePanel.visible = true
       if (arrivalPanel) arrivalPanel.visible = true
-      distanceM = TRACK_M
+      distanceM = SHOWN_M
       profileT = 1
     }
 
@@ -2037,7 +2042,7 @@ async function exportFilm3dImpl(
   const composite = document.createElement('canvas')
   composite.width = OUT_W; composite.height = OUT_H
   const ctx2d = composite.getContext('2d')!
-  const drawProfile = buildProfileCardCanvas(trailPts, TRACK_M, minElev - 3.5)
+  const drawProfile = buildProfileCardCanvas(trailPts, SHOWN_M, minElev - 3.5)
   const startTimeText = startClock(opts.startTime, opts.startTimePlanned ?? true, opts.trackStart)
 
   const hasWC = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'
@@ -2270,7 +2275,7 @@ async function exportFilm3dImpl(
       drawIntroCard(ctx2d, {
         title: opts.title?.trim() || `${opts.departureName} → ${opts.arrivalName}`,
         date: opts.trailDate,
-        km: `${(TRACK_M / 1000).toFixed(1).replace('.', ',')} km`,
+        km: `${(SHOWN_M / 1000).toFixed(1).replace('.', ',')} km`,
         gain: `D+ ${Math.round(elevGainM / 10) * 10} m`,
         alpha: s * s * (3 - 2 * s),
       })

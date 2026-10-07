@@ -134,6 +134,11 @@ export function useFilm3dExport() {
         ravitos: ctx.ravitos,
         endCard: ctx.endCard,
         trackDistanceM: ctx.activeTrack.distance,
+        // « 21,1 km » du carton final -> 21 100 m (illisible : distance du tracé).
+        shownDistanceM: (() => {
+          const km = parseFloat((ctx.endCard?.distance ?? '').replace(',', '.'))
+          return km > 0 ? km * 1000 : undefined
+        })(),
         streets: ctx.streets?.map(s => ({ name: s.name, from: s.startM / ctx.activeTrack.distance, to: s.endM / ctx.activeTrack.distance })),
         durationS,
         fps: 30,
