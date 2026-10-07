@@ -145,6 +145,8 @@ export interface FilmExport3dOptions {
   /** Cartel météo affiché en bas à gauche (température + icône + description). Optionnel :
    *  absent -> pas de cartel (ex. banc de test). */
   weatherCard?:   WeatherCardData | null
+  /** Heure de départ « HH:MM », affichée sous la météo pendant l'ouverture (pause sur le départ). */
+  startTime?:     string
   /** Durée du survol lui-même (hors pauses intro/outro), en s. Défaut 35. */
   durationS?:     number
   fps?:           number
@@ -232,10 +234,8 @@ function buildProfileCardCanvas(
     `Alt. ${Math.round(elevMin)}–${Math.round(elevMax)} m   ·   ` +
     `D+ ${Math.round(gain)} m   ·   ${(totalDistanceM / 1000).toFixed(1).replace('.', ',')} km`
 
-  const PAD_L = 17, PAD_T = 13, PAD_B = 12
-  const TITLE_H = 22, STATS_H = 24, GAP = 8
-  const cardW = GW + PAD_L * 2
-  const cardH = PAD_T + TITLE_H + GH + GAP + STATS_H + PAD_B
+  const PAD_L = 17, PAD_T = 13
+  const TITLE_H = 22, GAP = 8
 
   return (ctx: CanvasRenderingContext2D, t: number) => {
     const cardX = 16
@@ -243,14 +243,22 @@ function buildProfileCardCanvas(
     const gx0 = cardX + PAD_L
     const gy0 = cardY + PAD_T + TITLE_H
 
-    ctx.save()
-    ctx.fillStyle = 'rgba(0,0,0,0.62)'
-    ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 12); ctx.fill()
+    // Pas de fond (comme le film 2D) : posé sur le paysage, textes clairs cernés d'un halo sombre.
+    const haloText = (text: string, x: number, y: number) => {
+      ctx.save()
+      ctx.lineJoin = 'round'
+      ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 4
+      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 6
+      ctx.strokeText(text, x, y)
+      ctx.restore()
+      ctx.fillText(text, x, y)
+    }
 
-    ctx.fillStyle = '#e9eef3'
+    ctx.save()
+    ctx.fillStyle = '#fff'
     ctx.textAlign = 'left'; ctx.textBaseline = 'top'
     ctx.font = "700 13px system-ui, sans-serif"
-    ctx.fillText('PROFIL DU TRACÉ', gx0, cardY + PAD_T)
+    haloText('PROFIL DU TRACÉ', gx0, cardY + PAD_T)
 
     // Aire sous la courbe
     ctx.beginPath()
@@ -267,7 +275,10 @@ function buildProfileCardCanvas(
     ctx.beginPath()
     ctx.moveTo(gx0 + xAt(0), gy0 + yAt(0))
     for (let k = 1; k <= N; k++) ctx.lineTo(gx0 + xAt(k / N), gy0 + yAt(k / N))
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
     ctx.strokeStyle = '#ffb072'; ctx.lineWidth = 2.4; ctx.stroke()
+    ctx.restore()
 
     // Curseur de position
     const u = Math.max(0, Math.min(1, t))
@@ -277,9 +288,9 @@ function buildProfileCardCanvas(
     ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 0.8
     ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
 
-    ctx.fillStyle = '#f2f5f8'
+    ctx.fillStyle = '#fff'
     ctx.font = "15px system-ui, sans-serif"
-    ctx.fillText(statsLine, gx0, gy0 + GH + GAP + 2)
+    haloText(statsLine, gx0, gy0 + GH + GAP + 2)
     ctx.restore()
   }
 }
@@ -2022,6 +2033,10 @@ async function exportFilm3dImpl(
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
       watermarkReveal: Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
+    // Heure de départ : pendant la pause sur le départ, effacée sur 0,6 s au premier instant du survol.
+    if (opts.startTime) {
+      drawStartTimeCard(ctx2d, opts.startTime, !!opts.weatherCard, Math.max(0, Math.min(1, (PHASE1_END + 0.6 - simElapsed) / 0.6)))
+    }
 
     // Ouverture. (1) Voile noir : plein pendant TITLE_IN_S (le titre s'y inscrit), puis se lève
     // sur SCENE_REVEAL_S -> le paysage se découvre DERRIÈRE le titre. Dessiné AVANT l'écran-titre.
@@ -2297,6 +2312,36 @@ function drawWeatherCard(ctx: CanvasRenderingContext2D, weather: WeatherCardData
     ctx.textBaseline = 'top'; ctx.fillText(desc, colX, midY + 6)
   }
 
+  ctx.restore()
+}
+
+/** Cartouche « Départ · 9 h 00 » (port de drawStartTimeCard de src/lib/filmExport.ts), juste sous la météo. */
+function drawStartTimeCard(ctx: CanvasRenderingContext2D, hhmm: string, hasWeather: boolean, alpha: number) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm)
+  if (!m || alpha <= 0) return
+  const label = 'Départ'
+  const time = `${Number(m[1])} h ${m[2]}`
+  const PAD = 21, cardH = 64, cardY = hasWeather ? 16 + 102 + 12 : 16
+
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.font = '22px "Segoe UI", system-ui, sans-serif'
+  const labelW = ctx.measureText(label).width
+  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'
+  const timeW = ctx.measureText(time).width
+  const GAP = 14
+  const cardW = PAD + labelW + GAP + timeW + PAD
+  const cardX = OUT_W - cardW - 16
+
+  ctx.fillStyle = 'rgba(10,26,14,0.82)'
+  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 12); ctx.fill()
+
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
+  const midY = cardY + cardH / 2
+  ctx.font = '22px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#a5c8a8'
+  ctx.fillText(label, cardX + PAD, midY + 1)
+  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#e8f5e9'
+  ctx.fillText(time, cardX + PAD + labelW + GAP, midY)
   ctx.restore()
 }
 
