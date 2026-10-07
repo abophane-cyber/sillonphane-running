@@ -15,7 +15,7 @@ import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX, HIKER3D_FOLLOW_PX,
-  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, START_PRESENT, HIKER3D_MAX_SCALE, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, hiker3dScaleForZoom, smoothEase, metersPerPixel,
+  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, START_PRESENT, HIKER3D_MAX_SCALE, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, HIKER3D_END_HOLD_MS, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
@@ -584,14 +584,13 @@ export function TrackMap({
       const end = points[points.length - 1]
       map.easeTo({ center: [end.lon, end.lat], zoom: (targetZoomRef.current ?? map.getZoom()) + HIKER3D_CLOSE_ZOOM, duration: HIKER3D_END_ZOOM_MS, easing: smoothEase, essential: true })
       const t1 = window.setTimeout(() => sprites.forEach(s => s.startOutro()), HIKER3D_END_ZOOM_MS * HIKER3D_OUTRO_AT)
-      const outroMs = Math.max(...sprites.map(s => s.outroDurationS())) * 1000
       const t2 = window.setTimeout(() => {
         map.once('moveend', () => { flyingRef.current = false })
         map.fitBounds(trackBounds(points), { padding: 60, duration: HIKER3D_OVERVIEW_MS, easing: smoothEase, essential: true, pitch: 0, bearing: 0 })
         // Ils rapetissent avec le dézoom et s'effacent en même temps. Sur les fenêtres 3D et non sur le marqueur :
         // MapLibre réécrit l'opacité de ses marqueurs à chaque mouvement de carte, ce qui annulait le fondu.
         sprites.forEach(s => { s.element.style.transition = `opacity ${HIKER3D_OVERVIEW_MS}ms ease-in`; s.element.style.opacity = '0' })
-      }, HIKER3D_END_ZOOM_MS * HIKER3D_OUTRO_AT + outroMs + 300)
+      }, HIKER3D_END_ZOOM_MS + HIKER3D_END_HOLD_MS)
       return () => { window.clearTimeout(t1); window.clearTimeout(t2) }
     }
     map.once('moveend', () => { flyingRef.current = false })
@@ -698,8 +697,7 @@ export function TrackMap({
         }
         // Popup « Enregistrer » seulement après la séquence d'arrivée (zoom, salut, vue d'ensemble) ; lu à la fin de la marche.
         if (endDelayMsRef) {
-          const outroMs = Math.max(...hiker3dRef.current.map(s => s.outroDurationS())) * 1000
-          endDelayMsRef.current = HIKER3D_END_ZOOM_MS * HIKER3D_OUTRO_AT + outroMs + 300 + HIKER3D_OVERVIEW_MS
+          endDelayMsRef.current = HIKER3D_END_ZOOM_MS + HIKER3D_END_HOLD_MS + HIKER3D_OVERVIEW_MS
         }
       }
     }

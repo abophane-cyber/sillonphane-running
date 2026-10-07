@@ -14,6 +14,10 @@ interface OverlayState {
   scale?: number
 }
 
+/** Couleurs de la tablette transparente : claires, pour la vue aérienne assombrie. */
+const UP = '#7ee08f'
+const DOWN = '#ff8a80'
+
 function fmt(m: number) {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`
 }
@@ -119,30 +123,31 @@ export function drawElevOverlay(
   ctx.textAlign    = 'left'
   ctx.textBaseline = 'alphabetic'
 
-  // Ombre
-  ctx.fillStyle = 'rgba(0,0,0,0.22)'
-  ctx.beginPath(); ctx.roundRect(PX + 2, PY + 4, PW, PH, 12); ctx.fill()
-
-  // Fond blanc
-  ctx.fillStyle = 'rgba(255,255,255,0.97)'
-  ctx.beginPath(); ctx.roundRect(PX, PY, PW, PH, 12); ctx.fill()
-
-  // Bordure
-  ctx.strokeStyle = 'rgba(0,0,0,0.10)'; ctx.lineWidth = 1; ctx.stroke()
+  // Pas de fond : la tablette est transparente, posée sur la carte. Textes clairs cernés d'un halo sombre pour
+  // rester lisibles sur la vue aérienne, claire ou foncée.
+  const haloText = (text: string, x: number, y: number) => {
+    ctx.save()
+    ctx.lineJoin = 'round'
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 4
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 6
+    ctx.strokeText(text, x, y)
+    ctx.restore()
+    ctx.fillText(text, x, y)
+  }
 
   // ── Stats : 4 colonnes avec label au-dessus + valeur bold ──
   const slope = currentSlope(points, distances, progress)
   const slopeStr = `${slope > 0 ? '+' : ''}${slope}%`
-  const slopeColor = slope > 3 ? '#1a7a2e' : slope < -3 ? '#c0000c' : '#222'
+  const slopeColor = slope > 3 ? UP : slope < -3 ? DOWN : '#fff'
 
   const innerW = PW - PAD.left - PAD.right
   // Distance : 35%, les 4 autres : 16.25% chacun
   const colWidths = [innerW * 0.35, innerW * 0.1625, innerW * 0.1625, innerW * 0.1625, innerW * 0.1625]
   const cols = [
-    { icon: '↔', label: 'Distance',  val: `${fmt(distanceCovered)} / ${fmt(totalDistance)}`, color: '#222' },
-    { icon: '↑', label: 'Montée',    val: `+ ${Math.round(elevGain)} m`,                      color: '#1a7a2e' },
-    { icon: '↓', label: 'Descente',  val: `- ${Math.round(elevLoss)} m`,                      color: '#c0000c' },
-    { icon: '⛰', label: 'Altitude', val: `${Math.round(currentEle)} m`,                      color: '#222' },
+    { icon: '↔', label: 'Distance',  val: `${fmt(distanceCovered)} / ${fmt(totalDistance)}`, color: '#fff' },
+    { icon: '↑', label: 'Montée',    val: `+ ${Math.round(elevGain)} m`,                      color: UP },
+    { icon: '↓', label: 'Descente',  val: `- ${Math.round(elevLoss)} m`,                      color: DOWN },
+    { icon: '⛰', label: 'Altitude', val: `${Math.round(currentEle)} m`,                      color: '#fff' },
     { icon: '▲', label: 'Pente',     val: slopeStr,                                            color: slopeColor },
   ]
   const topY = PY + PAD.top
@@ -151,19 +156,19 @@ export function drawElevOverlay(
   cols.forEach((c, i) => {
     // Séparateur vertical entre colonnes
     if (i > 0) {
-      ctx.strokeStyle = 'rgba(0,0,0,0.10)'; ctx.lineWidth = 1
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1
       ctx.beginPath(); ctx.moveTo(colX - 9, topY + 2); ctx.lineTo(colX - 9, topY + STAT_H - 6); ctx.stroke()
     }
 
-    // Label noir, fin
+    // Label blanc, fin
     ctx.font = '14px "Segoe UI", system-ui, sans-serif'
-    ctx.fillStyle = '#111'
-    ctx.fillText(c.label, colX, topY + 14)
+    ctx.fillStyle = 'rgba(255,255,255,0.9)'
+    haloText(c.label, colX, topY + 14)
 
     // Icône + valeur bold colorée
     ctx.font = 'bold 21px "Segoe UI", system-ui, sans-serif'
     ctx.fillStyle = c.color
-    ctx.fillText(`${c.icon} ${c.val}`, colX, topY + 40)
+    haloText(`${c.icon} ${c.val}`, colX, topY + 40)
 
     colX += colWidths[i]
   })
@@ -189,7 +194,7 @@ export function drawElevOverlay(
   ctx.lineTo(toX(sampled[sampled.length - 1].x), gY + gH)
   ctx.lineTo(toX(sampled[0].x), gY + gH)
   ctx.closePath()
-  ctx.fillStyle = 'rgba(76,175,80,0.15)'
+  ctx.fillStyle = 'rgba(255,255,255,0.14)'
   ctx.fill()
 
   // Partie parcourue (vert plus soutenu)
@@ -203,7 +208,7 @@ export function drawElevOverlay(
   ctx.lineTo(toX(sampled[sampled.length - 1].x), gY + gH)
   ctx.lineTo(toX(sampled[0].x), gY + gH)
   ctx.closePath()
-  ctx.fillStyle = 'rgba(56,142,60,0.38)'
+  ctx.fillStyle = 'rgba(124,227,139,0.42)'
   ctx.fill()
   ctx.restore()
 
@@ -211,9 +216,12 @@ export function drawElevOverlay(
   ctx.beginPath()
   ctx.moveTo(toX(sampled[0].x), toY(sampled[0].ele))
   sampled.forEach(p => ctx.lineTo(toX(p.x), toY(p.ele)))
-  ctx.strokeStyle = '#2e7d32'
+  ctx.save()
+  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
+  ctx.strokeStyle = UP
   ctx.lineWidth   = 2.5
   ctx.stroke()
+  ctx.restore()
 
   // Curseur
   const dotX = gX + progress * gW
@@ -221,7 +229,7 @@ export function drawElevOverlay(
   const dotY  = toY(sampled[Math.min(idx, sampled.length - 1)]?.ele ?? minEle)
   ctx.beginPath()
   ctx.arc(dotX, dotY, 6.5, 0, Math.PI * 2)
-  ctx.fillStyle   = '#2e7d32'
+  ctx.fillStyle   = '#2e9e44'
   ctx.fill()
   ctx.strokeStyle = '#fff'
   ctx.lineWidth   = 2
@@ -229,9 +237,9 @@ export function drawElevOverlay(
 
   // Min/max alti
   ctx.font      = 'bold 16px "Segoe UI", system-ui, sans-serif'
-  ctx.fillStyle = '#000'
-  ctx.fillText(`${Math.round(maxEle)}m`, gX + 2, gY + 16)
-  ctx.fillText(`${Math.round(minEle)}m`, gX + 2, gY + gH)
+  ctx.fillStyle = '#fff'
+  haloText(`${Math.round(maxEle)}m`, gX + 2, gY + 16)
+  haloText(`${Math.round(minEle)}m`, gX + 2, gY + gH)
 
   ctx.restore()
 }

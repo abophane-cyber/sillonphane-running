@@ -20,7 +20,7 @@ import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } fro
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
-  HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
+  HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
   START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, START_PRESENT,
 } from './hiker3dStaging'
@@ -1016,8 +1016,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   pacing?.setNominalSpeed(nominalMps)
   const walkWarp = pacing ? pacing.timeWarp() : null
   const walkS = walkWarp ? walkWarp.totalS : durationS
-  const H3_OUTRO_S = hikers3d ? Math.max(...hikers.map(h => h.outroDurationS())) : 0
-  const H3_END_HOLD_S = Math.max(0.5, (HIKER3D_END_ZOOM_MS / 1000) * HIKER3D_OUTRO_AT + H3_OUTRO_S + 0.3 - HIKER3D_END_ZOOM_MS / 1000)
+  const H3_END_HOLD_S = HIKER3D_END_HOLD_MS / 1000
   const filmDurationS = hikers3d
     ? walkS + (4 + 1.6 + H3_START_HOLD_S + HIKER3D_START_DEZOOM_MS / 1000)
       + (HIKER3D_END_ZOOM_MS / 1000 + H3_END_HOLD_S + HIKER3D_OVERVIEW_MS / 1000 + 5)
