@@ -1405,7 +1405,8 @@ async function exportFilm3dImpl(
   // `seg` peut être FRACTIONNAIRE (position exacte du bout révélé, pas arrondie au segment) :
   // le capuchon glisse alors en continu même quand le corps du ruban, lui, ne peut avancer que
   // par segments entiers -> le pas résiduel du corps passe sous le disque en mouvement.
-  const runnerHead = new THREE.Vector3(), runnerFwd = new THREE.Vector3(1, 0, 0)
+  /** Position de la tête du ruban, en segment fractionnaire (cf. drawRunner). */
+  let runnerSeg = 0
   /** Tête du ruban arrivée au bout : la visée en avant l'y amène avant la fin du survol (cf. simStep). */
   let runnerAtEnd = false
   function updateTipCap(seg: number, colorT: number): void {
@@ -1421,9 +1422,7 @@ async function exportFilm3dImpl(
     const midX = (_cL.x + _cR.x) / 2, midY = (_cL.y + _cR.y) / 2, midZ = (_cL.z + _cR.z) / 2
     _cZ.subVectors(_cR, _cL)                                          // axe latéral du ruban
     _cX.set(midX - (_cLp.x + _cRp.x) / 2, midY - (_cLp.y + _cRp.y) / 2, midZ - (_cLp.z + _cRp.z) / 2) // avant
-    // Coureuse : pieds sur la tête du ruban, direction de course (cf. drawRunner).
-    runnerHead.set(midX, midY, midZ)
-    if (_cX.lengthSq() > 1e-6) runnerFwd.copy(_cX).normalize()
+    runnerSeg = sf // coureuse : pieds sur la tête du ruban (cf. drawRunner)
     // Repère dégénéré (segment nul, épingle serrée…) -> on masque le capuchon plutôt que de
     // produire un quaternion NaN qui polluerait tout le rendu de l'image.
     if (_cZ.lengthSq() < 1e-6 || _cX.lengthSq() < 1e-6 ||
@@ -1946,21 +1945,36 @@ async function exportFilm3dImpl(
   }
   /** Taille de la coureuse à l'écran : celle de la marche du film 2D en 1080p. */
   const RUNNER_SCALE = (OUT_H / 720) * HIKER3D_BODY_SCALE
-  /** Avance de la coureuse devant la tête du ruban, en hauteurs de corps à l'écran, dans la direction de course. */
+  /** Avance de la coureuse devant la tête du ruban, en hauteurs de corps à l'écran, mesurée LE LONG du parcours (dans un
+   * virage, elle reste sur la route au lieu de partir tout droit hors du ruban). */
   const RUNNER_LEAD_BODY = 0.3
   let runnerStage: 'wait' | 'intro' | 'run' | 'outro' = 'wait'
-  const runnerDir = { x: 1, y: 0 }
   let runnerLead = 0
-  const _rp = new THREE.Vector3(), _ra = new THREE.Vector3()
+  const _rp = new THREE.Vector3(), _rL = new THREE.Vector3(), _rR = new THREE.Vector3(), _rL2 = new THREE.Vector3(), _rR2 = new THREE.Vector3()
+  /** Milieu du ruban au segment fractionnaire `seg`, à l'écran (z >= 1 : derrière la caméra). */
+  function ribbonScreenAt(seg: number): { x: number; y: number; z: number } {
+    const sf = Math.max(0, Math.min(RIBBON_SEGMENTS, seg))
+    const s0 = Math.min(RIBBON_SEGMENTS - 1, Math.floor(sf)), fr = sf - s0
+    ribbonSeg(s0, _rL, _rR); ribbonSeg(s0 + 1, _rL2, _rR2)
+    _rL.lerp(_rL2, fr); _rR.lerp(_rR2, fr)
+    _rp.addVectors(_rL, _rR).multiplyScalar(0.5).project(camera)
+    return { x: (_rp.x + 1) / 2 * OUT_W, y: (1 - _rp.y) / 2 * OUT_H, z: _rp.z }
+  }
   function drawRunner(ctx: CanvasRenderingContext2D, elapsed: number, progress: number, dt: number) {
     if (!runner) return
+    // Pieds : à runnerLead px devant la tête du ruban, en suivant le parcours (pas de 0,25 segment).
+    const leadTarget = runnerStage === 'run' ? RUNNER_LEAD_BODY * runner.layout().body * RUNNER_SCALE : 0
+    runnerLead += (leadTarget - runnerLead) * Math.min(1, dt / 0.4) // pas de saut au départ ni à l'arrivée
+    let seg = runnerSeg, p = ribbonScreenAt(seg), walked = 0
+    while (walked < runnerLead && seg < RIBBON_SEGMENTS) {
+      const q = ribbonScreenAt(seg + 0.25)
+      walked += Math.hypot(q.x - p.x, q.y - p.y)
+      seg += 0.25; p = q
+    }
+    // Direction de course à l'écran : corde du parcours autour de sa position.
+    const back = ribbonScreenAt(seg - 1.5), ahead = ribbonScreenAt(seg + 1.5)
+    const dx = ahead.x - back.x, dy = ahead.y - back.y, dl = Math.hypot(dx, dy)
     // Étapes : attente au départ, se lève avec la levée du voile, court pendant le survol, salue à l'arrivée.
-    _rp.copy(runnerHead).project(camera)
-    _ra.copy(runnerHead).addScaledVector(runnerFwd, 30).project(camera)
-    const hx = (_rp.x + 1) / 2 * OUT_W, hy = (1 - _rp.y) / 2 * OUT_H
-    const dx = (_ra.x - _rp.x) * OUT_W, dy = (_rp.y - _ra.y) * OUT_H
-    const dl = Math.hypot(dx, dy)
-    if (dl > 0.5 && runnerStage === 'run') { runnerDir.x = dx / dl; runnerDir.y = dy / dl }
     if (runnerStage === 'wait' && elapsed >= TITLE_IN_S) { runner.startIntro(); runnerStage = 'intro' }
     if (runnerStage === 'intro' && elapsed >= PHASE1_END) { runner.turnTo(dx, dy); runner.setPlaying(true); runnerStage = 'run' }
     // Victoire dès que la tête du ruban est au bout (sinon elle courait sur place jusqu'à la fin du survol).
@@ -1972,17 +1986,13 @@ async function exportFilm3dImpl(
       runner.setProgress(progress)
     }
     runner.renderFrame(dt)
-    // Pieds un peu devant la tête du ruban pendant la course (au départ et à l'arrivée : sur le point).
-    const leadTarget = runnerStage === 'run' ? RUNNER_LEAD_BODY * runner.layout().body * RUNNER_SCALE : 0
-    runnerLead += (leadTarget - runnerLead) * Math.min(1, dt / 0.4) // pas de saut au départ ni à l'arrivée
-    const x = hx + runnerDir.x * runnerLead, y = hy + runnerDir.y * runnerLead
     // Vue d'ensemble : s'efface pendant la première moitié de la montée de la caméra.
     const alpha = Math.max(0, Math.min(1, 1 - (elapsed - PHASE3_END) / (OVERVIEW_RISE_S * 0.5)))
-    if (alpha <= 0 || _rp.z >= 1) return
+    if (alpha <= 0 || p.z >= 1) return
     const { w, h, feet } = runner.layout()
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.drawImage(runner.element, x - (w * RUNNER_SCALE) / 2, y - (h - feet) * RUNNER_SCALE, w * RUNNER_SCALE, h * RUNNER_SCALE)
+    ctx.drawImage(runner.element, p.x - (w * RUNNER_SCALE) / 2, p.y - (h - feet) * RUNNER_SCALE, w * RUNNER_SCALE, h * RUNNER_SCALE)
     ctx.restore()
   }
 
