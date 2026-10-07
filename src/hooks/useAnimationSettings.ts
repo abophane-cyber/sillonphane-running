@@ -5,11 +5,13 @@ export type ActivityMode = 'randonneur'
 
 export const ANIM_SETTINGS = {
   randonneur: {
-    1: { secondsPerKm: 2.0, min: 10, max: 45, minSpeedMps: 200 },
+    // Running : 2,6 s par km (le nom des rues, en haut de l'écran, a le temps d'être lu), plafond 120 s — un semi
+    // ≈ 55 s, un marathon ≈ 110 s (plan : 100 à 120 s).
+    1: { secondsPerKm: 2.6, min: 10, max: 120, minSpeedMps: 200 },
     // Vitesse de déplacement ×2,5 réelle (bouton toujours étiqueté "×2") : mêmes bornes que le
     // niveau 1, divisées par 2,5. La cadence des pas des randonneurs 3D suit la vitesse au sol
     // (cf. hiker3dSprite.setGroundSpeed).
-    2: { secondsPerKm: 2.0 / 2.5, min: 10 / 2.5, max: 45 / 2.5, minSpeedMps: 200 * 2.5 },
+    2: { secondsPerKm: 2.6 / 2.5, min: 10 / 2.5, max: 120 / 2.5, minSpeedMps: 200 * 2.5 },
   },
 }
 
