@@ -222,7 +222,7 @@ export function PanelWizard({
             />
           </label>
           {/* Trace sans heures réelles (ou temps prévus choisis) : heure de départ prévue, écrite à l'ouverture du film
-              (« Départ prévu à… ») et point de départ des temps de passage prévus aux bornes. */}
+              (« Départ prévu… ») et point de départ des temps de passage prévus aux bornes. */}
           {planned && (
             <label className="pwiz-race-row">
               <span>Heure de départ prévue</span>

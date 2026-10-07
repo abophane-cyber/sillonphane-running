@@ -26,7 +26,7 @@ export interface CreateFilm3dContext {
   weather: WeatherInfo | null
   manualDate?: string
   departureTime?: string
-  /** Heure de départ prévue (« Départ prévu à… ») plutôt que réelle (« Départ à… »). */
+  /** Heure de départ prévue (« Départ prévu… ») plutôt que réelle (« Départ… »). */
   startTimePlanned?: boolean
   arrivalTime?: string
   trackName: string

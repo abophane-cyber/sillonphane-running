@@ -129,12 +129,12 @@ export function formatClock(d: Date): string {
   return `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/** Ligne d'heure de départ de l'ouverture des films : « Départ prévu à 9 h 00 » (heure saisie, temps prévus) ou
- * « Départ à 9 h 00 » (GPX horodaté). Sans heure « HH:MM » valide : null. */
+/** Texte de la pastille d'heure de départ des films : « Départ prévu 9 h 00 » (heure saisie, temps prévus) ou
+ * « Départ 9 h 00 » (GPX horodaté). Sans heure « HH:MM » valide : null. */
 export function startTimeLine(hhmm: string | undefined, planned: boolean): string | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm ?? '')
   if (!m) return null
-  return `${planned ? 'Départ prévu à' : 'Départ à'} ${Number(m[1])} h ${m[2]}`
+  return `${planned ? 'Départ prévu' : 'Départ'} ${Number(m[1])} h ${m[2]}`
 }
 
 function pointAtM(points: GpxPoint[], distances: number[], m: number) {

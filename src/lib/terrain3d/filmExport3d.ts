@@ -38,6 +38,7 @@ import {
 } from './terrainSources'
 import { cancel3dPrefetch } from './prefetch3d'
 import { startTimeLine } from '../raceSplits'
+import { drawStartTimePill } from '../startTimePill'
 
 const OUT_W = 1920
 const OUT_H = 1080
@@ -148,7 +149,7 @@ export interface FilmExport3dOptions {
   weatherCard?:   WeatherCardData | null
   /** Heure de départ « HH:MM », écrite sous le nom du départ pendant l'ouverture (pause sur le départ). */
   startTime?:     string
-  /** Heure prévue (« Départ prévu à… ») plutôt que réelle d'un GPX horodaté (« Départ à… »). */
+  /** Heure prévue (« Départ prévu… ») plutôt que réelle d'un GPX horodaté (« Départ… »). */
   startTimePlanned?: boolean
   /** Durée du survol lui-même (hors pauses intro/outro), en s. Défaut 35. */
   durationS?:     number
@@ -2099,8 +2100,8 @@ async function exportFilm3dImpl(
           : 0
         // Nom au sol centré sur le point : ligne sous le nom ; col (pancarte au-dessus du point) : juste sous le point.
         const isLabel = departurePanel?.center.y === 0.5
-        const fontPx = isLabel ? Math.max(20, Math.min(48, labelH * 0.32)) : 28
-        drawStartTimeLine(ctx2d, startTimeText, sx, sy + (isLabel ? labelH * 0.5 : 8), fontPx, timeA)
+        const fontPx = isLabel ? Math.max(20, Math.min(40, labelH * 0.27)) : 24
+        drawStartTimePill(ctx2d, startTimeText, sx, sy + (isLabel ? labelH * 0.5 : 10), fontPx, timeA)
       }
     }
 
@@ -2378,23 +2379,6 @@ function drawWeatherCard(ctx: CanvasRenderingContext2D, weather: WeatherCardData
     ctx.textBaseline = 'top'; ctx.fillText(desc, colX, midY + 6)
   }
 
-  ctx.restore()
-}
-
-/** Ligne « Départ prévu à 9 h 00 » écrite sous le nom du départ, même facture que les noms au sol (lieu-dit :
- * italique blanc cerné de noir). (sx, top) : centre haut de la ligne, en px de l'image. */
-function drawStartTimeLine(ctx: CanvasRenderingContext2D, text: string, sx: number, top: number, fontPx: number, alpha: number) {
-  ctx.save()
-  ctx.globalAlpha = alpha
-  ctx.font = `italic 700 ${Math.round(fontPx)}px Arial, Helvetica, sans-serif`
-  ctx.textAlign = 'center'; ctx.textBaseline = 'top'
-  ctx.lineJoin = 'round'
-  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1
-  ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = Math.max(3, fontPx * 0.22)
-  ctx.strokeText(text, sx, top)
-  ctx.shadowColor = 'transparent'
-  ctx.fillStyle = '#fff'
-  ctx.fillText(text, sx, top)
   ctx.restore()
 }
 

@@ -34,7 +34,7 @@ export interface CreateFilmContext {
   bibNumber?: string
   /** Heure de départ « HH:MM » (fiche épreuve), affichée à l'ouverture du film. */
   startTime?: string
-  /** Heure de départ prévue (« Départ prévu à… ») plutôt que réelle d'un GPX horodaté (« Départ à… »). */
+  /** Heure de départ prévue (« Départ prévu… ») plutôt que réelle d'un GPX horodaté (« Départ… »). */
   startTimePlanned?: boolean
   /** Ravitaillements placés sur le tracé. */
   ravitos?: Ravito[]

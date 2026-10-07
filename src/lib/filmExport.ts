@@ -18,6 +18,7 @@ import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
+import { drawStartTimePill } from './startTimePill'
 import { borneNumber, borneReached, borneTimeLine, startTimeLine, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
@@ -53,7 +54,7 @@ export interface FilmExportOptions {
   bibNumber?:        string
   /** Heure de départ « HH:MM », écrite sous le nom du lieu de départ pendant l'ouverture (plan serré du départ). */
   startTime?:        string
-  /** Heure de départ prévue (« Départ prévu à… ») plutôt que réelle d'un GPX horodaté (« Départ à… »). */
+  /** Heure de départ prévue (« Départ prévu… ») plutôt que réelle d'un GPX horodaté (« Départ… »). */
   startTimePlanned?: boolean
   /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé comme les bornes. */
   ravitos?:          Ravito[]
@@ -1252,8 +1253,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   /** Taille des panneaux couchés au zoom affiché : celle des personnages (1 pendant la course). */
   const signScale = () => hiker3dScaleForZoom(exportMap.getZoom(), zoom)
   const startTimeText = startTimeLine(opts.startTime, opts.startTimePlanned ?? true)
-  /** Écart (px, taille de marche) entre le nom du lieu de départ et la ligne d'heure en dessous. */
-  const START_TIME_DY = 30
+  /** Écart (px, taille de marche) entre le nom du lieu de départ et le haut de la pastille d'heure en dessous. */
+  const START_TIME_DY = 16
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
   const signY = (ev: unknown, y: number, scale: number) =>
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
@@ -1273,8 +1274,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const ev = landmarks.length ? landmarks.reduce((a, b) => (d2(b) < d2(a) ? b : a)) : departureEvent!
       const pt = exportMap.project([ev.lon, ev.lat])
       const s = signScale()
-      drawLocSign(ctx, locSignCache, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s,
-        ev.style === 'poi' ? 'poi' : 'lieudit', undefined, timeAlpha, s)
+      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 16 * s, timeAlpha)
     }
   }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
