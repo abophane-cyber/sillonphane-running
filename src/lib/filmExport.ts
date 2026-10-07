@@ -18,7 +18,7 @@ import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
-import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard, type Ravito } from './raceSplits'
+import { borneNumber, borneReached, borneTimeLine, startTimeLine, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -51,8 +51,10 @@ export interface FilmExportOptions {
   bornes?:           Borne[]
   /** Numéro inscrit sur le dossard du personnage (cf. Hiker3dSprite.setBibNumber). */
   bibNumber?:        string
-  /** Heure de départ « HH:MM », affichée sous la météo pendant l'ouverture (plan serré du départ). */
+  /** Heure de départ « HH:MM », écrite sous le nom du lieu de départ pendant l'ouverture (plan serré du départ). */
   startTime?:        string
+  /** Heure de départ prévue (« Départ prévu à… ») plutôt que réelle d'un GPX horodaté (« Départ à… »). */
+  startTimePlanned?: boolean
   /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé comme les bornes. */
   ravitos?:          Ravito[]
   /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
@@ -550,36 +552,6 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
     ctx.textBaseline = 'top'; ctx.fillText(desc, colX, midY + 6)
   }
 
-  ctx.restore()
-}
-
-/** Cartouche « Départ · 9 h 00 », même facture que la carte météo, juste en dessous (ou à sa place sans météo). */
-function drawStartTimeCard(ctx: CanvasRenderingContext2D, cw: number, hhmm: string, hasWeather: boolean, alpha: number) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm)
-  if (!m || alpha <= 0) return
-  const label = 'Départ'
-  const time = `${Number(m[1])} h ${m[2]}`
-  const PAD = 21, cardH = 64, cardY = hasWeather ? 34 + 102 + 12 : 34
-
-  ctx.save()
-  ctx.globalAlpha = alpha
-  ctx.font = '22px "Segoe UI", system-ui, sans-serif'
-  const labelW = ctx.measureText(label).width
-  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'
-  const timeW = ctx.measureText(time).width
-  const GAP = 14
-  const cardW = PAD + labelW + GAP + timeW + PAD
-  const cardX = cw - cardW - 16
-
-  ctx.fillStyle = 'rgba(10,26,14,0.82)'
-  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 12); ctx.fill()
-
-  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
-  const midY = cardY + cardH / 2
-  ctx.font = '22px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#a5c8a8'
-  ctx.fillText(label, cardX + PAD, midY + 1)
-  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#e8f5e9'
-  ctx.fillText(time, cardX + PAD + labelW + GAP, midY)
   ctx.restore()
 }
 
@@ -1279,16 +1251,30 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   let hkMergeWas = false                                // mise en file du second en cours à l'image précédente
   /** Taille des panneaux couchés au zoom affiché : celle des personnages (1 pendant la course). */
   const signScale = () => hiker3dScaleForZoom(exportMap.getZoom(), zoom)
+  const startTimeText = startTimeLine(opts.startTime, opts.startTimePlanned ?? true)
+  /** Écart (px, taille de marche) entre le nom du lieu de départ et la ligne d'heure en dessous. */
+  const START_TIME_DY = 30
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
   const signY = (ev: unknown, y: number, scale: number) =>
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
   /** Ouverture et dézoom du départ : panneau de départ et panneaux déjà visibles au début de la course (repère tout
    * proche du départ, ex. « Porte de Paris »). */
-  function drawStartSigns() {
-    for (const ev of [...localityEvents.filter(e => e.showFrame === 0), ...(departureEvent ? [departureEvent] : [])]) {
+  function drawStartSigns(timeAlpha = 0) {
+    const startEvents = [...localityEvents.filter(e => e.showFrame === 0), ...(departureEvent ? [departureEvent] : [])]
+    for (const ev of startEvents) {
       const pt = exportMap.project([ev.lon, ev.lat])
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
         drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale())
+    }
+    // Heure de départ, sous le repère le plus proche du départ (ex. « Porte de Paris »), sinon sous le panneau de départ.
+    const landmarks = localityEvents.filter(e => e.showFrame === 0)
+    if (startTimeText && timeAlpha > 0 && startEvents.length) {
+      const d2 = (ev: LocalityEvent) => (ev.lon - points[0].lon) ** 2 + (ev.lat - points[0].lat) ** 2
+      const ev = landmarks.length ? landmarks.reduce((a, b) => (d2(b) < d2(a) ? b : a)) : departureEvent!
+      const pt = exportMap.project([ev.lon, ev.lat])
+      const s = signScale()
+      drawLocSign(ctx, locSignCache, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s,
+        ev.style === 'poi' ? 'poi' : 'lieudit', undefined, timeAlpha, s)
     }
   }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
@@ -1450,14 +1436,13 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
     catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
-    drawStartSigns()
+    drawStartSigns(1)
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
       const p0 = exportMap.project([points[0].lon, points[0].lat])
       drawHikers3d(p0.x, p0.y, startScale(closeZoom))
     }
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
-    if (opts.startTime) drawStartTimeCard(ctx, OUT_W, opts.startTime, !!opts.weather, 1)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
@@ -1493,15 +1478,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
     catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
-    drawStartSigns()
+    // Heure de départ : reste pendant le dézoom et s'efface sur ses dernières 0,6 s, avant que la course parte.
+    drawStartSigns(Math.min(1, (START_DEZOOM_FRAMES - 1 - k) / Math.max(1, Math.round(0.6 * fps))))
     const p0 = exportMap.project([points[0].lon, points[0].lat])
     drawHikers3d(p0.x, p0.y, startScale(z))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
-    // Heure de départ : reste pendant le dézoom et s'efface sur ses dernières 0,6 s, avant que la course parte.
-    if (opts.startTime) {
-      const fadeFrames = Math.max(1, Math.round(0.6 * fps))
-      drawStartTimeCard(ctx, OUT_W, opts.startTime, !!opts.weather, Math.min(1, (START_DEZOOM_FRAMES - 1 - k) / fadeFrames))
-    }
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,

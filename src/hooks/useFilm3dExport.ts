@@ -26,6 +26,8 @@ export interface CreateFilm3dContext {
   weather: WeatherInfo | null
   manualDate?: string
   departureTime?: string
+  /** Heure de départ prévue (« Départ prévu à… ») plutôt que réelle (« Départ à… »). */
+  startTimePlanned?: boolean
   arrivalTime?: string
   trackName: string
   speedLevel: 1 | 2
@@ -112,6 +114,7 @@ export function useFilm3dExport() {
         weather: weatherToScenario(ctx.weather, ctx.departureTime, ctx.arrivalTime),
         weatherCard: ctx.weather,
         startTime: ctx.departureTime || undefined,
+        startTimePlanned: ctx.startTimePlanned,
         durationS,
         fps: 30,
         onProgress: p => {

@@ -37,6 +37,7 @@ import {
   lon2tileX, lat2tileY, tileX2lon, tileY2lat,
 } from './terrainSources'
 import { cancel3dPrefetch } from './prefetch3d'
+import { startTimeLine } from '../raceSplits'
 
 const OUT_W = 1920
 const OUT_H = 1080
@@ -145,8 +146,10 @@ export interface FilmExport3dOptions {
   /** Cartel météo affiché en bas à gauche (température + icône + description). Optionnel :
    *  absent -> pas de cartel (ex. banc de test). */
   weatherCard?:   WeatherCardData | null
-  /** Heure de départ « HH:MM », affichée sous la météo pendant l'ouverture (pause sur le départ). */
+  /** Heure de départ « HH:MM », écrite sous le nom du départ pendant l'ouverture (pause sur le départ). */
   startTime?:     string
+  /** Heure prévue (« Départ prévu à… ») plutôt que réelle d'un GPX horodaté (« Départ à… »). */
+  startTimePlanned?: boolean
   /** Durée du survol lui-même (hors pauses intro/outro), en s. Défaut 35. */
   durationS?:     number
   fps?:           number
@@ -1903,6 +1906,7 @@ async function exportFilm3dImpl(
   composite.width = OUT_W; composite.height = OUT_H
   const ctx2d = composite.getContext('2d')!
   const drawProfile = buildProfileCardCanvas(trailPts, TOTAL_DISTANCE_M, minElev - 3.5)
+  const startTimeText = startTimeLine(opts.startTime, opts.startTimePlanned ?? true)
 
   const hasWC = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'
   let useWC = false
@@ -2082,9 +2086,22 @@ async function exportFilm3dImpl(
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
       watermarkReveal: Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
-    // Heure de départ : pendant la pause sur le départ, effacée sur 0,6 s au premier instant du survol.
-    if (opts.startTime) {
-      drawStartTimeCard(ctx2d, opts.startTime, !!opts.weatherCard, Math.max(0, Math.min(1, (PHASE1_END + 0.6 - simElapsed) / 0.6)))
+    // Heure de départ, sous le nom du départ : pendant la pause sur le départ, effacée sur 0,6 s au début du survol.
+    const timeA = Math.max(0, Math.min(1, (PHASE1_END + 0.6 - simElapsed) / 0.6))
+    if (startTimeText && timeA > 0) {
+      const anchor = trailPts[0]
+      const ndc = anchor.clone().project(camera)
+      if (ndc.z < 1) {
+        const sx = (ndc.x + 1) / 2 * OUT_W, sy = (1 - ndc.y) / 2 * OUT_H
+        // Hauteur à l'écran du nom du départ (sprite face caméra), pour caler la ligne juste en dessous.
+        const labelH = departurePanel
+          ? departurePanel.scale.y / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * anchor.distanceTo(camera.position)) * OUT_H
+          : 0
+        // Nom au sol centré sur le point : ligne sous le nom ; col (pancarte au-dessus du point) : juste sous le point.
+        const isLabel = departurePanel?.center.y === 0.5
+        const fontPx = isLabel ? Math.max(20, Math.min(48, labelH * 0.32)) : 28
+        drawStartTimeLine(ctx2d, startTimeText, sx, sy + (isLabel ? labelH * 0.5 : 8), fontPx, timeA)
+      }
     }
 
     // Ouverture. (1) Voile noir : plein pendant TITLE_IN_S (le titre s'y inscrit), puis se lève
@@ -2364,33 +2381,20 @@ function drawWeatherCard(ctx: CanvasRenderingContext2D, weather: WeatherCardData
   ctx.restore()
 }
 
-/** Cartouche « Départ · 9 h 00 » (port de drawStartTimeCard de src/lib/filmExport.ts), juste sous la météo. */
-function drawStartTimeCard(ctx: CanvasRenderingContext2D, hhmm: string, hasWeather: boolean, alpha: number) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm)
-  if (!m || alpha <= 0) return
-  const label = 'Départ'
-  const time = `${Number(m[1])} h ${m[2]}`
-  const PAD = 21, cardH = 64, cardY = hasWeather ? 16 + 102 + 12 : 16
-
+/** Ligne « Départ prévu à 9 h 00 » écrite sous le nom du départ, même facture que les noms au sol (lieu-dit :
+ * italique blanc cerné de noir). (sx, top) : centre haut de la ligne, en px de l'image. */
+function drawStartTimeLine(ctx: CanvasRenderingContext2D, text: string, sx: number, top: number, fontPx: number, alpha: number) {
   ctx.save()
   ctx.globalAlpha = alpha
-  ctx.font = '22px "Segoe UI", system-ui, sans-serif'
-  const labelW = ctx.measureText(label).width
-  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'
-  const timeW = ctx.measureText(time).width
-  const GAP = 14
-  const cardW = PAD + labelW + GAP + timeW + PAD
-  const cardX = OUT_W - cardW - 16
-
-  ctx.fillStyle = 'rgba(10,26,14,0.82)'
-  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 12); ctx.fill()
-
-  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
-  const midY = cardY + cardH / 2
-  ctx.font = '22px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#a5c8a8'
-  ctx.fillText(label, cardX + PAD, midY + 1)
-  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#e8f5e9'
-  ctx.fillText(time, cardX + PAD + labelW + GAP, midY)
+  ctx.font = `italic 700 ${Math.round(fontPx)}px Arial, Helvetica, sans-serif`
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top'
+  ctx.lineJoin = 'round'
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 4; ctx.shadowOffsetY = 1
+  ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = Math.max(3, fontPx * 0.22)
+  ctx.strokeText(text, sx, top)
+  ctx.shadowColor = 'transparent'
+  ctx.fillStyle = '#fff'
+  ctx.fillText(text, sx, top)
   ctx.restore()
 }
 

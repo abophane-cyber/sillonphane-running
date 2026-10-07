@@ -34,6 +34,8 @@ export interface CreateFilmContext {
   bibNumber?: string
   /** Heure de départ « HH:MM » (fiche épreuve), affichée à l'ouverture du film. */
   startTime?: string
+  /** Heure de départ prévue (« Départ prévu à… ») plutôt que réelle d'un GPX horodaté (« Départ à… »). */
+  startTimePlanned?: boolean
   /** Ravitaillements placés sur le tracé. */
   ravitos?: Ravito[]
   /** Carton de fin du film (intitulé, date, distance, dénivelé, temps, moyenne). */
@@ -133,6 +135,7 @@ export function useFilmRecording() {
         bornes: ctx.bornes,
         bibNumber: ctx.bibNumber,
         startTime: ctx.startTime,
+        startTimePlanned: ctx.startTimePlanned,
         ravitos: ctx.ravitos,
         endCard: ctx.endCard,
         speedLevel: ctx.speedLevel,
