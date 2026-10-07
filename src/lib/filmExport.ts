@@ -277,7 +277,7 @@ type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi' | 'ravito' | 'borne'
 // (cf. hiker3dScaleForZoom) ; pré-rendus en haute résolution (SIGN_RES) pour rester nets dans les plans serrés.
 const SIGN_RES = 2.5
 /** Taille minimale des bornes sur la vue d'ensemble de fin : km et temps de passage lisibles en 1080p. */
-const OVERVIEW_BORNE_SCALE = 1.5
+const OVERVIEW_BORNE_SCALE = 1.15
 
 interface LocSignSprite { canvas: HTMLCanvasElement; offX: number; offY: number }
 type LocSignCache = Map<string, LocSignSprite>
@@ -464,6 +464,27 @@ function buildLocSignSprite(name: string, style: SignStyle, ele?: number, sub?: 
   }
 
   return { canvas, offX: px, offY: py }
+}
+
+/** Flèche dorée cernée de sombre, de (x0, y0) vers (x1, y1) : relie une borne décalée à son endroit sur le tracé. */
+function drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, scale: number, alpha: number) {
+  const len = Math.hypot(x1 - x0, y1 - y0)
+  if (len < 4) return
+  const ux = (x1 - x0) / len, uy = (y1 - y0) / len
+  const head = Math.min(len, 11 * scale), half = 6 * scale
+  const bx = x1 - ux * head, by = y1 - uy * head
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  const path = () => {
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(bx, by); ctx.stroke()
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(bx - uy * half, by + ux * half); ctx.lineTo(bx + uy * half, by - ux * half); ctx.closePath()
+  }
+  ctx.strokeStyle = '#14213d'; ctx.lineWidth = 5 * scale
+  path(); ctx.stroke()
+  ctx.strokeStyle = '#ffd166'; ctx.fillStyle = '#ffd166'; ctx.lineWidth = 2.5 * scale
+  path(); ctx.fill()
+  ctx.restore()
 }
 
 function drawLocSign(
@@ -666,15 +687,17 @@ export function drawEndWatermark(
 export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: number, card: EndCard, opacity: number) {
   if (opacity <= 0) return
   const GOLD = '#ffd166', SOFT = '#c9cfdc'
-  const padX = cw * 0.04, baseY = ch - ch * 0.075 + (1 - opacity) * ch * 0.02
+  const padX = cw * 0.04, baseY = ch - ch * 0.06 + (1 - opacity) * ch * 0.02
   ctx.save()
   ctx.globalAlpha = opacity
-  // Fond : dégradé sombre depuis le bas.
-  const top = ch * 0.62
+  // Fond : dégradé sombre court, seulement derrière le texte (le tracé et les repères du bas restent nets) ; une
+  // ombre portée sous les lettres garde la lisibilité sur une vue claire.
+  const top = ch * 0.8
   const g = ctx.createLinearGradient(0, top, 0, ch)
-  g.addColorStop(0, 'rgba(8,12,20,0)'); g.addColorStop(0.4, 'rgba(8,12,20,0.82)'); g.addColorStop(1, 'rgba(8,12,20,0.94)')
+  g.addColorStop(0, 'rgba(8,12,20,0)'); g.addColorStop(0.45, 'rgba(8,12,20,0.6)'); g.addColorStop(1, 'rgba(8,12,20,0.85)')
   ctx.fillStyle = g
   ctx.fillRect(0, top, cw, ch - top)
+  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = ch * 0.008; ctx.shadowOffsetY = ch * 0.0015
 
   // Chiffres, de droite à gauche.
   const stats: [string, string, boolean][] = []
@@ -682,13 +705,13 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
   if (card.elevGain) stats.push([card.elevGain, 'DÉNIVELÉ', false])
   if (card.time) stats.push([card.time, card.timeLabel ?? 'TEMPS', true])
   if (card.avgSpeed) stats.push([card.avgSpeed, 'MOYENNE', false])
-  const VAL = `700 ${Math.round(ch * 0.042)}px Arial, Helvetica, sans-serif`
-  const LAB = `700 ${Math.round(ch * 0.016)}px Arial, Helvetica, sans-serif`
-  const gap = ch * 0.045
+  const VAL = `700 ${Math.round(ch * 0.032)}px Arial, Helvetica, sans-serif`
+  const LAB = `700 ${Math.round(ch * 0.013)}px Arial, Helvetica, sans-serif`
+  const gap = ch * 0.036
   ctx.textBaseline = 'alphabetic'
   const widths = stats.map(([v, l]) => { ctx.font = VAL; const wv = ctx.measureText(v).width; ctx.font = LAB; return Math.max(wv, ctx.measureText(l).width + l.length * ch * 0.003) })
   let x = cw - padX
-  const labY = baseY, valY = baseY - ch * 0.03
+  const labY = baseY, valY = baseY - ch * 0.024
   for (let i = stats.length - 1; i >= 0; i--) {
     const [v, l, gold] = stats[i]
     ctx.textAlign = 'right'
@@ -704,17 +727,17 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
   const sepX = x + gap * 0.5
   if (stats.length) {
     ctx.fillStyle = GOLD
-    ctx.fillRect(sepX, valY - ch * 0.045, Math.max(1.5, ch * 0.0018), ch * 0.08)
+    ctx.fillRect(sepX, valY - ch * 0.036, Math.max(1.5, ch * 0.0018), ch * 0.064)
   }
 
   // Intitulé (italique, ajusté à la place restante) et date dorée au-dessus.
   const maxTitleW = (stats.length ? sepX - gap * 0.5 : cw - padX) - padX
-  let ts = Math.round(ch * 0.058)
+  let ts = Math.round(ch * 0.044)
   do { ctx.font = `italic ${ts}px Georgia, "Times New Roman", serif`; ts -= 2 } while (ctx.measureText(card.title).width > maxTitleW && ts > 14)
   ctx.textAlign = 'left'; ctx.fillStyle = '#fff'
   ctx.fillText(card.title, padX, baseY)
   const dateLine = [card.date?.toUpperCase(), 'ARRIVÉE'].filter(Boolean).join('  ·  ')
-  ctx.font = `700 ${Math.round(ch * 0.019)}px Arial, Helvetica, sans-serif`
+  ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
   ctx.fillStyle = GOLD
   ctx.letterSpacing = `${ch * 0.004}px`
   ctx.fillText(dateLine, padX, baseY - ts - ch * 0.012)
@@ -722,9 +745,9 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
 
   // Adresse du site, discrète, en haut à droite du bandeau.
   ctx.textAlign = 'right'
-  ctx.font = `700 ${Math.round(ch * 0.018)}px Arial, Helvetica, sans-serif`
+  ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.7)'
-  ctx.fillText(SITE_ADDRESS, cw - padX, valY - ch * 0.07)
+  ctx.fillText(SITE_ADDRESS, cw - padX, valY - ch * 0.055)
   ctx.restore()
 }
 
@@ -1289,46 +1312,55 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
   /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble).
-   * `overview` (vue d'ensemble de fin) : une borne qui en chevauche une autre est décalée à côté, reliée à son point
-   * du tracé par un trait. */
+   * `overview` (vue d'ensemble de fin) : une borne qui chevauche une autre borne ou un ravitaillement est décalée
+   * du plus petit écart qui la dégage, et une flèche pointe son endroit sur le tracé. */
   function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity, overview = false) {
     if (alpha <= 0) return
+    const s = Math.max(1, scale)
+    type Box = { x: number; y: number; w: number; h: number }
+    const placed: Box[] = []
+    const hits = (a: Box) => placed.some(p => a.x < p.x + p.w && a.x + a.w > p.x && a.y < p.y + p.h && a.y + a.h > p.y)
+    const sprite = (name: string, style: SignStyle, sub?: string) => {
+      const key = `${style}|${name}||${sub ?? ''}`
+      let sp = locSignCache.get(key)
+      if (!sp) { sp = buildLocSignSprite(name, style, undefined, sub); locSignCache.set(key, sp) }
+      return sp
+    }
+    const inView = (pt: { x: number; y: number }) => pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200
     for (const r of opts.ravitos ?? []) {
       if (!borneReached(r, coveredM)) continue
       const pt = project(r.lon, r.lat)
-      if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, r.label, pt.x, pt.y, 'ravito', undefined, alpha, Math.max(1, scale))
+      if (!inView(pt)) continue
+      if (overview) {
+        // Ravitaillement : reste à sa place, mais les bornes l'évitent (marge d'ombre de 8 px retirée).
+        const sp = sprite(r.label, 'ravito')
+        placed.push({ x: pt.x - (sp.offX - 8) * s, y: pt.y - (sp.offY - 8) * s, w: (sp.canvas.width / SIGN_RES - 16) * s, h: (sp.canvas.height / SIGN_RES - 16) * s })
+      }
+      drawLocSign(ctx, locSignCache, r.label, pt.x, pt.y, 'ravito', undefined, alpha, s)
     }
-    const s = Math.max(1, scale)
-    const placed: { x: number; y: number; w: number; h: number }[] = []
-    const hits = (a: { x: number; y: number; w: number; h: number }) =>
-      placed.some(p => a.x < p.x + p.w && a.x + a.w > p.x && a.y < p.y + p.h && a.y + a.h > p.y)
     for (const b of opts.bornes ?? []) {
       if (!borneReached(b, coveredM)) continue
       const pt = project(b.lon, b.lat)
-      if (!(pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)) continue
+      if (!inView(pt)) continue
       const num = borneNumber(b), sub = borneTimeLine(b) || undefined
       let x = pt.x, y = pt.y
       if (overview) {
-        const key = `borne|${num}||${sub ?? ''}`
-        let sp = locSignCache.get(key)
-        if (!sp) { sp = buildLocSignSprite(num, 'borne', undefined, sub); locSignCache.set(key, sp) }
-        // Boîte utile (sans la marge d'ombre du sprite), puis essais de places voisines si elle chevauche.
+        const sp = sprite(num, 'borne', sub)
         const w = (sp.canvas.width / SIGN_RES - 16) * s, h = (sp.canvas.height / SIGN_RES - 16) * s
-        const box = (cx: number, cy: number) => ({ x: cx - w / 2, y: cy - h, w, h })
-        const tries = [[0, 0], [w * 0.6, -h * 0.25], [-w * 0.6, -h * 0.25], [0, -h * 0.75], [w * 1.1, 0], [-w * 1.1, 0], [0, h * 1.05]]
-        const free = tries.find(([dx, dy]) => !hits(box(pt.x + dx, pt.y + dy))) ?? tries[0]
-        x = pt.x + free[0]; y = pt.y + free[1]
-        placed.push(box(x, y))
-        if (x !== pt.x || y !== pt.y) {
-          ctx.save()
-          ctx.globalAlpha = alpha
-          ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2 * s
-          ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(x, y); ctx.stroke()
-          ctx.fillStyle = '#ffd166'
-          ctx.beginPath(); ctx.arc(pt.x, pt.y, 4 * s, 0, Math.PI * 2); ctx.fill()
-          ctx.restore()
+        const box = (cx: number, cy: number): Box => ({ x: cx - w / 2, y: cy - h, w, h })
+        // Écarts croissants dans 8 directions (vers le haut d'abord) : le premier qui dégage la borne.
+        const dirs = [[0, -1], [0.7, -0.7], [-0.7, -0.7], [1, 0], [-1, 0], [0.7, 0.7], [-0.7, 0.7], [0, 1]]
+        let off: [number, number] = [0, 0]
+        if (hits(box(x, y))) {
+          search: for (let k = 0.25; k <= 2; k += 0.25)
+            for (const [dx, dy] of dirs) {
+              const o: [number, number] = [dx * w * k, dy * h * k]
+              if (!hits(box(pt.x + o[0], pt.y + o[1]))) { off = o; break search }
+            }
         }
+        x = pt.x + off[0]; y = pt.y + off[1]
+        placed.push(box(x, y))
+        if (off[0] || off[1]) drawArrow(ctx, x, y, pt.x, pt.y, s, alpha)
       }
       drawLocSign(ctx, locSignCache, num, x, y, 'borne', undefined, alpha, s, sub)
     }
