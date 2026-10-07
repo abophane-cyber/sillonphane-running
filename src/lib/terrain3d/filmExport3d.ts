@@ -40,7 +40,7 @@ import { cancel3dPrefetch } from './prefetch3d'
 import { startClock } from '../raceSplits'
 import { drawStartTimePill } from '../startTimePill'
 import type { Hiker3dSprite } from '../hiker3dSprite'
-import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED } from '../hiker3dStaging'
+import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, START_PRESENT, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import { StreetCaption, type StreetSpan } from '../streetCaption'
 import { drawBorneLayer, drawEndCard, OVERVIEW_BORNE_SCALE, type LocSignCache } from '../filmExport'
@@ -1967,10 +1967,14 @@ async function exportFilm3dImpl(
   }
   /** Taille de la coureuse à l'écran : celle de la marche du film 2D en 1080p. */
   const RUNNER_SCALE = (OUT_H / 720) * HIKER3D_BODY_SCALE
+  /** Présentation au départ (comme le film 2D) : en grand, pieds en bas à gauche (START_PRESENT), puis elle rejoint
+   * le départ du ruban à sa taille de course sur les PRESENT_MOVE_S dernières secondes de la pause sur le départ. */
+  const PRESENT_MOVE_S = 1.2
   /** Avance de la coureuse devant la tête du ruban, en hauteurs de corps à l'écran, mesurée LE LONG du parcours (dans un
    * virage, elle reste sur la route au lieu de partir tout droit hors du ruban). */
   const RUNNER_LEAD_BODY = 0.3
   let runnerStage: 'wait' | 'intro' | 'run' | 'outro' = 'wait'
+  let presentTurned = false // tournée vers le chemin au début du glissement vers le ruban
   let runnerLead = 0
   const _rp = new THREE.Vector3(), _rL = new THREE.Vector3(), _rR = new THREE.Vector3(), _rL2 = new THREE.Vector3(), _rR2 = new THREE.Vector3()
   /** Milieu du ruban au segment fractionnaire `seg`, à l'écran (z >= 1 : derrière la caméra). */
@@ -2010,11 +2014,19 @@ async function exportFilm3dImpl(
     runner.renderFrame(dt)
     // Vue d'ensemble : s'efface pendant la première moitié de la montée de la caméra.
     const alpha = Math.max(0, Math.min(1, 1 - (elapsed - PHASE3_END) / (OVERVIEW_RISE_S * 0.5)))
-    if (alpha <= 0 || p.z >= 1) return
-    const { w, h, feet } = runner.layout()
+    const { w, h, feet, body } = runner.layout()
+    // Présentation : k = 1 en grand en bas à gauche, 0 sur le ruban à taille de course.
+    const k = 1 - smoothEase(Math.max(0, Math.min(1, (elapsed - (PHASE1_END - PRESENT_MOVE_S)) / PRESENT_MOVE_S)))
+    if (k > 0 && !presentTurned && elapsed >= PHASE1_END - PRESENT_MOVE_S) { runner.turnTo(dx, dy); presentTurned = true }
+    const onRoute = p.z < 1
+    if (alpha <= 0 || (!onRoute && k < 1)) return
+    const presentScale = (OUT_H * START_PRESENT.body) / Math.max(1, body)
+    const scale = RUNNER_SCALE + (presentScale - RUNNER_SCALE) * k
+    const fx = onRoute ? p.x + (START_PRESENT.feetX * OUT_W - p.x) * k : START_PRESENT.feetX * OUT_W
+    const fy = onRoute ? p.y + (START_PRESENT.feetY * OUT_H - p.y) * k : START_PRESENT.feetY * OUT_H
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.drawImage(runner.element, p.x - (w * RUNNER_SCALE) / 2, p.y - (h - feet) * RUNNER_SCALE, w * RUNNER_SCALE, h * RUNNER_SCALE)
+    ctx.drawImage(runner.element, fx - (w * scale) / 2, fy - (h - feet) * scale, w * scale, h * scale)
     ctx.restore()
   }
 
