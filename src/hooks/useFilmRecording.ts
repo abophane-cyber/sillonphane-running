@@ -32,6 +32,8 @@ export interface CreateFilmContext {
   bornes: Borne[]
   /** Numéro inscrit sur le dossard du personnage. */
   bibNumber?: string
+  /** Heure de départ « HH:MM » (fiche épreuve), affichée à l'ouverture du film. */
+  startTime?: string
   /** Ravitaillements placés sur le tracé. */
   ravitos?: Ravito[]
   /** Carton de fin du film (intitulé, date, distance, dénivelé, temps, moyenne). */
@@ -130,6 +132,7 @@ export function useFilmRecording() {
         characters: ctx.characters,
         bornes: ctx.bornes,
         bibNumber: ctx.bibNumber,
+        startTime: ctx.startTime,
         ravitos: ctx.ravitos,
         endCard: ctx.endCard,
         speedLevel: ctx.speedLevel,

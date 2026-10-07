@@ -458,6 +458,7 @@ export default function App() {
       characters,
       bornes,
       bibNumber: race.bibNumber?.trim() || undefined,
+      startTime: departureTime || undefined,
       ravitos,
       endCard,
       trackName: customTitle || activeTrack.name,

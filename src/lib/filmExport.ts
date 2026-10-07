@@ -51,6 +51,8 @@ export interface FilmExportOptions {
   bornes?:           Borne[]
   /** Numéro inscrit sur le dossard du personnage (cf. Hiker3dSprite.setBibNumber). */
   bibNumber?:        string
+  /** Heure de départ « HH:MM », affichée sous la météo pendant l'ouverture (plan serré du départ). */
+  startTime?:        string
   /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé comme les bornes. */
   ravitos?:          Ravito[]
   /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
@@ -548,6 +550,36 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
     ctx.textBaseline = 'top'; ctx.fillText(desc, colX, midY + 6)
   }
 
+  ctx.restore()
+}
+
+/** Cartouche « Départ · 9 h 00 », même facture que la carte météo, juste en dessous (ou à sa place sans météo). */
+function drawStartTimeCard(ctx: CanvasRenderingContext2D, cw: number, hhmm: string, hasWeather: boolean, alpha: number) {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm)
+  if (!m || alpha <= 0) return
+  const label = 'Départ'
+  const time = `${Number(m[1])} h ${m[2]}`
+  const PAD = 21, cardH = 64, cardY = hasWeather ? 34 + 102 + 12 : 34
+
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.font = '22px "Segoe UI", system-ui, sans-serif'
+  const labelW = ctx.measureText(label).width
+  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'
+  const timeW = ctx.measureText(time).width
+  const GAP = 14
+  const cardW = PAD + labelW + GAP + timeW + PAD
+  const cardX = cw - cardW - 16
+
+  ctx.fillStyle = 'rgba(10,26,14,0.82)'
+  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 12); ctx.fill()
+
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
+  const midY = cardY + cardH / 2
+  ctx.font = '22px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#a5c8a8'
+  ctx.fillText(label, cardX + PAD, midY + 1)
+  ctx.font = 'bold 34px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#e8f5e9'
+  ctx.fillText(time, cardX + PAD + labelW + GAP, midY)
   ctx.restore()
 }
 
@@ -1425,6 +1457,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       drawHikers3d(p0.x, p0.y, startScale(closeZoom))
     }
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
+    if (opts.startTime) drawStartTimeCard(ctx, OUT_W, opts.startTime, !!opts.weather, 1)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
@@ -1464,6 +1497,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const p0 = exportMap.project([points[0].lon, points[0].lat])
     drawHikers3d(p0.x, p0.y, startScale(z))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
+    // Heure de départ : reste pendant le dézoom et s'efface sur ses dernières 0,6 s, avant que la course parte.
+    if (opts.startTime) {
+      const fadeFrames = Math.max(1, Math.round(0.6 * fps))
+      drawStartTimeCard(ctx, OUT_W, opts.startTime, !!opts.weather, Math.min(1, (START_DEZOOM_FRAMES - 1 - k) / fadeFrames))
+    }
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
