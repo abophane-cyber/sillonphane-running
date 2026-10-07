@@ -1406,6 +1406,8 @@ async function exportFilm3dImpl(
   // le capuchon glisse alors en continu même quand le corps du ruban, lui, ne peut avancer que
   // par segments entiers -> le pas résiduel du corps passe sous le disque en mouvement.
   const runnerHead = new THREE.Vector3(), runnerFwd = new THREE.Vector3(1, 0, 0)
+  /** Tête du ruban arrivée au bout : la visée en avant l'y amène avant la fin du survol (cf. simStep). */
+  let runnerAtEnd = false
   function updateTipCap(seg: number, colorT: number): void {
     const sf = Math.max(1, Math.min(RIBBON_SEGMENTS, seg))
     const s0 = Math.min(RIBBON_SEGMENTS - 1, Math.floor(sf))
@@ -1847,6 +1849,7 @@ async function exportFilm3dImpl(
       ribbonGeom.setDrawRange(0, bodySegments * 6)
       coreGeom.instanceCount = bodySegments
       updateTipCap(lookT * RIBBON_SEGMENTS, lookT)
+      runnerAtEnd = lookT >= 1
       for (const { sprite, t: panelT } of panelSprites) if (t >= panelT - PANEL_LEAD) sprite.visible = true
       // Nom du départ écrit en haut de l'écran à l'ouverture (cf. drawStartHeader) : pas au sol pendant le survol,
       // où il chevauchait le repère voisin (« Lille » sur « Porte de Paris »). Il revient sur la vue d'ensemble.
@@ -1960,7 +1963,8 @@ async function exportFilm3dImpl(
     if (dl > 0.5 && runnerStage === 'run') { runnerDir.x = dx / dl; runnerDir.y = dy / dl }
     if (runnerStage === 'wait' && elapsed >= TITLE_IN_S) { runner.startIntro(); runnerStage = 'intro' }
     if (runnerStage === 'intro' && elapsed >= PHASE1_END) { runner.turnTo(dx, dy); runner.setPlaying(true); runnerStage = 'run' }
-    if (runnerStage === 'run' && elapsed >= PHASE2_END) { runner.turnTo(0, 1); runner.startOutro(); runnerStage = 'outro' }
+    // Victoire dès que la tête du ruban est au bout (sinon elle courait sur place jusqu'à la fin du survol).
+    if (runnerStage === 'run' && (runnerAtEnd || elapsed >= PHASE2_END)) { runner.turnTo(0, 1); runner.startOutro(); runnerStage = 'outro' }
     // Cadence naturelle du clip, constante : calée sur la vitesse à l'écran, elle variait avec la caméra (allures
     // changeantes). Enchaînement des allures selon la distance parcourue, comme le film 2D.
     if (runnerStage === 'run') {
