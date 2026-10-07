@@ -276,6 +276,8 @@ type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi' | 'ravito' | 'borne'
 // Running : panneaux COUCHÉS sur la carte (sans mât, centrés sur le lieu), à la taille des personnages selon le zoom
 // (cf. hiker3dScaleForZoom) ; pré-rendus en haute résolution (SIGN_RES) pour rester nets dans les plans serrés.
 const SIGN_RES = 2.5
+/** Taille minimale des bornes sur la vue d'ensemble de fin : km et temps de passage lisibles en 1080p. */
+const OVERVIEW_BORNE_SCALE = 1.5
 
 interface LocSignSprite { canvas: HTMLCanvasElement; offX: number; offY: number }
 type LocSignCache = Map<string, LocSignSprite>
@@ -1278,8 +1280,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     }
   }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
-  /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble). */
-  function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity) {
+  /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble).
+   * `overview` (vue d'ensemble de fin) : une borne qui en chevauche une autre est décalée à côté, reliée à son point
+   * du tracé par un trait. */
+  function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity, overview = false) {
     if (alpha <= 0) return
     for (const r of opts.ravitos ?? []) {
       if (!borneReached(r, coveredM)) continue
@@ -1287,11 +1291,38 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
         drawLocSign(ctx, locSignCache, r.label, pt.x, pt.y, 'ravito', undefined, alpha, Math.max(1, scale))
     }
+    const s = Math.max(1, scale)
+    const placed: { x: number; y: number; w: number; h: number }[] = []
+    const hits = (a: { x: number; y: number; w: number; h: number }) =>
+      placed.some(p => a.x < p.x + p.w && a.x + a.w > p.x && a.y < p.y + p.h && a.y + a.h > p.y)
     for (const b of opts.bornes ?? []) {
       if (!borneReached(b, coveredM)) continue
       const pt = project(b.lon, b.lat)
-      if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, borneNumber(b), pt.x, pt.y, 'borne', undefined, alpha, Math.max(1, scale), borneTimeLine(b) || undefined)
+      if (!(pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)) continue
+      const num = borneNumber(b), sub = borneTimeLine(b) || undefined
+      let x = pt.x, y = pt.y
+      if (overview) {
+        const key = `borne|${num}||${sub ?? ''}`
+        let sp = locSignCache.get(key)
+        if (!sp) { sp = buildLocSignSprite(num, 'borne', undefined, sub); locSignCache.set(key, sp) }
+        // Boîte utile (sans la marge d'ombre du sprite), puis essais de places voisines si elle chevauche.
+        const w = (sp.canvas.width / SIGN_RES - 16) * s, h = (sp.canvas.height / SIGN_RES - 16) * s
+        const box = (cx: number, cy: number) => ({ x: cx - w / 2, y: cy - h, w, h })
+        const tries = [[0, 0], [w * 0.6, -h * 0.25], [-w * 0.6, -h * 0.25], [0, -h * 0.75], [w * 1.1, 0], [-w * 1.1, 0], [0, h * 1.05]]
+        const free = tries.find(([dx, dy]) => !hits(box(pt.x + dx, pt.y + dy))) ?? tries[0]
+        x = pt.x + free[0]; y = pt.y + free[1]
+        placed.push(box(x, y))
+        if (x !== pt.x || y !== pt.y) {
+          ctx.save()
+          ctx.globalAlpha = alpha
+          ctx.strokeStyle = '#ffd166'; ctx.lineWidth = 2 * s
+          ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(x, y); ctx.stroke()
+          ctx.fillStyle = '#ffd166'
+          ctx.beginPath(); ctx.arc(pt.x, pt.y, 4 * s, 0, Math.PI * 2); ctx.fill()
+          ctx.restore()
+        }
+      }
+      drawLocSign(ctx, locSignCache, num, x, y, 'borne', undefined, alpha, s, sub)
     }
   }
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))
@@ -1742,7 +1773,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Vue d'ensemble, alignée sur le film 3D : cols, départ et arrivée restent ; les localités
       // intermédiaires s'effacent en fondu pendant le premier tiers du dézoom (image finale allégée).
       const locFade = 1 - Math.min(1, f / Math.max(1, EASE_OV * 0.35))
-      drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale(), locFade)
+      // Bornes gardées et agrandies peu à peu pendant le dézoom : km et temps de passage lisibles sur l'image finale.
+      drawBornes((lon, lat) => exportMap.project([lon, lat]), Math.max(signScale(), 1 + (OVERVIEW_BORNE_SCALE - 1) * te), 1, Infinity, true)
       for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const isEndpoint = ev === departureEvent || ev === arrivalEvent
         const a = isEndpoint || ev.style === 'col' ? 1 : locFade
