@@ -2,7 +2,7 @@
 // les noms se succèdent, chacun en fondu d'entrée et de sortie. Partagé par les films 2D et 3D.
 
 /** Hauteur du nom à l'écran (px, centre de la ligne) : bande haute, sous le titre. */
-export const STREET_CAPTION_Y = 150
+export const STREET_CAPTION_Y = 110
 const FADE_S = 0.4
 
 /** Portion de rue en part du parcours (0 = départ, 1 = arrivée). */
@@ -27,7 +27,7 @@ export class StreetCaption {
 
   draw(ctx: CanvasRenderingContext2D, cx: number, y = STREET_CAPTION_Y) {
     if (!this.shown || this.alpha <= 0) return
-    const size = 34
+    const size = 28
     ctx.save()
     ctx.globalAlpha = this.alpha * this.alpha * (3 - 2 * this.alpha)
     ctx.font = `700 ${size}px Arial, Helvetica, sans-serif`
