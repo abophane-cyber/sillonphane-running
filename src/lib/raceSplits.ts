@@ -132,7 +132,7 @@ export function formatClock(d: Date): string {
 /** Ligne d'heure de départ de l'ouverture des films : « Départ prévu à 9 h 00 » (heure saisie, temps prévus) ou
  * « Départ à 9 h 00 » (GPX horodaté). Sans heure « HH:MM » valide : null. */
 export function startTimeLine(hhmm: string | undefined, planned: boolean): string | null {
-  const m = /^(d{1,2}):(d{2})$/.exec(hhmm ?? '')
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm ?? '')
   if (!m) return null
   return `${planned ? 'Départ prévu à' : 'Départ à'} ${Number(m[1])} h ${m[2]}`
 }
