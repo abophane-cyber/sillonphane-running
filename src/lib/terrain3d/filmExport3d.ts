@@ -44,6 +44,8 @@ import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import { StreetCaption, type StreetSpan } from '../streetCaption'
 
+/** Adresse du site, signée sur l'écran-titre et en fin de film (comme le film 2D). */
+const SITE_ADDRESS = 'sillonphane.fr/running'
 const OUT_W = 1920
 const OUT_H = 1080
 
@@ -2224,7 +2226,7 @@ async function exportFilm3dImpl(
         gain: `D+ ${Math.round(elevGainM / 10) * 10} m`,
         alpha: s * s * (3 - 2 * s),
       })
-      // Signature : logo + « sillonphane.fr/rando » se déroulent sur l'écran-titre noir, EXACTEMENT
+      // Signature : logo + « sillonphane.fr/running » se déroulent sur l'écran-titre noir, EXACTEMENT
       // à la même place qu'à la fin du film (au-dessus du badge kilométrage), puis s'effacent
       // avec la levée du voile.
       drawEndWatermark(
@@ -2329,7 +2331,7 @@ function drawEndWatermark(
   const gap      = Math.round(ch * 0.016)
   const cx       = cw / 2
 
-  // Bloc : logo (filigrane) au-dessus, « sillonphane.fr/rando » en dessous ; bord bas du texte = bottomY.
+  // Bloc : logo (filigrane) au-dessus, « sillonphane.fr/running » en dessous ; bord bas du texte = bottomY.
   const textBaseY   = bottomY
   const logoBottomY = textBaseY - textSize - gap
   const logoTopY    = logoBottomY - logoSize
@@ -2370,7 +2372,7 @@ function drawEndWatermark(
   }
   ctx.restore()
 
-  // ── « sillonphane.fr/rando » : révélé par balayage gauche → droite (fenêtre de clip qui s'ouvre) ──
+  // ── « sillonphane.fr/running » : révélé par balayage gauche → droite (fenêtre de clip qui s'ouvre) ──
   const textReveal = Math.max(0, Math.min(1, (revealT - 0.5) / 0.45))
   if (textReveal > 0) {
     ctx.save()
@@ -2381,16 +2383,16 @@ function drawEndWatermark(
     ctx.shadowColor = 'rgba(0,0,0,0.6)'
     ctx.shadowBlur = 8
     ctx.fillStyle = '#fff'
-    const tw = ctx.measureText('sillonphane.fr/rando').width
+    const tw = ctx.measureText(SITE_ADDRESS).width
     ctx.beginPath()
     ctx.rect(cx - tw / 2 - 2, textBaseY - textSize * 1.1, tw * textReveal + 4, textSize * 1.6)
     ctx.clip()
-    ctx.fillText('sillonphane.fr/rando', cx, textBaseY)
+    ctx.fillText(SITE_ADDRESS, cx, textBaseY)
     ctx.restore()
   }
 }
 
-// Adresse « sillonphane.fr/rando » en bas à droite, affichée à la FIN du film (fondu simple, sans
+// Adresse « sillonphane.fr/running » en bas à droite, affichée à la FIN du film (fondu simple, sans
 // logo) — copie conforme de drawEndAddress (src/lib/filmExport.ts), utilisée par les films 2D et 2D+.
 function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: number, opacity: number) {
   if (opacity <= 0) return
@@ -2418,7 +2420,7 @@ function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: number, o
   ctx.textBaseline = 'alphabetic'
   ctx.shadowColor = 'rgba(0,0,0,0.5)'
   ctx.shadowBlur = 6
-  ctx.fillText('sillonphane.fr/rando', cw - cw * 0.03, barBottom - barH * 0.35)
+  ctx.fillText(SITE_ADDRESS, cw - cw * 0.03, barBottom - barH * 0.35)
   ctx.restore()
 }
 
@@ -2582,7 +2584,7 @@ function drawOverlays(
   ctx.fillText(o.date.toUpperCase(), OUT_W / 2, 55)
   ctx.restore()
 
-  // Adresse « sillonphane.fr/rando » en bas à droite sur la fin du film (comme les films 2D et 2D+).
+  // Adresse « sillonphane.fr/running » en bas à droite sur la fin du film (comme les films 2D et 2D+).
   drawEndAddress(ctx, OUT_W, OUT_H, o.watermarkReveal)
 
   // Crédits sources (bas GAUCHE, discret) — orthophotos IGN + repli Esri World Imagery,
