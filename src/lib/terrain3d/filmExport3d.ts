@@ -39,6 +39,9 @@ import {
 import { cancel3dPrefetch } from './prefetch3d'
 import { startClock } from '../raceSplits'
 import { drawStartTimePill } from '../startTimePill'
+import type { Hiker3dSprite } from '../hiker3dSprite'
+import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED } from '../hiker3dStaging'
+import type { CharacterId } from '../characters'
 
 const OUT_W = 1920
 const OUT_H = 1080
@@ -163,6 +166,10 @@ export interface FilmExport3dOptions {
   /** `etaS` : temps restant estimé (s), affiné en continu (voir « Estimation du temps restant »). */
   onProgress?:    (p: { phase: 'prepare' | 'render'; ratio: number; label: string; etaS?: number }) => void
   signal?:        AbortSignal
+  /** Personnage courant en tête du ruban (le premier choisi) ; absent ou vide = ruban seul. */
+  characters?:    CharacterId[]
+  /** Numéro inscrit sur son dossard. */
+  bibNumber?:     string
 }
 
 // ─── Estimation du temps restant ───────────────────────────────────────────────────────────
@@ -601,9 +608,12 @@ async function exportFilm3dImpl(
   // ressources GPU de la scène (géométries/matériaux/textures, jusqu'à 84 MP d'ortho) SANS
   // détruire le contexte WebGL — celui-ci est partagé et réutilisé (voir getSharedRenderer).
   let _cleanedUp = false
+  /** Coureuse en tête du ruban (cf. drawRunner) ; déclarée ici pour être libérée par cleanup. */
+  let runner: Hiker3dSprite | null = null
   const cleanup = () => {
     if (_cleanedUp) return
     _cleanedUp = true
+    runner?.dispose()
     try { disposeScene(scene); renderer.renderLists.dispose(); renderer.info.reset() } catch { /* */ }
   }
 
@@ -1395,6 +1405,7 @@ async function exportFilm3dImpl(
   // `seg` peut être FRACTIONNAIRE (position exacte du bout révélé, pas arrondie au segment) :
   // le capuchon glisse alors en continu même quand le corps du ruban, lui, ne peut avancer que
   // par segments entiers -> le pas résiduel du corps passe sous le disque en mouvement.
+  const runnerHead = new THREE.Vector3(), runnerFwd = new THREE.Vector3(1, 0, 0)
   function updateTipCap(seg: number, colorT: number): void {
     const sf = Math.max(1, Math.min(RIBBON_SEGMENTS, seg))
     const s0 = Math.min(RIBBON_SEGMENTS - 1, Math.floor(sf))
@@ -1408,6 +1419,9 @@ async function exportFilm3dImpl(
     const midX = (_cL.x + _cR.x) / 2, midY = (_cL.y + _cR.y) / 2, midZ = (_cL.z + _cR.z) / 2
     _cZ.subVectors(_cR, _cL)                                          // axe latéral du ruban
     _cX.set(midX - (_cLp.x + _cRp.x) / 2, midY - (_cLp.y + _cRp.y) / 2, midZ - (_cLp.z + _cRp.z) / 2) // avant
+    // Coureuse : pieds sur la tête du ruban, direction de course (cf. drawRunner).
+    runnerHead.set(midX, midY, midZ)
+    if (_cX.lengthSq() > 1e-6) runnerFwd.copy(_cX).normalize()
     // Repère dégénéré (segment nul, épingle serrée…) -> on masque le capuchon plutôt que de
     // produire un quaternion NaN qui polluerait tout le rendu de l'image.
     if (_cZ.lengthSq() < 1e-6 || _cX.lengthSq() < 1e-6 ||
@@ -1912,6 +1926,57 @@ async function exportFilm3dImpl(
   }
 
   // ── PHASE 4 : ENCODEUR (lift de filmExport.ts) ──────────────────────────────────────────
+  // ── Coureuse en tête du ruban : le personnage animé du film 2D (hiker3dSprite, sa propre petite fenêtre WebGL),
+  // dessiné par-dessus l'image à l'endroit du bout du ruban, à taille fixe à l'écran (comme en 2D). En cas d'échec,
+  // film sans coureuse.
+  if (HIKER3D_ENABLED && opts.characters?.length) {
+    try {
+      const { createHiker3dSprite } = await import('../hiker3dSprite')
+      runner = createHiker3dSprite(opts.characters[0], { manual: true, bibNumber: opts.bibNumber })
+      signal?.addEventListener('abort', () => runner?.dispose(), { once: true })
+      await Promise.race([runner.whenReady(), new Promise(r => setTimeout(r, 30_000))])
+      runner.resetToStart()
+    } catch (e) {
+      console.warn('[film3d] coureuse indisponible, film sans coureuse :', e)
+      runner?.dispose(); runner = null
+    }
+  }
+  /** Taille de la coureuse à l'écran : celle de la marche du film 2D en 1080p. */
+  const RUNNER_SCALE = (OUT_H / 720) * HIKER3D_BODY_SCALE
+  let runnerStage: 'wait' | 'intro' | 'run' | 'outro' = 'wait'
+  let runnerSpeedPx = 0
+  let runnerLast: { x: number; y: number } | null = null
+  const _rp = new THREE.Vector3(), _ra = new THREE.Vector3()
+  function drawRunner(ctx: CanvasRenderingContext2D, elapsed: number, progress: number, dt: number) {
+    if (!runner) return
+    // Étapes : attente au départ, se lève avec la levée du voile, court pendant le survol, salue à l'arrivée.
+    _rp.copy(runnerHead).project(camera)
+    _ra.copy(runnerHead).addScaledVector(runnerFwd, 30).project(camera)
+    const x = (_rp.x + 1) / 2 * OUT_W, y = (1 - _rp.y) / 2 * OUT_H
+    const dx = (_ra.x - _rp.x) * OUT_W, dy = (_rp.y - _ra.y) * OUT_H
+    if (runnerStage === 'wait' && elapsed >= TITLE_IN_S) { runner.startIntro(); runnerStage = 'intro' }
+    if (runnerStage === 'intro' && elapsed >= PHASE1_END) { runner.turnTo(dx, dy); runner.setPlaying(true); runnerStage = 'run' }
+    if (runnerStage === 'run' && elapsed >= PHASE2_END) { runner.turnTo(0, 1); runner.startOutro(); runnerStage = 'outro' }
+    if (runnerStage === 'run') {
+      if (Math.hypot(dx, dy) > 0.5) runner.setDirection(dx, dy)
+      runner.setProgress(progress)
+      // Cadence des pas calée sur l'avancement à l'écran (lissé), en hauteurs de corps par seconde.
+      const step = runnerLast ? Math.hypot(x - runnerLast.x, y - runnerLast.y) / dt : 0
+      runnerSpeedPx += (Math.min(step, 600) - runnerSpeedPx) * Math.min(1, dt / 0.5)
+      runner.setGroundSpeed(runnerSpeedPx / Math.max(1, runner.layout().body * RUNNER_SCALE))
+    }
+    runnerLast = { x, y }
+    runner.renderFrame(dt)
+    // Vue d'ensemble : s'efface pendant la première moitié de la montée de la caméra.
+    const alpha = Math.max(0, Math.min(1, 1 - (elapsed - PHASE3_END) / (OVERVIEW_RISE_S * 0.5)))
+    if (alpha <= 0 || _rp.z >= 1) return
+    const { w, h, feet } = runner.layout()
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.drawImage(runner.element, x - (w * RUNNER_SCALE) / 2, y - (h - feet) * RUNNER_SCALE, w * RUNNER_SCALE, h * RUNNER_SCALE)
+    ctx.restore()
+  }
+
   const composite = document.createElement('canvas')
   composite.width = OUT_W; composite.height = OUT_H
   const ctx2d = composite.getContext('2d')!
@@ -2086,6 +2151,7 @@ async function exportFilm3dImpl(
     // Composition : image GL + overlays 2D
     ctx2d.clearRect(0, 0, OUT_W, OUT_H)
     ctx2d.drawImage(glCanvas, 0, 0, OUT_W, OUT_H)
+    drawRunner(ctx2d, simElapsed, lastOverlay.profileT, 1 / fps)
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
     drawOverlays(ctx2d, {
       date: opts.trailDate,

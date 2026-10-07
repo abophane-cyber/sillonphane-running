@@ -6,6 +6,7 @@ import { localitiesToPanels3d, weatherToScenario, formatTrailDate } from '../lib
 import type { LocalityInfo } from './useLocality'
 import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
+import type { CharacterId } from '../lib/characters'
 
 export interface CreateFilm3dContext {
   activeTrack: GpxTrack
@@ -29,6 +30,9 @@ export interface CreateFilm3dContext {
   /** Heure de départ prévue (« Départ prévu… ») plutôt que réelle (« Départ… »). */
   startTimePlanned?: boolean
   arrivalTime?: string
+  /** Personnage en tête du ruban (le premier) et numéro de son dossard. */
+  characters?: CharacterId[]
+  bibNumber?: string
   trackName: string
   speedLevel: 1 | 2
   activeSillonId: string | null
@@ -116,6 +120,8 @@ export function useFilm3dExport() {
         startTime: ctx.departureTime || undefined,
         startTimePlanned: ctx.startTimePlanned,
         trackStart: ctx.activeTrack.startTime,
+        characters: ctx.characters,
+        bibNumber: ctx.bibNumber,
         durationS,
         fps: 30,
         onProgress: p => {

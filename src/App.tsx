@@ -498,6 +498,8 @@ export default function App() {
       departureTime,
       startTimePlanned: !(realTimes && !race.plannedTimes),
       arrivalTime,
+      characters,
+      bibNumber: race.bibNumber?.trim() || undefined,
       trackName: customTitle || activeTrack.name,
       speedLevel,
       activeSillonId,
