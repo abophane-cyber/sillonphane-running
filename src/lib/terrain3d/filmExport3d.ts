@@ -2025,7 +2025,7 @@ async function exportFilm3dImpl(
   const composite = document.createElement('canvas')
   composite.width = OUT_W; composite.height = OUT_H
   const ctx2d = composite.getContext('2d')!
-  const drawProfile = buildProfileCardCanvas(trailPts, TOTAL_DISTANCE_M, minElev - 3.5)
+  const drawProfile = buildProfileCardCanvas(trailPts, TRACK_M, minElev - 3.5)
   const startTimeText = startClock(opts.startTime, opts.startTimePlanned ?? true, opts.trackStart)
 
   const hasWC = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'
@@ -2226,6 +2226,7 @@ async function exportFilm3dImpl(
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
       // Carton final saisi : il porte déjà l'adresse, on n'ajoute pas l'adresse seule.
       watermarkReveal: opts.endCard ? 0 : Math.max(0, Math.min(1, intoWatermark / 0.5)),
+      kmAlpha: 1 - Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
     // Nom du départ et heure de départ, en haut de l'écran sous le titre. L'heure s'efface sur START_CLOCK_FADE_S à
     // la fin de la pause sur le départ ; le nom reste jusqu'à la première seconde du survol, puis s'efface sur 0,6 s.
@@ -2257,7 +2258,7 @@ async function exportFilm3dImpl(
       drawIntroCard(ctx2d, {
         title: opts.title?.trim() || `${opts.departureName} → ${opts.arrivalName}`,
         date: opts.trailDate,
-        km: `${(TOTAL_DISTANCE_M / 1000).toFixed(1).replace('.', ',')} km`,
+        km: `${(TRACK_M / 1000).toFixed(1).replace('.', ',')} km`,
         gain: `D+ ${Math.round(elevGainM / 10) * 10} m`,
         alpha: s * s * (3 - 2 * s),
       })
@@ -2602,7 +2603,7 @@ function drawIntroCard(
 
 function drawOverlays(
   ctx: CanvasRenderingContext2D,
-  o: { date: string; route: string; distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number },
+  o: { date: string; route: string; distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number; kmAlpha: number },
   drawProfile: (ctx: CanvasRenderingContext2D, t: number) => void,
 ): void {
   // Titre (route) centré en haut, date juste EN DESSOUS (même casse : MAJUSCULES).
@@ -2633,8 +2634,10 @@ function drawOverlays(
   ctx.fillText('© IGN · Esri, Maxar · AWS Terrain Tiles', 16, OUT_H - 12)
   ctx.restore()
 
-  // Badge distance (bas centre) — remonté pour ne pas passer sous la barre de lecture du lecteur.
+  // Badge distance (bas centre) — remonté pour ne pas passer sous la barre de lecture du lecteur. Effacé quand les
+  // infos de fin (bornes, carton final) apparaissent.
   ctx.save()
+  ctx.globalAlpha = Math.max(0, Math.min(1, o.kmAlpha))
   const km = `${(o.distanceM / 1000).toFixed(1).replace('.', ',')} km`
   ctx.font = "800 26px system-ui, sans-serif"
   const kmW = ctx.measureText(km).width
