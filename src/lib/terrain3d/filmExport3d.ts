@@ -42,6 +42,7 @@ import { drawStartTimePill } from '../startTimePill'
 import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
+import { StreetCaption, type StreetSpan } from '../streetCaption'
 
 const OUT_W = 1920
 const OUT_H = 1080
@@ -170,6 +171,8 @@ export interface FilmExport3dOptions {
   characters?:    CharacterId[]
   /** Numéro inscrit sur son dossard. */
   bibNumber?:     string
+  /** Rues empruntées (part du parcours) : nom en haut de l'écran pendant que la tête du ruban y passe. */
+  streets?:       StreetSpan[]
 }
 
 // ─── Estimation du temps restant ───────────────────────────────────────────────────────────
@@ -1409,6 +1412,8 @@ async function exportFilm3dImpl(
   let runnerSeg = 0
   /** Tête du ruban arrivée au bout : la visée en avant l'y amène avant la fin du survol (cf. simStep). */
   let runnerAtEnd = false
+  /** Part du parcours atteinte par la tête du ruban pendant le survol (rue affichée, cf. StreetCaption). */
+  let headFrac = 0
   function updateTipCap(seg: number, colorT: number): void {
     const sf = Math.max(1, Math.min(RIBBON_SEGMENTS, seg))
     const s0 = Math.min(RIBBON_SEGMENTS - 1, Math.floor(sf))
@@ -1849,6 +1854,7 @@ async function exportFilm3dImpl(
       coreGeom.instanceCount = bodySegments
       updateTipCap(lookT * RIBBON_SEGMENTS, lookT)
       runnerAtEnd = lookT >= 1
+      headFrac = lookT
       for (const { sprite, t: panelT } of panelSprites) if (t >= panelT - PANEL_LEAD) sprite.visible = true
       // Nom du départ écrit en haut de l'écran à l'ouverture (cf. drawStartHeader) : pas au sol pendant le survol,
       // où il chevauchait le repère voisin (« Lille » sur « Porte de Paris »). Il revient sur la vue d'ensemble.
@@ -1995,6 +2001,8 @@ async function exportFilm3dImpl(
     ctx.drawImage(runner.element, p.x - (w * RUNNER_SCALE) / 2, p.y - (h - feet) * RUNNER_SCALE, w * RUNNER_SCALE, h * RUNNER_SCALE)
     ctx.restore()
   }
+
+  const streetCaption = new StreetCaption(opts.streets ?? [])
 
   const composite = document.createElement('canvas')
   composite.width = OUT_W; composite.height = OUT_H
@@ -2171,6 +2179,9 @@ async function exportFilm3dImpl(
     ctx2d.clearRect(0, 0, OUT_W, OUT_H)
     ctx2d.drawImage(glCanvas, 0, 0, OUT_W, OUT_H)
     drawRunner(ctx2d, simElapsed, lastOverlay.profileT, 1 / fps)
+    // Rue empruntée, en haut de l'écran : après l'effacement du nom de départ, jusqu'à la fin du survol.
+    streetCaption.update(simElapsed >= PHASE1_END + 2.2 && simElapsed < PHASE2_END ? headFrac : null, 1 / fps)
+    streetCaption.draw(ctx2d, OUT_W / 2)
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
     drawOverlays(ctx2d, {
       date: opts.trailDate,

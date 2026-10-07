@@ -587,6 +587,14 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   pointer-events: none;
 }
 .track-map { flex: 1; min-height: 0; position: relative; z-index: 0; overflow: hidden; }
+/* Rue empruntée (cf. TrackMap.tsx) : nom en haut de la carte, comme dans les films (streetCaption.ts). */
+.street-caption {
+  position: absolute; left: 50%; top: 64px; transform: translateX(-50%); z-index: 4; pointer-events: none;
+  font: 700 20px/1.2 Arial, Helvetica, sans-serif; letter-spacing: 0.12em; color: #f4f1ea; white-space: nowrap;
+  text-shadow: 0 0 3px rgba(15,18,22,0.95), 0 0 6px rgba(15,18,22,0.8), 0 2px 4px rgba(0,0,0,0.5);
+  opacity: 0; transition: opacity 0.4s;
+}
+.street-caption--on { opacity: 1; }
 /* Mention « © IGN » de la carte d'animation (cf. AnimateScreen.tsx) : discrète, coin bas-droit, non cliquable. */
 .map-credit {
   position: absolute; right: 4px; bottom: 3px; z-index: 5; pointer-events: none;

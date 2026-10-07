@@ -193,7 +193,7 @@ interface Props {
   bibNumber?: string
   /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé. */
   ravitos?: Ravito[]
-  /** Rues empruntées choisies (IGN) : nom écrit le long du tracé, comme sur le Plan IGN. */
+  /** Rues empruntées choisies (IGN) : nom en haut de la carte pendant que la coureuse y court. */
   streets?: StreetRun[]
   onRemoveCustomLocality?: (name: string) => void
   onMoveCustomLocality?: (name: string, lon: number, lat: number) => void
@@ -910,37 +910,13 @@ export function TrackMap({
     presentRef.current?.sprite.setBibNumber(bibNumber)
   }, [bibNumber])
 
-  // ── Rues empruntées : nom le long de la portion du tracé (texte MapLibre posé sur la ligne, à l'endroit) ──
-  useEffect(() => {
-    const map = mapRef.current
-    if (!map) return
-    const SRC = 'street-labels'
-    const data: FeatureCollection = {
-      type: 'FeatureCollection',
-      features: (streets ?? []).map(st => ({
-        type: 'Feature' as const, properties: { name: st.name },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: points.filter((_, i) => distances[i] >= st.startM && distances[i] <= st.endM).map(p => [p.lon, p.lat]),
-        },
-      })).filter(f => f.geometry.coordinates.length >= 2),
-    }
-    const apply = () => {
-      const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
-      if (src) { src.setData(data); return }
-      map.addSource(SRC, { type: 'geojson', data })
-      map.addLayer({
-        id: SRC, type: 'symbol', source: SRC,
-        layout: {
-          'symbol-placement': 'line-center', 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'],
-          'text-size': 12, 'text-letter-spacing': 0.12, 'text-offset': [0, -1.1], 'text-keep-upright': true,
-          'text-max-angle': 40, 'text-allow-overlap': false,
-        },
-        paint: { 'text-color': '#f4f1ea', 'text-halo-color': 'rgba(15,18,22,0.85)', 'text-halo-width': 1.6 },
-      })
-    }
-    if (map.isStyleLoaded()) apply(); else map.once('load', apply)
-  }, [streets, points, distances])
+  // ── Rue empruntée : son nom en haut de la carte pendant que la coureuse y court (comme les films, cf.
+  // streetCaption.ts) ; le dernier nom reste dans l'élément pour s'effacer en fondu ──
+  const coveredM = progress * (distances[distances.length - 1] ?? 0)
+  const currentStreet = progress > 0 && progress < 1
+    ? streets?.find(st => coveredM >= st.startM && coveredM <= st.endM)?.name ?? null : null
+  const lastStreetRef = useRef<string | null>(null)
+  if (currentStreet) lastStreetRef.current = currentStreet
 
   // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, elles apparaissent au fil de la course, à
   // l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM »), et sont toutes là à la fin ──
@@ -1700,6 +1676,9 @@ export function TrackMap({
   return (
     <div className="track-map" onDragOver={onDragOver} onDrop={onDrop}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
+      {lastStreetRef.current && (
+        <div className={`street-caption${currentStreet ? ' street-caption--on' : ''}`}>{lastStreetRef.current}</div>
+      )}
     </div>
   )
 }

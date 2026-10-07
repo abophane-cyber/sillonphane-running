@@ -7,6 +7,7 @@ import type { LocalityInfo } from './useLocality'
 import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
+import type { StreetRun } from '../lib/routeStreets'
 
 export interface CreateFilm3dContext {
   activeTrack: GpxTrack
@@ -33,6 +34,8 @@ export interface CreateFilm3dContext {
   /** Personnage en tête du ruban (le premier) et numéro de son dossard. */
   characters?: CharacterId[]
   bibNumber?: string
+  /** Rues empruntées choisies (m depuis le départ), affichées en haut de l'écran. */
+  streets?: StreetRun[]
   trackName: string
   speedLevel: 1 | 2
   activeSillonId: string | null
@@ -122,6 +125,7 @@ export function useFilm3dExport() {
         trackStart: ctx.activeTrack.startTime,
         characters: ctx.characters,
         bibNumber: ctx.bibNumber,
+        streets: ctx.streets?.map(s => ({ name: s.name, from: s.startM / ctx.activeTrack.distance, to: s.endM / ctx.activeTrack.distance })),
         durationS,
         fps: 30,
         onProgress: p => {

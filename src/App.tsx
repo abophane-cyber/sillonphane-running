@@ -502,6 +502,7 @@ export default function App() {
       arrivalTime,
       characters,
       bibNumber: race.bibNumber?.trim() || undefined,
+      streets: race.streets,
       trackName: customTitle || activeTrack.name,
       speedLevel,
       activeSillonId,
