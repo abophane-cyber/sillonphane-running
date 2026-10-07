@@ -197,6 +197,7 @@ export function AnimateScreen({
           customLocalities={customLocalities}
           bornes={bornes}
           ravitos={ravitos}
+          streets={race.streets}
           bibNumber={race.bibNumber}
           onRemoveCustomLocality={handleRemoveCustomLocality}
           onMoveCustomLocality={handleMoveCustomLocality}

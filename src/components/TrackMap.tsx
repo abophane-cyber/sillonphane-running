@@ -19,6 +19,7 @@ import {
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
+import type { StreetRun } from '../lib/routeStreets'
 import { RIBBON_FULL_GRADIENT, RIBBON_HEAD_COLOR, RIBBON_LAG_PX, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
@@ -192,6 +193,8 @@ interface Props {
   bibNumber?: string
   /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé. */
   ravitos?: Ravito[]
+  /** Rues empruntées choisies (IGN) : nom écrit le long du tracé, comme sur le Plan IGN. */
+  streets?: StreetRun[]
   onRemoveCustomLocality?: (name: string) => void
   onMoveCustomLocality?: (name: string, lon: number, lat: number) => void
   onSuppressLocality?: (name: string) => void
@@ -254,7 +257,7 @@ export function TrackMap({
   panelDuration = 3000,
   localityDedupKm = 5,
   localityDedupMinScore = 6,
-  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, ravitos, bibNumber = '', onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
+  locality, colMarkers = [], previewLocalities, customLocalities = [], bornes, ravitos, streets, bibNumber = '', onRemoveCustomLocality, onMoveCustomLocality, onSuppressLocality, onRestoreLocality,
   departureNameOverride, arrivalNameOverride, departureColEle, arrivalColEle, departureLieudit, arrivalLieudit,
   detectedDepartureName, detectedArrivalName,
   onMapCanvasReady, animationEnded = false,
@@ -906,6 +909,38 @@ export function TrackMap({
     hiker3dRef.current.forEach(s => s.setBibNumber(bibNumber))
     presentRef.current?.sprite.setBibNumber(bibNumber)
   }, [bibNumber])
+
+  // ── Rues empruntées : nom le long de la portion du tracé (texte MapLibre posé sur la ligne, à l'endroit) ──
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const SRC = 'street-labels'
+    const data: FeatureCollection = {
+      type: 'FeatureCollection',
+      features: (streets ?? []).map(st => ({
+        type: 'Feature' as const, properties: { name: st.name },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: points.filter((_, i) => distances[i] >= st.startM && distances[i] <= st.endM).map(p => [p.lon, p.lat]),
+        },
+      })).filter(f => f.geometry.coordinates.length >= 2),
+    }
+    const apply = () => {
+      const src = map.getSource(SRC) as maplibregl.GeoJSONSource | undefined
+      if (src) { src.setData(data); return }
+      map.addSource(SRC, { type: 'geojson', data })
+      map.addLayer({
+        id: SRC, type: 'symbol', source: SRC,
+        layout: {
+          'symbol-placement': 'line-center', 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Bold'],
+          'text-size': 12, 'text-letter-spacing': 0.12, 'text-offset': [0, -1.1], 'text-keep-upright': true,
+          'text-max-angle': 40, 'text-allow-overlap': false,
+        },
+        paint: { 'text-color': '#f4f1ea', 'text-halo-color': 'rgba(15,18,22,0.85)', 'text-halo-width': 1.6 },
+      })
+    }
+    if (map.isStyleLoaded()) apply(); else map.once('load', apply)
+  }, [streets, points, distances])
 
   // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, elles apparaissent au fil de la course, à
   // l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM »), et sont toutes là à la fin ──

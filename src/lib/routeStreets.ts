@@ -4,8 +4,15 @@
 // dans le même sens ; les suites d'échantillons d'un même nom forment les portions empruntées.
 import type { GpxPoint } from '../types'
 
-/** Portion du parcours empruntant une rue : nom et étendue (m depuis le départ). */
-export interface StreetRun { name: string; startM: number; endM: number }
+/** Portion du parcours empruntant une rue : nom, étendue (m depuis le départ) et importance IGN (1 = axe majeur,
+ * 6 = desserte ; la plus forte des tronçons suivis). */
+export interface StreetRun { name: string; startM: number; endM: number; importance?: number }
+
+/** Rue « importante », proposée d'office dans le widget : axe d'importance IGN 1 à 3, ou au moins 600 m empruntés. */
+export function isMainStreet(runs: StreetRun[]): boolean {
+  const total = runs.reduce((a, r) => a + r.endM - r.startM, 0)
+  return runs.some(r => (r.importance ?? 6) <= 3) || total >= 600
+}
 
 const SAMPLE_M = 15
 /** Distance maximale entre le tracé et l'axe du tronçon (m) : chaussée large, GPS approximatif. */
@@ -19,7 +26,7 @@ export const STREET_MIN_M = 120
 /** Longueur de parcours par requête IGN (emprise réduite = réponse légère). */
 const CHUNK_M = 1500
 
-type Seg = { ax: number; ay: number; bx: number; by: number; name: string }
+type Seg = { ax: number; ay: number; bx: number; by: number; name: string; importance: number }
 
 /** Types de voie abrégés comme sur le Plan IGN (premier mot du nom). */
 const ABBREV: Record<string, string> = {
@@ -64,6 +71,7 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
   }
   const padLon = (MAX_DIST_M * 2) / kx, padLat = (MAX_DIST_M * 2) / ky
   const names: (string | null)[] = new Array(samples.length).fill(null)
+  const importances: number[] = new Array(samples.length).fill(6)
   const cosMax = Math.cos((MAX_ANGLE_DEG * Math.PI) / 180)
 
   async function matchChunk(chunk: typeof samples) {
@@ -71,7 +79,7 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
     const bbox = [Math.min(...lons) - padLon, Math.min(...lats) - padLat, Math.max(...lons) + padLon, Math.max(...lats) + padLat]
     const url = 'https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature' +
       '&TYPENAMES=BDTOPO_V3:troncon_de_route&SRSNAME=CRS:84&OUTPUTFORMAT=application/json&COUNT=10000' +
-      '&PROPERTYNAME=nom_collaboratif_gauche,nom_collaboratif_droite,geometrie' +
+      '&PROPERTYNAME=nom_collaboratif_gauche,nom_collaboratif_droite,importance,geometrie' +
       `&BBOX=${bbox.join(',')},CRS:84`
     const r = await fetch(url, { signal })
     if (!r.ok) throw new Error(`IGN tronçons de route : HTTP ${r.status}`)
@@ -84,13 +92,13 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
       for (const line of lines) {
         for (let i = 0; i + 1 < line.length; i++) {
           const a = toXY(line[i][0], line[i][1]), b = toXY(line[i + 1][0], line[i + 1][1])
-          segs.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, name })
+          segs.push({ ax: a.x, ay: a.y, bx: b.x, by: b.y, name, importance: Number(f.properties?.importance) || 6 })
         }
       }
     }
     for (const s of chunk) {
       const p = toXY(s.lon, s.lat)
-      let best = MAX_DIST_M, bestName: string | null = null
+      let best = MAX_DIST_M, bestName: string | null = null, bestImp = 6
       for (const g of segs) {
         const dx = g.bx - g.ax, dy = g.by - g.ay
         const l2 = dx * dx + dy * dy
@@ -99,9 +107,10 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
         const d = Math.hypot(p.x - (g.ax + dx * t), p.y - (g.ay + dy * t))
         if (d >= best) continue
         if (Math.abs((dx * s.hx + dy * s.hy) / Math.sqrt(l2)) < cosMax) continue // tronçon croisé, pas suivi
-        best = d; bestName = g.name
+        best = d; bestName = g.name; bestImp = g.importance
       }
       names[s.m / SAMPLE_M] = bestName
+      importances[s.m / SAMPLE_M] = bestImp
     }
   }
   // 4 requêtes à la fois au plus.
@@ -116,15 +125,19 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
     const name = names[i]
     if (!name) continue
     const last = runs[runs.length - 1]
-    if (last && last.name === name && samples[i].m - last.endM <= GAP_M) last.endM = samples[i].m
-    else runs.push({ name, startM: samples[i].m, endM: samples[i].m })
+    if (last && last.name === name && samples[i].m - last.endM <= GAP_M) {
+      last.endM = samples[i].m
+      last.importance = Math.min(last.importance ?? 6, importances[i])
+    } else runs.push({ name, startM: samples[i].m, endM: samples[i].m, importance: importances[i] })
   }
   // Bouts trop courts retirés (carrefour, rue voisine frôlée), puis portions voisines d'un même nom réunies.
   const merged: StreetRun[] = []
   for (const r of runs.filter(r => r.endM - r.startM >= STREET_MIN_M)) {
     const last = merged[merged.length - 1]
-    if (last && last.name === r.name && r.startM - last.endM <= 3 * GAP_M) last.endM = r.endM
-    else merged.push({ ...r })
+    if (last && last.name === r.name && r.startM - last.endM <= 3 * GAP_M) {
+      last.endM = r.endM
+      last.importance = Math.min(last.importance ?? 6, r.importance ?? 6)
+    } else merged.push({ ...r })
   }
   return merged
 }

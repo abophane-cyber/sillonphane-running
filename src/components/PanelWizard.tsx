@@ -8,7 +8,7 @@ import {
   DEFAULT_SPEED_KMH, SPEED_SLICE_KM, formatElapsed, formatKm, parseRavitoKms, hasPlannedSpeeds, plannedElapsedS, speedSliceCount,
   type BannerText, type RaceSettings,
 } from '../lib/raceSplits'
-import { fetchRouteStreets, type StreetRun } from '../lib/routeStreets'
+import { fetchRouteStreets, isMainStreet, type StreetRun } from '../lib/routeStreets'
 import type { GpxPoint } from '../types'
 
 /** « 12 h 41 (3 h 41'00") », ou la durée seule sans heure de départ. */
@@ -82,14 +82,34 @@ export function PanelWizard({
   // Rues empruntées : liste trouvée à la demande (IGN) ; les rues cochées sont dans race.streets.
   const [streetList, setStreetList] = useState<StreetRun[] | null>(null)
   const [streetState, setStreetState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [allStreets, setAllStreets] = useState(false) // petites rues affichées aussi
   const chosenStreets = race.streets ?? []
-  const sameRun = (a: StreetRun, b: StreetRun) => a.name === b.name && a.startM === b.startM
-  const isChosen = (s: StreetRun) => chosenStreets.some(c => sameRun(c, s))
-  const shownStreets = [...(streetList ?? []), ...chosenStreets.filter(c => !(streetList ?? []).some(s => sameRun(s, c)))]
-    .sort((a, b) => a.startM - b.startM)
-  const toggleStreet = (s: StreetRun) => onRaceChange({
-    ...race, streets: isChosen(s) ? chosenStreets.filter(c => !sameRun(c, s)) : [...chosenStreets, s].sort((a, b) => a.startM - b.startM),
+  // Une ligne par nom (une rue empruntée plusieurs fois, ex. sur une boucle, n'apparaît qu'une fois) : cocher la
+  // rue choisit toutes ses portions. Liste : rues importantes (isMainStreet), plus les petites sur demande, plus
+  // celles déjà choisies.
+  const byName = new Map<string, StreetRun[]>()
+  for (const r of [...(streetList ?? []), ...chosenStreets.filter(c => !(streetList ?? []).some(s => s.name === c.name))])
+    byName.set(r.name, [...(byName.get(r.name) ?? []), r])
+  const groups = [...byName.entries()].map(([name, runs]) => ({ name, runs: runs.sort((a, b) => a.startM - b.startM) }))
+    .sort((a, b) => a.runs[0].startM - b.runs[0].startM)
+  const isChosen = (name: string) => chosenStreets.some(c => c.name === name)
+  const minorCount = groups.filter(g => !isMainStreet(g.runs) && !isChosen(g.name)).length
+  const shownGroups = groups.filter(g => allStreets || isMainStreet(g.runs) || isChosen(g.name))
+  const setChosen = (names: Set<string>) => onRaceChange({
+    ...race, streets: groups.filter(g => names.has(g.name)).flatMap(g => g.runs).sort((a, b) => a.startM - b.startM),
   })
+  const chosenNames = new Set(chosenStreets.map(c => c.name))
+  const toggleStreet = (name: string) => {
+    const next = new Set(chosenNames)
+    if (next.has(name)) next.delete(name); else next.add(name)
+    setChosen(next)
+  }
+  const allShownChosen = shownGroups.length > 0 && shownGroups.every(g => chosenNames.has(g.name))
+  const toggleAllStreets = () => {
+    const next = new Set(chosenNames)
+    for (const g of shownGroups) if (allShownChosen) next.delete(g.name); else next.add(g.name)
+    setChosen(next)
+  }
   const findStreets = () => {
     setStreetState('loading')
     fetchRouteStreets(points, distances)
@@ -382,18 +402,29 @@ export function PanelWizard({
         {/* ── Rues empruntées (BD TOPO de l'IGN), écrites le long du tracé dans le film 2D ── */}
         <div className="pwiz-section pwiz-section--streets">
           <span className="pwiz-section-label">Rues empruntées</span>
-          {shownStreets.length > 0 && (
+          {shownGroups.length > 0 && (
             <ul className="pwiz-list">
-              {shownStreets.map(s => (
-                <li key={`${s.name}|${s.startM}`} className="pwiz-item">
+              <li className="pwiz-item">
+                <label className="pwiz-check">
+                  <input type="checkbox" checked={allShownChosen} onChange={toggleAllStreets} />
+                  <span className="pwiz-check-name">Tous</span>
+                </label>
+              </li>
+              {shownGroups.map(g => (
+                <li key={g.name} className="pwiz-item">
                   <label className="pwiz-check">
-                    <input type="checkbox" checked={isChosen(s)} onChange={() => toggleStreet(s)} />
-                    <span className="pwiz-check-name">{s.name}</span>
-                    <span className="pwiz-check-type">km {formatKm(s.startM / 1000)} · {Math.round((s.endM - s.startM) / 10) * 10} m</span>
+                    <input type="checkbox" checked={chosenNames.has(g.name)} onChange={() => toggleStreet(g.name)} />
+                    <span className="pwiz-check-name">{g.name}</span>
+                    <span className="pwiz-check-type">km {g.runs.map(r => formatKm(r.startM / 1000)).join(' · ')}</span>
                   </label>
                 </li>
               ))}
             </ul>
+          )}
+          {streetList !== null && (minorCount > 0 || allStreets) && (
+            <button className="pwiz-btn" onClick={() => setAllStreets(v => !v)}>
+              {allStreets ? 'Rues importantes seulement' : `Afficher aussi les petites rues (${minorCount})`}
+            </button>
           )}
           {streetList === null && (
             <button className="pwiz-btn" disabled={streetState === 'loading'} onClick={findStreets}>
