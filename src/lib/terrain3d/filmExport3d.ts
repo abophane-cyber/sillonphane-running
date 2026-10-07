@@ -1793,7 +1793,7 @@ async function exportFilm3dImpl(
       coreGeom.instanceCount = 1
       tipCap.visible = false
       for (const { sprite } of panelSprites) sprite.visible = false
-      if (departurePanel) departurePanel.visible = true
+      if (departurePanel) departurePanel.visible = false // écrit en haut de l'écran (drawStartHeader)
       if (arrivalPanel) arrivalPanel.visible = false
     } else if (elapsed < PHASE2_END) {
       const p = startupEase((elapsed - PHASE1_END) / DURATION)
@@ -1829,7 +1829,9 @@ async function exportFilm3dImpl(
       coreGeom.instanceCount = bodySegments
       updateTipCap(lookT * RIBBON_SEGMENTS, lookT)
       for (const { sprite, t: panelT } of panelSprites) if (t >= panelT - PANEL_LEAD) sprite.visible = true
-      if (departurePanel) departurePanel.visible = true
+      // Nom du départ écrit en haut de l'écran à l'ouverture (cf. drawStartHeader) : pas au sol pendant le survol,
+      // où il chevauchait le repère voisin (« Lille » sur « Porte de Paris »). Il revient sur la vue d'ensemble.
+      if (departurePanel) departurePanel.visible = false
       // Panneau d'arrivée affiché ARRIVAL_PANEL_LEAD_S avant la fin du survol (et non à l'arrêt seulement) :
       // il est déjà là quand le ruban arrive au bout.
       if (arrivalPanel) arrivalPanel.visible = elapsed >= PHASE2_END - ARRIVAL_PANEL_LEAD_S
@@ -2089,23 +2091,10 @@ async function exportFilm3dImpl(
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
       watermarkReveal: Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
-    // Heure de départ, sous le nom du départ : pendant la pause sur le départ, effacée sur 0,6 s au début du survol.
-    const timeA = Math.max(0, Math.min(1, (PHASE1_END + 0.6 - simElapsed) / 0.6))
-    if (startTimeText && timeA > 0) {
-      const anchor = trailPts[0]
-      const ndc = anchor.clone().project(camera)
-      if (ndc.z < 1) {
-        const sx = (ndc.x + 1) / 2 * OUT_W, sy = (1 - ndc.y) / 2 * OUT_H
-        // Hauteur à l'écran du nom du départ (sprite face caméra), pour caler la ligne juste en dessous.
-        const labelH = departurePanel
-          ? departurePanel.scale.y / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * anchor.distanceTo(camera.position)) * OUT_H
-          : 0
-        // Nom au sol centré sur le point : ligne sous le nom ; col (pancarte au-dessus du point) : juste sous le point.
-        const isLabel = departurePanel?.center.y === 0.5
-        const fontPx = isLabel ? Math.max(24, Math.min(48, labelH * 0.34)) : 30
-        drawStartTimePill(ctx2d, startTimeText, sx, sy + (isLabel ? labelH * 0.5 : 10), fontPx, timeA)
-      }
-    }
+    // Nom du départ et heure de départ, en haut de l'écran sous le titre : pendant la pause sur le départ et la
+    // première seconde du survol, puis effacés sur 0,6 s.
+    const startA = Math.max(0, Math.min(1, (PHASE1_END + 1.6 - simElapsed) / 0.6))
+    if (startA > 0) drawStartHeader(ctx2d, departurePanel ? opts.departureName : null, opts.departureLieudit, startTimeText, startA)
 
     // Ouverture. (1) Voile noir : plein pendant TITLE_IN_S (le titre s'y inscrit), puis se lève
     // sur SCENE_REVEAL_S -> le paysage se découvre DERRIÈRE le titre. Dessiné AVANT l'écran-titre.
@@ -2385,6 +2374,34 @@ function drawWeatherCard(ctx: CanvasRenderingContext2D, weather: WeatherCardData
 }
 
 // ─── Overlays 2D (port canvas des cartels HTML de index.html) ────────────────────────────────
+
+/** Ouverture : nom du lieu de départ (lettres blanches cernées, comme les noms au sol ; italique pour un lieu-dit)
+ * et horloge de départ en dessous, centrés dans la bande haute de l'écran, sous le titre. */
+function drawStartHeader(
+  ctx: CanvasRenderingContext2D, name: string | null, lieudit: boolean | undefined,
+  start: { label: string; clock: string } | null, alpha: number,
+) {
+  if (!name && !start) return
+  const cx = OUT_W / 2
+  let top = 150
+  if (name) {
+    const size = 54
+    ctx.save()
+    ctx.globalAlpha = alpha
+    ctx.font = `${lieudit ? 'italic ' : ''}700 ${size}px Arial, Helvetica, sans-serif`
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.lineJoin = 'round'
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2
+    ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = size * 0.2
+    ctx.strokeText(name, cx, top)
+    ctx.shadowColor = 'transparent'
+    ctx.fillStyle = '#fff'
+    ctx.fillText(name, cx, top)
+    ctx.restore()
+    top += size * 0.75
+  }
+  if (start) drawStartTimePill(ctx, start, cx, top, 40, alpha)
+}
 
 // Écran-titre d'ouverture : voile sombre + date + titre (2 lignes max) + pastilles km / D+.
 function drawIntroCard(
