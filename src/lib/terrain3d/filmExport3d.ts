@@ -378,6 +378,45 @@ function panelTexture(name: string, style: 'lieudit' | 'col' | 'standard' | 'poi
   return tex
 }
 
+/** Noms de lieux écrits à même le sol, sans pancarte — mêmes polices et couleurs que le film 2D (GROUND_LABEL de
+ * src/lib/filmExport.ts) et l'aperçu (.loc-sign) : localité en grandes lettres blanches cernées de noir, lieu-dit
+ * en italique plus petit, point d'intérêt en italique doré à empattements cerné de brun. Les cols gardent leur
+ * pancarte (panelTexture), comme en 2D. */
+const GROUND_LABEL_3D: Record<'standard' | 'lieudit' | 'poi', { font: string; size: number; fill: string; stroke: string }> = {
+  standard: { font: '700 {s}px Arial, Helvetica, sans-serif', size: 24, fill: '#fff', stroke: '#1b1b1b' },
+  lieudit:  { font: 'italic 700 {s}px Arial, Helvetica, sans-serif', size: 19, fill: '#fff', stroke: '#1b1b1b' },
+  poi:      { font: 'italic 700 {s}px Georgia, "Times New Roman", serif', size: 20, fill: '#ffe3a3', stroke: '#4a2a10' },
+}
+/** Résolution du canvas des noms au sol (px canvas par px « logique » 2D). */
+const GROUND_LABEL_RES = 6
+
+function groundLabelTexture(name: string, style: 'standard' | 'lieudit' | 'poi'): THREE.CanvasTexture {
+  const g = GROUND_LABEL_3D[style]
+  const R = GROUND_LABEL_RES
+  const STROKE = 4.5, MARGIN = 8
+  const FONT = g.font.replace('{s}', String(g.size * R))
+  const m = document.createElement('canvas').getContext('2d')!
+  m.font = FONT
+  const textW = m.measureText(name).width / R
+  const W = Math.ceil(textW + STROKE * 2 + MARGIN * 2)
+  const H = Math.ceil(g.size * 1.3 + STROKE * 2 + MARGIN * 2)
+  const c = document.createElement('canvas')
+  c.width = W * R; c.height = H * R
+  const ctx = c.getContext('2d')!
+  ctx.font = FONT
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.lineJoin = 'round'
+  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 4 * R; ctx.shadowOffsetY = 1 * R
+  ctx.strokeStyle = g.stroke; ctx.lineWidth = STROKE * R
+  ctx.strokeText(name, c.width / 2, c.height / 2)
+  ctx.shadowColor = 'transparent'
+  ctx.fillStyle = g.fill
+  ctx.fillText(name, c.width / 2, c.height / 2)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  return tex
+}
+
 // ─── Courbes du tracé (port de main.ts) ─────────────────────────────────────────────────────
 
 function smoothTrail(points: [number, number][], iterations = 5, radius = 4): [number, number][] {
@@ -1408,32 +1447,38 @@ async function exportFilm3dImpl(
     const img = tex.image as HTMLCanvasElement
     sprite.scale.set(worldWidth, worldWidth * (img.height / img.width), 1)
   }
-  const panelSprites: { sprite: THREE.Sprite; t: number; isCol: boolean }[] = scenePanels.map((pnl, idx) => {
-    const panelT = panelCurveParams[idx]
-    const anchor = trailPts[Math.round(panelT * RESAMPLE_COUNT)]
-    const tex = panelTexture(pnl.name, pnl.style, pnl.ele)
+  /** Taille monde d'un px « logique » des noms au sol : lettres à taille constante, quelle que soit la longueur du nom. */
+  const GROUND_LABEL_WORLD_PER_PX = 1.7
+  /** Nom de lieu comme en 2D : écrit au sol (centré sur le point, sans poteau) ; les cols gardent leur pancarte. */
+  function makeLocSprite(name: string, style: 'lieudit' | 'col' | 'standard' | 'poi', anchor: THREE.Vector3, ele?: number, colWidth = 340): THREE.Sprite {
+    const isCol = style === 'col'
+    const tex = isCol ? panelTexture(name, style, ele) : groundLabelTexture(name, style)
     renderer.initTexture(tex)
     const sprite = makePanelSprite(tex)
-    sizeSpriteFromTexture(sprite, tex, pnl.style === 'col' ? 340 : 260)
-    sprite.center.set(0.5, 0)
-    sprite.position.set(anchor.x, anchor.y, anchor.z)
-    sprite.visible = false
-    sprite.layers.set(NO_REFLECT_LAYER)
-    scene.add(sprite)
-    return { sprite, t: panelT, isCol: pnl.style === 'col' }
-  })
-  function makeEndpointPanel(name: string, anchor: THREE.Vector3, colEle?: number, lieudit?: boolean): THREE.Sprite {
-    const isCol = colEle != null
-    const tex = panelTexture(name, isCol ? 'col' : lieudit ? 'lieudit' : 'standard', colEle)
-    renderer.initTexture(tex)
-    const sprite = makePanelSprite(tex)
-    sizeSpriteFromTexture(sprite, tex, isCol ? 340 : 240)
-    sprite.center.set(0.5, 0)
+    if (isCol) {
+      sizeSpriteFromTexture(sprite, tex, colWidth)
+      sprite.center.set(0.5, 0)
+    } else {
+      const img = tex.image as HTMLCanvasElement
+      const k = GROUND_LABEL_WORLD_PER_PX / GROUND_LABEL_RES
+      sprite.scale.set(img.width * k, img.height * k, 1)
+      sprite.center.set(0.5, 0.5)
+    }
     sprite.position.set(anchor.x, anchor.y, anchor.z)
     sprite.visible = false
     sprite.layers.set(NO_REFLECT_LAYER)
     scene.add(sprite)
     return sprite
+  }
+  const panelSprites: { sprite: THREE.Sprite; t: number; isCol: boolean }[] = scenePanels.map((pnl, idx) => {
+    const panelT = panelCurveParams[idx]
+    const anchor = trailPts[Math.round(panelT * RESAMPLE_COUNT)]
+    const sprite = makeLocSprite(pnl.name, pnl.style, anchor, pnl.ele)
+    return { sprite, t: panelT, isCol: pnl.style === 'col' }
+  })
+  function makeEndpointPanel(name: string, anchor: THREE.Vector3, colEle?: number, lieudit?: boolean): THREE.Sprite {
+    const isCol = colEle != null
+    return makeLocSprite(name, isCol ? 'col' : lieudit ? 'lieudit' : 'standard', anchor, colEle)
   }
   const departurePanel = opts.showDeparturePanel === false
     ? null : makeEndpointPanel(opts.departureName, trailPts[0], opts.departureColEle, opts.departureLieudit)
@@ -1442,15 +1487,19 @@ async function exportFilm3dImpl(
   // Taille apparente minimale des panneaux : au-delà de ~1,5 km, la largeur monde fixe tombe
   // sous ~150 px et le texte devient illisible. On agrandit alors le sprite proportionnellement
   // à la distance caméra (largeur ≥ PANEL_MIN_ANGULAR · distance, ≈ 170 px à 1080p, FOV 55°).
+  // Noms au sol : minimum sur la HAUTEUR (lettres ≥ ~24 px à 1080p, comme l'ancien panneau), la largeur suivant
+  // la longueur du nom.
   const PANEL_MIN_ANGULAR = 0.165
+  const LABEL_MIN_ANGULAR_H = 0.055
   const panelBaseScales = [
     ...panelSprites.map(p => p.sprite),
     ...[departurePanel, arrivalPanel].filter((s): s is THREE.Sprite => s != null),
-  ].map(sprite => ({ sprite, w: sprite.scale.x, h: sprite.scale.y }))
+  ].map(sprite => ({ sprite, w: sprite.scale.x, h: sprite.scale.y, isLabel: sprite.center.y === 0.5 }))
   function enforcePanelMinSize(camPos: THREE.Vector3): void {
-    for (const { sprite, w, h } of panelBaseScales) {
+    for (const { sprite, w, h, isLabel } of panelBaseScales) {
       if (!sprite.visible) continue
-      const k = Math.max(1, (sprite.position.distanceTo(camPos) * PANEL_MIN_ANGULAR) / w)
+      const d = sprite.position.distanceTo(camPos)
+      const k = Math.max(1, isLabel ? (d * LABEL_MIN_ANGULAR_H) / h : (d * PANEL_MIN_ANGULAR) / w)
       sprite.scale.set(w * k, h * k, 1)
     }
   }
