@@ -1015,7 +1015,12 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // attente, ou qui se lèvent), maintien, dézoom pendant lequel ils pivotent vers le chemin. Arrivée : zoom (le
   // salut démarre aux 60 %), maintien jusqu'à la fin du salut, vue d'ensemble pendant laquelle ils rapetissent et
   // s'effacent.
-  const H3_START_HOLD_S = 1
+  // Heure de départ : écran de départ fixe START_CLOCK_SHOW_S une fois le voile noir levé, heure affichée, puis heure
+  // effacée sur START_CLOCK_FADE_S ; la course ne part qu'ensuite. Sans heure, rythme habituel.
+  const START_CLOCK_SHOW_S = 3, START_CLOCK_FADE_S = 0.6
+  const hasStartClock = startClock(opts.startTime, opts.startTimePlanned ?? true) != null
+  const START_CLOCK_HOLD_S = hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 0
+  const H3_START_HOLD_S = hasStartClock ? START_CLOCK_HOLD_S : 1
   // Allure (comme l'aperçu) : cap du chemin, et marche ralentie dans les virages pour des pivots en douceur -> la
   // marche dure walkS au lieu de durationS, et la distance parcourue n'est plus proportionnelle au temps.
   const pacing = hikers3d ? getTrackPacing(visualPoints, distances) : null
@@ -1027,7 +1032,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const filmDurationS = hikers3d
     ? walkS + (4 + 1.6 + H3_START_HOLD_S + HIKER3D_START_DEZOOM_MS / 1000)
       + (HIKER3D_END_ZOOM_MS / 1000 + H3_END_HOLD_S + HIKER3D_OVERVIEW_MS / 1000 + 5)
-    : durationS + (4 + 1.6 - 0.5) + (1.5 + 5)
+    : durationS + (4 + 1.6 + (hasStartClock ? START_CLOCK_HOLD_S : -0.5)) + (1.5 + 5)
   let audioBuffer: AudioBuffer | null = null
   if (hasWC && hasFilmAudio(opts.audio) && filmAudioSupported()) {
     try {
@@ -1170,7 +1175,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // marche ne part qu'après le dézoom (START_DEZOOM_FRAMES).
   const INTRO_FRAMES = hikers3d
     ? Math.round((TITLE_IN_S + SCENE_REVEAL_S + H3_START_HOLD_S) * fps)
-    : Math.round((TITLE_IN_S + SCENE_REVEAL_S - RIBBON_EARLY_S) * fps)
+    : Math.round((TITLE_IN_S + SCENE_REVEAL_S + (hasStartClock ? START_CLOCK_HOLD_S : -RIBBON_EARLY_S)) * fps)
   const START_DEZOOM_FRAMES = hikers3d && !opts.debugMaxFrames ? Math.round((HIKER3D_START_DEZOOM_MS / 1000) * fps) : 0
   // Durées des plans de fin (vue d'ensemble) : comptées ici aussi pour que la barre de
   // progression continue d'avancer pendant ces phases au lieu de rester bloquée à 100% ("Presque
@@ -1467,7 +1472,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
     catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
-    drawStartSigns(1)
+    // Heure de départ : affichée START_CLOCK_SHOW_S après la levée du voile, puis effacée avant le départ.
+    const clockOffS = TITLE_IN_S + SCENE_REVEAL_S + START_CLOCK_SHOW_S
+    drawStartSigns(Math.max(0, Math.min(1, (clockOffS + START_CLOCK_FADE_S - fi / fps) / START_CLOCK_FADE_S)))
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
       const p0 = exportMap.project([points[0].lon, points[0].lat])
@@ -1509,8 +1516,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
     catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
-    // Heure de départ : reste pendant le dézoom et s'efface sur ses dernières 0,6 s, avant que la course parte.
-    drawStartSigns(Math.min(1, (START_DEZOOM_FRAMES - 1 - k) / Math.max(1, Math.round(0.6 * fps))))
+    drawStartSigns() // heure de départ déjà effacée pendant le maintien sur le plan serré
     const p0 = exportMap.project([points[0].lon, points[0].lat])
     drawHikers3d(p0.x, p0.y, startScale(z))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)

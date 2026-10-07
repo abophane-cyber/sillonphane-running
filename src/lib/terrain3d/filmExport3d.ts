@@ -1585,9 +1585,12 @@ async function exportFilm3dImpl(
   const SCENE_REVEAL_S = 1.6   // levée du noir = fermeture du titre (simultanées)
   const RIBBON_EARLY_S = 0.5   // le ruban démarre ce délai avant la fin de la levée du noir
   const INTRO_CARD_S = TITLE_IN_S + SCENE_REVEAL_S - RIBBON_EARLY_S // = début du survol
-  // Pause caméra fixe sur le panneau de départ, le temps de le lire : 1,5 s visible une fois le
-  // noir entièrement levé (la pause commence RIBBON_EARLY_S avant la fin de la levée).
-  const START_PAUSE = 1.5 + RIBBON_EARLY_S
+  // Pause caméra fixe sur le départ, le temps de le lire : 1,5 s visible une fois le noir entièrement levé (la pause
+  // commence RIBBON_EARLY_S avant la fin de la levée). Avec une heure de départ : écran fixe START_CLOCK_SHOW_S, heure
+  // affichée, puis heure effacée sur START_CLOCK_FADE_S ; le survol ne part qu'ensuite.
+  const START_CLOCK_SHOW_S = 3, START_CLOCK_FADE_S = 0.6
+  const hasStartClock = startClock(opts.startTime, opts.startTimePlanned ?? true) != null
+  const START_PAUSE = (hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 1.5) + RIBBON_EARLY_S
   // Arrivée : pas de rapprochement caméra (demande 2026-09-28 : « juste un dézoom pour l'ensemble du tracé
   // et image fixe »), mais une pause caméra fixe de 2 s sur l'arrivée avant la montée vers la vue
   // d'ensemble (demande 2026-09-29).
@@ -2091,10 +2094,11 @@ async function exportFilm3dImpl(
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
       watermarkReveal: Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
-    // Nom du départ et heure de départ, en haut de l'écran sous le titre : pendant la pause sur le départ et la
-    // première seconde du survol, puis effacés sur 0,6 s.
+    // Nom du départ et heure de départ, en haut de l'écran sous le titre. L'heure s'efface sur START_CLOCK_FADE_S à
+    // la fin de la pause sur le départ ; le nom reste jusqu'à la première seconde du survol, puis s'efface sur 0,6 s.
     const startA = Math.max(0, Math.min(1, (PHASE1_END + 1.6 - simElapsed) / 0.6))
-    if (startA > 0) drawStartHeader(ctx2d, departurePanel ? opts.departureName : null, opts.departureLieudit, startTimeText, startA)
+    const clockA = Math.max(0, Math.min(1, (PHASE1_END - simElapsed) / START_CLOCK_FADE_S))
+    if (startA > 0) drawStartHeader(ctx2d, departurePanel ? opts.departureName : null, opts.departureLieudit, startTimeText, startA, clockA)
 
     // Ouverture. (1) Voile noir : plein pendant TITLE_IN_S (le titre s'y inscrit), puis se lève
     // sur SCENE_REVEAL_S -> le paysage se découvre DERRIÈRE le titre. Dessiné AVANT l'écran-titre.
@@ -2379,7 +2383,7 @@ function drawWeatherCard(ctx: CanvasRenderingContext2D, weather: WeatherCardData
  * et horloge de départ en dessous, centrés dans la bande haute de l'écran, sous le titre. */
 function drawStartHeader(
   ctx: CanvasRenderingContext2D, name: string | null, lieudit: boolean | undefined,
-  start: { label: string; clock: string } | null, alpha: number,
+  start: { label: string; clock: string } | null, alpha: number, clockAlpha = alpha,
 ) {
   if (!name && !start) return
   const cx = OUT_W / 2
@@ -2400,7 +2404,7 @@ function drawStartHeader(
     ctx.restore()
     top += size * 0.75
   }
-  if (start) drawStartTimePill(ctx, start, cx, top, 40, alpha)
+  if (start) drawStartTimePill(ctx, start, cx, top, 40, Math.min(alpha, clockAlpha))
 }
 
 // Écran-titre d'ouverture : voile sombre + date + titre (2 lignes max) + pastilles km / D+.
