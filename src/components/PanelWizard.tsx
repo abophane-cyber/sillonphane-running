@@ -8,6 +8,8 @@ import {
   DEFAULT_SPEED_KMH, SPEED_SLICE_KM, formatElapsed, formatKm, parseRavitoKms, hasPlannedSpeeds, plannedElapsedS, speedSliceCount,
   type BannerText, type RaceSettings,
 } from '../lib/raceSplits'
+import { fetchRouteStreets, type StreetRun } from '../lib/routeStreets'
+import type { GpxPoint } from '../types'
 
 /** « 12 h 41 (3 h 41'00") », ou la durée seule sans heure de départ. */
 function plannedFinish(startTime: string, elapsedS: number): string {
@@ -48,6 +50,9 @@ interface Props {
   ravitoCount: number
   /** Inscription par défaut de l'épreuve (exemples des champs). */
   bannerDefaults: BannerText
+  /** Tracé : recherche des rues empruntées (IGN). */
+  points: GpxPoint[]
+  distances: number[]
   /** Titre du film (= nom de l'épreuve). */
   filmTitle: string
   onFilmTitleChange: (v: string) => void
@@ -62,7 +67,7 @@ export function PanelWizard({
   excluded, customLocalities, onStartNameChange, onEndNameChange,
   startKind, endKind, startIsCol, endIsCol, onStartKindChange, onEndKindChange,
   onToggleLocality, onAddPanel, onRemoveCustomLocality, onComplete,
-  race, onRaceChange, realTimes, totalDistance, ravitoCount, bannerDefaults, filmTitle, onFilmTitleChange, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, totalDistance, ravitoCount, bannerDefaults, points, distances, filmTitle, onFilmTitleChange, departureTime, onDepartureTimeChange,
   showHint, onDismissHint,
 }: Props) {
   const depHidden = excluded.has(startName)
@@ -74,6 +79,23 @@ export function PanelWizard({
 
   const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi'>('localite')
   const [addName, setAddName] = useState('')
+  // Rues empruntées : liste trouvée à la demande (IGN) ; les rues cochées sont dans race.streets.
+  const [streetList, setStreetList] = useState<StreetRun[] | null>(null)
+  const [streetState, setStreetState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const chosenStreets = race.streets ?? []
+  const sameRun = (a: StreetRun, b: StreetRun) => a.name === b.name && a.startM === b.startM
+  const isChosen = (s: StreetRun) => chosenStreets.some(c => sameRun(c, s))
+  const shownStreets = [...(streetList ?? []), ...chosenStreets.filter(c => !(streetList ?? []).some(s => sameRun(s, c)))]
+    .sort((a, b) => a.startM - b.startM)
+  const toggleStreet = (s: StreetRun) => onRaceChange({
+    ...race, streets: isChosen(s) ? chosenStreets.filter(c => !sameRun(c, s)) : [...chosenStreets, s].sort((a, b) => a.startM - b.startM),
+  })
+  const findStreets = () => {
+    setStreetState('loading')
+    fetchRouteStreets(points, distances)
+      .then(list => { setStreetList(list); setStreetState('idle') })
+      .catch(e => { console.error('[rues]', e); setStreetState('error') })
+  }
   const [addEle, setAddEle] = useState('')
 
   function submitAdd() {
@@ -355,6 +377,31 @@ export function PanelWizard({
               </div>
             )
           })()}
+        </div>
+
+        {/* ── Rues empruntées (BD TOPO de l'IGN), écrites le long du tracé dans le film 2D ── */}
+        <div className="pwiz-section pwiz-section--streets">
+          <span className="pwiz-section-label">Rues empruntées</span>
+          {shownStreets.length > 0 && (
+            <ul className="pwiz-list">
+              {shownStreets.map(s => (
+                <li key={`${s.name}|${s.startM}`} className="pwiz-item">
+                  <label className="pwiz-check">
+                    <input type="checkbox" checked={isChosen(s)} onChange={() => toggleStreet(s)} />
+                    <span className="pwiz-check-name">{s.name}</span>
+                    <span className="pwiz-check-type">km {formatKm(s.startM / 1000)} · {Math.round((s.endM - s.startM) / 10) * 10} m</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          {streetList === null && (
+            <button className="pwiz-btn" disabled={streetState === 'loading'} onClick={findStreets}>
+              {streetState === 'loading' ? 'Recherche…' : 'Chercher les rues du parcours (IGN)'}
+            </button>
+          )}
+          {streetState === 'error' && <p className="pwiz-empty">Service IGN indisponible. Réessayez plus tard.</p>}
+          {streetList !== null && streetList.length === 0 && <p className="pwiz-empty">Aucune rue nommée trouvée sur ce tracé.</p>}
         </div>
 
         {/* ── Panneaux ajoutés manuellement (après l'arrivée) ── */}

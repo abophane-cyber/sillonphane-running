@@ -239,6 +239,7 @@ export interface VoyageTrack {
   panelBannerDate?: string             //   date et distance (vides = valeurs par défaut)
   panelBannerDistance?: string
   panelRavitos?: string               // kilomètres des ravitaillements, tels que saisis
+  panelStreets?: { name: string; startM: number; endM: number }[]  // rues empruntées affichées (cf. routeStreets.ts)
   panelBibNumber?: string              // numéro inscrit sur le dossard du personnage
 }
 

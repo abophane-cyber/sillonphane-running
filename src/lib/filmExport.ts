@@ -26,6 +26,7 @@ import {
   START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, START_PRESENT,
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
+import type { StreetRun } from './routeStreets'
 
 export interface FilmExportOptions {
   points:            GpxPoint[]
@@ -58,6 +59,8 @@ export interface FilmExportOptions {
   startTimePlanned?: boolean
   /** Ravitaillements (km saisis dans le widget), écrits au sol sur le tracé comme les bornes. */
   ravitos?:          Ravito[]
+  /** Rues empruntées (IGN) choisies dans le widget : nom écrit le long du tracé, au passage de la coureuse. */
+  streets?:          StreetRun[]
   /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
   endCard?:          EndCard
   speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
@@ -484,6 +487,51 @@ function drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: nu
   path(); ctx.stroke()
   ctx.strokeStyle = '#ffd166'; ctx.fillStyle = '#ffd166'; ctx.lineWidth = 2.5 * scale
   path(); ctx.fill()
+  ctx.restore()
+}
+
+/** Nom de rue écrit le long de son tracé à l'écran, comme sur le Plan IGN : capitales espacées, lettres posées une à
+ * une sur la courbe, toujours lisibles de gauche à droite, décalées au-dessus du ruban. `path` : points à l'écran,
+ * dans le sens du parcours. */
+function drawStreetLabel(ctx: CanvasRenderingContext2D, name: string, path: { x: number; y: number }[], alpha: number) {
+  if (alpha <= 0 || path.length < 2) return
+  // Sens de lecture : de gauche à droite.
+  const pts = path[path.length - 1].x < path[0].x ? [...path].reverse() : path
+  const cum = [0]
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y))
+  const L = cum[cum.length - 1]
+  if (L < 1) return
+  const at = (s: number) => {
+    const c = Math.max(0, Math.min(L, s))
+    let i = 1
+    while (i < cum.length - 1 && cum[i] < c) i++
+    const k = (c - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1])
+    return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * k, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * k }
+  }
+  const SIZE = 14, SPACING = 1.6, OFFSET = 13, TAN = 14
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.font = `700 ${SIZE}px Arial, Helvetica, sans-serif`
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+  ctx.lineJoin = 'round'
+  const widths = [...name].map(ch => ctx.measureText(ch).width + SPACING)
+  const W = widths.reduce((a, b) => a + b, 0) - SPACING
+  let s = L / 2 - W / 2
+  for (const [i, ch] of [...name].entries()) {
+    const mid = s + widths[i] / 2
+    const p = at(mid), a = at(mid - TAN), b = at(mid + TAN)
+    let ang = Math.atan2(b.y - a.y, b.x - a.x)
+    if (Math.abs(ang) > Math.PI / 2) ang += Math.PI // jamais à l'envers dans un virage serré
+    ctx.save()
+    ctx.translate(p.x + Math.sin(ang) * OFFSET, p.y - Math.cos(ang) * OFFSET) // au-dessus du tracé
+    ctx.rotate(ang)
+    ctx.strokeStyle = 'rgba(15,18,22,0.85)'; ctx.lineWidth = 3.5
+    ctx.strokeText(ch, 0, 0)
+    ctx.fillStyle = '#f4f1ea'
+    ctx.fillText(ch, 0, 0)
+    ctx.restore()
+    s += widths[i]
+  }
   ctx.restore()
 }
 
@@ -1182,6 +1230,18 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const departureEvent: LocalityEvent | null = opts.startName ? { name: opts.startName, lon: points[0].lon, lat: points[0].lat, style: opts.startColEle != null ? 'col' : opts.startLieudit ? 'lieudit' : 'standard', ele: opts.startColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: 0 } : null
   const arrivalEvent: LocalityEvent | null   = opts.endName   ? { name: opts.endName,   lon: points[points.length - 1].lon, lat: points[points.length - 1].lat, style: opts.endColEle != null ? 'col' : opts.endLieudit ? 'lieudit' : 'standard', ele: opts.endColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: estTotalFrames } : null
 
+  // Rues empruntées : points du tracé de chaque portion, et fenêtre d'affichage (de SIGN_LEAD_FRAMES avant l'entrée de
+  // la coureuse dans la rue à SIGN_STAY_FRAMES après sa sortie).
+  const frameAtM = (m: number) => walkWarp ? Math.round(walkWarp.timeAtM(m) * fps) : Math.round((m / totalDistance) * estTotalFrames)
+  const streetEvents = (opts.streets ?? []).map(st => {
+    const lonLat: [number, number][] = []
+    const push = (m: number) => { const [lon, lat] = lngLatAtProgress(visualPoints, distances, totalDistance, Math.min(1, m / totalDistance)); lonLat.push([lon, lat]) }
+    push(st.startM)
+    for (let i = 0; i < distances.length; i++) if (distances[i] > st.startM && distances[i] < st.endM) lonLat.push([visualPoints[i].lon, visualPoints[i].lat])
+    push(st.endM)
+    return { name: st.name, lonLat, showFrame: Math.max(0, frameAtM(st.startM) - SIGN_LEAD_FRAMES), hideFrame: frameAtM(st.endM) + SIGN_STAY_FRAMES }
+  })
+
   const totalFrames       = Math.ceil(walkS * fps)
   // debugMaxFrames tronque la marche à la vraie vitesse (durationS inchangé) au lieu de la
   // compresser — le seul moyen d'observer le tremblement caméra à une vitesse représentative du
@@ -1627,6 +1687,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       ? RIBBON_LAG_PX * FILM_SCALE * metersPerPixel(points[0].lat, mapMosaic ? mapMosaic.zoom : zoom) : 0
     drawTrack(ctx, project, visualPoints, distances, totalDistance, Math.max(0, progress - lagM / totalDistance))
     drawBornes(project, 1, 1, progress * totalDistance) // bornes approchées, au sol sous les panneaux
+    // Rues empruntées : nom le long de la portion, en fondu à l'approche de la coureuse, effacé après son passage.
+    for (const st of streetEvents) {
+      const a = signAlpha(f, st.showFrame, st.hideFrame, SIGN_FADE_FRAMES)
+      if (a > 0) drawStreetLabel(ctx, st.name, st.lonLat.map(([lon, lat]) => project(lon, lat)), a)
+    }
 
     // 3. Panneaux localités
     // Évite la collision visuelle avec le randonneur : un panneau de lieu-dit qui se déclenche

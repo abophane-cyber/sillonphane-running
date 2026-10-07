@@ -247,6 +247,8 @@ export function AnimateScreen({
             realTimes={realTimes}
             totalDistance={activeTrack.distance}
             ravitoCount={ravitos.length}
+            points={activeTrack.points}
+            distances={distances}
             bannerDefaults={bannerDefaults}
             filmTitle={customTitle}
             onFilmTitleChange={onCustomTitleChange}

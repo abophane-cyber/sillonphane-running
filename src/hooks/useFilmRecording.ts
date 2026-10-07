@@ -11,6 +11,7 @@ import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
+import type { StreetRun } from '../lib/routeStreets'
 
 export interface CreateFilmContext {
   activeTrack: GpxTrack
@@ -38,6 +39,8 @@ export interface CreateFilmContext {
   startTimePlanned?: boolean
   /** Ravitaillements placés sur le tracé. */
   ravitos?: Ravito[]
+  /** Rues empruntées choisies, écrites le long du tracé. */
+  streets?: StreetRun[]
   /** Carton de fin du film (intitulé, date, distance, dénivelé, temps, moyenne). */
   endCard?: EndCard
   trackName: string
@@ -137,6 +140,7 @@ export function useFilmRecording() {
         startTime: ctx.startTime,
         startTimePlanned: ctx.startTimePlanned,
         ravitos: ctx.ravitos,
+        streets: ctx.streets,
         endCard: ctx.endCard,
         speedLevel: ctx.speedLevel,
         trackName: ctx.trackName,
