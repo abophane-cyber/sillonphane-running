@@ -1588,7 +1588,7 @@ async function exportFilm3dImpl(
   // Pause caméra fixe sur le départ, le temps de le lire : 1,5 s visible une fois le noir entièrement levé (la pause
   // commence RIBBON_EARLY_S avant la fin de la levée). Avec une heure de départ : écran fixe START_CLOCK_SHOW_S, heure
   // affichée, puis heure effacée sur START_CLOCK_FADE_S ; le survol ne part qu'ensuite.
-  const START_CLOCK_SHOW_S = 3, START_CLOCK_FADE_S = 0.6
+  const START_CLOCK_SHOW_S = 2, START_CLOCK_FADE_S = 0.6
   const hasStartClock = startClock(opts.startTime, opts.startTimePlanned ?? true) != null
   const START_PAUSE = (hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 1.5) + RIBBON_EARLY_S
   // Arrivée : pas de rapprochement caméra (demande 2026-09-28 : « juste un dézoom pour l'ensemble du tracé

@@ -1017,7 +1017,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // s'effacent.
   // Heure de départ : écran de départ fixe START_CLOCK_SHOW_S une fois le voile noir levé, heure affichée, puis heure
   // effacée sur START_CLOCK_FADE_S ; la course ne part qu'ensuite. Sans heure, rythme habituel.
-  const START_CLOCK_SHOW_S = 3, START_CLOCK_FADE_S = 0.6
+  const START_CLOCK_SHOW_S = 2, START_CLOCK_FADE_S = 0.6
   const hasStartClock = startClock(opts.startTime, opts.startTimePlanned ?? true) != null
   const START_CLOCK_HOLD_S = hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 0
   const H3_START_HOLD_S = hasStartClock ? START_CLOCK_HOLD_S : 1
