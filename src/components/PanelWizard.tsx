@@ -68,6 +68,8 @@ export function PanelWizard({
   const depHidden = excluded.has(startName)
   const arrHidden = excluded.has(endName)
   // Boucle : le même nom au départ et à l'arrivée ne donne qu'un seul panneau.
+  // Temps prévus : trace sans heures réelles, ou temps prévus choisis à la place de ceux du GPX.
+  const planned = !(realTimes && !race.plannedTimes)
   const isLoop = !!startName && !!endName && startName.trim().toLowerCase() === endName.trim().toLowerCase()
 
   const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi'>('localite')
@@ -219,6 +221,18 @@ export function PanelWizard({
               onChange={e => onRaceChange({ ...race, bibNumber: e.target.value })}
             />
           </label>
+          {/* Trace sans heures réelles (ou temps prévus choisis) : heure de départ prévue, écrite à l'ouverture du film
+              (« Départ prévu à… ») et point de départ des temps de passage prévus aux bornes. */}
+          {planned && (
+            <label className="pwiz-race-row">
+              <span>Heure de départ prévue</span>
+              <input
+                type="time" className="pwiz-input pwiz-input--time"
+                value={departureTime}
+                onChange={e => onDepartureTimeChange(e.target.value)}
+              />
+            </label>
+          )}
         </div>
 
         {/* ── Arrivée (masquée sur une boucle : le panneau de départ fait office d'arrivée) ── */}
@@ -276,14 +290,6 @@ export function PanelWizard({
                 <p className="pwiz-empty">Temps de passage réels, lus dans la trace enregistrée.</p>
               ) : (
                 <>
-                  <label className="pwiz-race-row">
-                    <span>Heure de départ</span>
-                    <input
-                      type="time" className="pwiz-input pwiz-input--time"
-                      value={departureTime}
-                      onChange={e => onDepartureTimeChange(e.target.value)}
-                    />
-                  </label>
                   <span className="pwiz-race-hint">Vitesse prévue (km/h), par tranche de {SPEED_SLICE_KM} km :</span>
                   {Array.from({ length: speedSliceCount(totalDistance) }, (_, i) => {
                     const a = i * SPEED_SLICE_KM
