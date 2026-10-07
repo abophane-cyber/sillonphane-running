@@ -1132,6 +1132,9 @@ async function exportFilm3dImpl(
   for (let i = 1; i < trailPts.length; i++)
     distSegments.push(distSegments[i - 1] + trailPts[i].distanceTo(trailPts[i - 1]))
   const TOTAL_DISTANCE_M = distSegments[distSegments.length - 1]
+  /** Distance affichée (compteur, bornes) : celle du tracé dans l'appli, comme le film 2D ; le ruban 3D, lissé, est
+   * un peu plus court (20,5 km au lieu de 21,1 sur le semi de Lille). */
+  const TRACK_M = opts.trackDistanceM ?? TOTAL_DISTANCE_M
 
   // Dénivelé positif cumulé (pour l'écran-titre) : celui du tracé s'il est fourni, pour afficher
   // la même valeur que le bandeau de profil. Sinon, estimation depuis le relief, échantillonnage
@@ -1873,8 +1876,10 @@ async function exportFilm3dImpl(
       // Panneau d'arrivée affiché ARRIVAL_PANEL_LEAD_S avant la fin du survol (et non à l'arrêt seulement) :
       // il est déjà là quand le ruban arrive au bout.
       if (arrivalPanel) arrivalPanel.visible = elapsed >= PHASE2_END - ARRIVAL_PANEL_LEAD_S
-      distanceM = t * TOTAL_DISTANCE_M
-      profileT = t
+      // Compteur et curseur du profil sur la tête du ruban (coureuse, bornes), pas sur la caméra qui la suit en
+      // retard : sinon « 14,0 km » au passage de la borne 15.
+      distanceM = lookT * TRACK_M
+      profileT = lookT
     } else if (elapsed < PHASE3_END) {
       if (!pauseCaptured) {
         cameraCurve.getPointAt(1, _pauseAnchor)
@@ -1896,7 +1901,7 @@ async function exportFilm3dImpl(
       updateTipCap(RIBBON_SEGMENTS, 1)
       if (departurePanel) departurePanel.visible = true
       if (arrivalPanel) arrivalPanel.visible = true
-      distanceM = TOTAL_DISTANCE_M
+      distanceM = TRACK_M
       profileT = 1
     } else {
       // Vue d'ensemble : on part de la dernière pose d'arrivée et on monte vers le cadrage global.
@@ -1934,7 +1939,7 @@ async function exportFilm3dImpl(
       }
       if (departurePanel) departurePanel.visible = true
       if (arrivalPanel) arrivalPanel.visible = true
-      distanceM = TOTAL_DISTANCE_M
+      distanceM = TRACK_M
       profileT = 1
     }
 
@@ -2015,7 +2020,7 @@ async function exportFilm3dImpl(
 
   const streetCaption = new StreetCaption(opts.streets ?? [])
   const borneSignCache: LocSignCache = new Map()
-  const trackM = opts.trackDistanceM ?? TOTAL_DISTANCE_M
+  const trackM = TRACK_M
 
   const composite = document.createElement('canvas')
   composite.width = OUT_W; composite.height = OUT_H
