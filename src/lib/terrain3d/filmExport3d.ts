@@ -1599,7 +1599,9 @@ async function exportFilm3dImpl(
   // Vue d'ensemble finale : après la pause d'arrivée, la caméra s'élève (zoom arrière à échelle
   // log) jusqu'à cadrer TOUT le tracé, puis tient ce plan. Les panneaux intermédiaires s'effacent.
   const OVERVIEW_RISE_S = 4.5
-  const OVERVIEW_HOLD_S = 4 // image fixe finale
+  // Image fixe finale : OVERVIEW_CLEAN_S sans le carton du bas (le tracé seul), puis l'adresse en fondu, 5 s.
+  const OVERVIEW_CLEAN_S = 2
+  const OVERVIEW_HOLD_S = OVERVIEW_CLEAN_S + 5
   const END_ZOOM = 1 // (0,58 avant) plus de rapprochement à l'arrivée : on dézoome directement vers la vue d'ensemble
   const ZOOM_LEAD = 12
   const INTRO_FRAC = 0.12

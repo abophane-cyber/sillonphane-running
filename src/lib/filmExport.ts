@@ -1021,6 +1021,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const hasStartClock = startClock(opts.startTime, opts.startTimePlanned ?? true) != null
   const START_CLOCK_HOLD_S = hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 0
   const H3_START_HOLD_S = hasStartClock ? START_CLOCK_HOLD_S : 1
+  // Vue d'ensemble finale : d'abord OVERVIEW_CLEAN_S sans bornes ni carton du bas (le tracé seul), puis ces infos
+  // apparaissent en fondu et restent 5 s.
+  const OVERVIEW_CLEAN_S = 2
   // Allure (comme l'aperçu) : cap du chemin, et marche ralentie dans les virages pour des pivots en douceur -> la
   // marche dure walkS au lieu de durationS, et la distance parcourue n'est plus proportionnelle au temps.
   const pacing = hikers3d ? getTrackPacing(visualPoints, distances) : null
@@ -1031,8 +1034,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const H3_END_HOLD_S = HIKER3D_END_HOLD_MS / 1000
   const filmDurationS = hikers3d
     ? walkS + (4 + 1.6 + H3_START_HOLD_S + HIKER3D_START_DEZOOM_MS / 1000)
-      + (HIKER3D_END_ZOOM_MS / 1000 + H3_END_HOLD_S + HIKER3D_OVERVIEW_MS / 1000 + 5)
-    : durationS + (4 + 1.6 + (hasStartClock ? START_CLOCK_HOLD_S : -0.5)) + (1.5 + 5)
+      + (HIKER3D_END_ZOOM_MS / 1000 + H3_END_HOLD_S + HIKER3D_OVERVIEW_MS / 1000 + OVERVIEW_CLEAN_S + 5)
+    : durationS + (4 + 1.6 + (hasStartClock ? START_CLOCK_HOLD_S : -0.5)) + (1.5 + OVERVIEW_CLEAN_S + 5)
   let audioBuffer: AudioBuffer | null = null
   if (hasWC && hasFilmAudio(opts.audio) && filmAudioSupported()) {
     try {
@@ -1187,7 +1190,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const END_ZOOM_FRAMES = hikers3d ? Math.round((HIKER3D_END_ZOOM_MS / 1000) * fps) : 0
   const END_HOLD_FRAMES = hikers3d ? END_ZOOM_FRAMES + Math.round(H3_END_HOLD_S * fps) : 0
   const EASE_OV = Math.round((hikers3d ? HIKER3D_OVERVIEW_MS / 1000 : 1.5) * fps)
-  const HOLD_OV = Math.round(5 * fps)
+  const HOLD_OV = Math.round((OVERVIEW_CLEAN_S + 5) * fps)
   const openingTitle = (opts.title?.trim())
     || [opts.startName, opts.endName].filter(Boolean).join(' → ') || 'Sillonphane'
   const openingDate = opts.trailDate?.trim() ?? ''
@@ -1750,7 +1753,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // logo Sillon qui se dessine (comme dans l'en-tête de l'appli) juste avant le texte.
     // Couvre tout le plan d'ensemble final (HOLD_OV) pour rester affiché le plus longtemps
     // possible, plutôt que de n'apparaître que sur les 5 dernières secondes.
-    const WATERMARK_FRAMES = HOLD_OV
+    const WATERMARK_FRAMES = HOLD_OV - Math.round(OVERVIEW_CLEAN_S * fps) // après la vue d'ensemble sans infos
     const WATERMARK_FADE_FRAMES = Math.round(0.5 * fps)
 
     for (let f = 0; f < EASE_OV + HOLD_OV; f++) {
@@ -1779,8 +1782,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Vue d'ensemble, alignée sur le film 3D : cols, départ et arrivée restent ; les localités
       // intermédiaires s'effacent en fondu pendant le premier tiers du dézoom (image finale allégée).
       const locFade = 1 - Math.min(1, f / Math.max(1, EASE_OV * 0.35))
-      // Bornes gardées et agrandies peu à peu pendant le dézoom : km et temps de passage lisibles sur l'image finale.
-      drawBornes((lon, lat) => exportMap.project([lon, lat]), Math.max(signScale(), 1 + (OVERVIEW_BORNE_SCALE - 1) * te), 1, Infinity, true)
+      // Bornes : s'effacent avec les localités pendant le dézoom, puis reviennent agrandies (km et temps de passage
+      // lisibles) après OVERVIEW_CLEAN_S de vue d'ensemble sans infos, en même temps que le carton du bas.
+      const infoA = Math.max(0, Math.min(1, (f - EASE_OV - OVERVIEW_CLEAN_S * fps) / WATERMARK_FADE_FRAMES))
+      if (f < EASE_OV) drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale(), locFade)
+      else drawBornes((lon, lat) => exportMap.project([lon, lat]), Math.max(signScale(), OVERVIEW_BORNE_SCALE), infoA, Infinity, true)
       for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const isEndpoint = ev === departureEvent || ev === arrivalEvent
         const a = isEndpoint || ev.style === 'col' ? 1 : locFade

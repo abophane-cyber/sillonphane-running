@@ -13,8 +13,8 @@ export const HIKER3D_END_ZOOM_MS = 3000
 export const HIKER3D_START_DEZOOM_MS = 2000
 export const HIKER3D_OVERVIEW_MS = 5000
 /** Maintien sur le plan serré d'arrivée, entre la fin du zoom et le dézoom vers la vue d'ensemble (le geste de
- * victoire continue pendant le dézoom). */
-export const HIKER3D_END_HOLD_MS = 1000
+ * victoire continue pendant le dézoom). Running : aucun, la vue d'ensemble arrive dès la fin du zoom. */
+export const HIKER3D_END_HOLD_MS = 0
 /** Début du geste d'arrivée (victoire), en part du zoom d'arrivée. Running : 0 — dès la ligne franchie, sinon le
  * coureur courait sur place pendant le zoom. */
 export const HIKER3D_OUTRO_AT = 0
