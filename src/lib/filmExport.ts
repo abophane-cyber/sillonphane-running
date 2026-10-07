@@ -22,7 +22,7 @@ import { borneNumber, borneReached, borneTimeLine, type Borne, type EndCard, typ
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
-  START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT,
+  START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, START_PRESENT,
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 
@@ -1251,6 +1251,15 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
   const signY = (ev: unknown, y: number, scale: number) =>
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
+  /** Ouverture et dézoom du départ : panneau de départ et panneaux déjà visibles au début de la course (repère tout
+   * proche du départ, ex. « Porte de Paris »). */
+  function drawStartSigns() {
+    for (const ev of [...localityEvents.filter(e => e.showFrame === 0), ...(departureEvent ? [departureEvent] : [])]) {
+      const pt = exportMap.project([ev.lon, ev.lat])
+      if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
+        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale())
+    }
+  }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */
   /** `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble). */
   function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity) {
@@ -1381,8 +1390,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // Plan serré du départ : coureuse en grand, entièrement visible (corps = FILM_START_BODY de la hauteur de
   // l'image), pieds en bas à gauche (FILM_START_FEET, en part de l'image) ; elle revient en douceur au centre et à sa
   // taille de course pendant le dézoom (part `frac` du plan serré).
-  const FILM_START_BODY = 0.5
-  const FILM_START_FEET = { x: 0.12, y: 0.93 }
+  const FILM_START_BODY = START_PRESENT.body // même place que la présentation de l'aperçu
+  const FILM_START_FEET = { x: START_PRESENT.feetX, y: START_PRESENT.feetY }
   const startFrac = (z: number) => Math.max(0, Math.min(1, (z - zoom) / HIKER3D_CLOSE_ZOOM))
   const body1 = hikers[0] ? hikers[0].layout().body : 98 // ≈ taille du corps à l'échelle 1 (hiker3dSprite : H × 0,53)
   const closeScale = (OUT_H * FILM_START_BODY) / (body1 * FILM_SCALE * HIKER3D_BODY_SCALE)
@@ -1410,11 +1419,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
     catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
-    if (departureEvent) {
-      const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
-      if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, signY(departureEvent, pt.y, signScale()), departureEvent.style, departureEvent.ele, 1, signScale())
-    }
+    drawStartSigns()
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
       const p0 = exportMap.project([points[0].lon, points[0].lat])
@@ -1456,11 +1461,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
     catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
-    if (departureEvent) {
-      const pt = exportMap.project([departureEvent.lon, departureEvent.lat])
-      if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, departureEvent.name, pt.x, signY(departureEvent, pt.y, signScale()), departureEvent.style, departureEvent.ele, 1, signScale())
-    }
+    drawStartSigns()
     const p0 = exportMap.project([points[0].lon, points[0].lat])
     drawHikers3d(p0.x, p0.y, startScale(z))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)

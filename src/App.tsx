@@ -13,6 +13,7 @@ import { getTrackPacing } from './lib/trackPacing'
 import { HIKER3D_ENABLED } from './lib/hiker3dStaging'
 import { parseGpx } from './lib/gpx'
 import { openDemoTrip } from './lib/demoTrip'
+import { fetchStartLandmark } from './lib/startLandmark'
 import type { ParsedGpx, PanelLocality, GpxTrack } from './types'
 import { PWAPrompt } from './components/PWAPrompt'
 import { UpdatePrompt } from './components/UpdatePrompt'
@@ -337,6 +338,15 @@ export default function App() {
     setCustomTitle(parsed.name ?? parsed.tracks[0]?.name ?? '')
     restoreNames(restore?.startName || '', restore?.endName || '', restore?.startKind, restore?.endKind)
     setCustomLocalities(restore?.customLocalities ?? [])
+    // Nouveau tracé (pas une réouverture avec ses panneaux) : repère le plus proche du départ ajouté d'office comme
+    // point d'intérêt, visible dès l'ouverture (ex. « Porte de Paris » au départ du semi de Lille).
+    const p0 = parsed.tracks[0]?.points[0]
+    if (p0 && !restore?.customLocalities) {
+      fetchStartLandmark(p0.lon, p0.lat).then(lm => {
+        if (lm) setCustomLocalities(prev => prev.some(l => l.name === lm.name) ? prev
+          : [...prev, { type: 'locality', name: lm.name, lon: lm.lon, lat: lm.lat, placeType: 'poi' }])
+      }).catch(() => { /* repère facultatif */ })
+    }
     setRace(restore?.race ?? DEFAULT_RACE_SETTINGS)
     pendingPanelRestoreRef.current = restore ? { suppressed: restore.suppressed, wizardDone: restore.wizardDone } : null
     reset()

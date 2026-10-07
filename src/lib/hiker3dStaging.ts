@@ -30,12 +30,10 @@ export const HIKER3D_MAX_SCALE = 4.5
 /** Running : taille du coureur sur la carte (× la taille de marche d'origine), plus petit avec la caméra rapprochée.
  * Ne touche que les personnages (pas les noms de lieux ni les bornes, cf. --ground-scale). */
 export const HIKER3D_BODY_SCALE = 0.75
-/** Running : coureur choisi avant la lecture, présenté en grand PAR-DESSUS la carte (qui ne bouge pas), pieds sur le
- * bas du cadre : il occupe cette part de la hauteur de la carte (borné par HIKER3D_MAX_SCALE). Il reste ainsi pendant
- * le décompte, puis rapetisse jusqu'à sa taille de course au départ pendant que la carte zoome dessus. */
-export const HIKER3D_PRESENT_HEIGHT = 0.8
-/** Pieds à cette part de la hauteur de la carte, depuis le bas. */
-export const HIKER3D_PRESENT_FEET = 0.04
+/** Running : coureur présenté en grand au départ, même place dans l'aperçu (par-dessus la carte, avant la lecture et
+ * pendant le décompte) et dans le film (plan serré du départ) : corps = `body` de la hauteur de l'image, pieds en
+ * (`feetX`, `feetY`), en part de l'image — en bas à gauche. Il rejoint ensuite sa taille et sa place de course. */
+export const START_PRESENT = { body: 0.5, feetX: 0.12, feetY: 0.93 }
 
 /** Taille des personnages (1 = taille de marche) au zoom `zoom`, la marche se faisant au zoom `walkZoom`. */
 export function hiker3dScaleForZoom(zoom: number, walkZoom: number): number {
