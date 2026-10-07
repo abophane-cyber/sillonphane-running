@@ -37,7 +37,7 @@ import {
   lon2tileX, lat2tileY, tileX2lon, tileY2lat,
 } from './terrainSources'
 import { cancel3dPrefetch } from './prefetch3d'
-import { startTimeLine } from '../raceSplits'
+import { startClock } from '../raceSplits'
 import { drawStartTimePill } from '../startTimePill'
 
 const OUT_W = 1920
@@ -150,6 +150,8 @@ export interface FilmExport3dOptions {
   /** Heure de départ « HH:MM », écrite sous le nom du départ pendant l'ouverture (pause sur le départ). */
   startTime?:     string
   /** Heure prévue (« Départ prévu… ») plutôt que réelle d'un GPX horodaté (« Départ… »). */
+  /** Heure du premier point d'un GPX horodaté : secondes de l'horloge de départ. */
+  trackStart?:    Date
   startTimePlanned?: boolean
   /** Durée du survol lui-même (hors pauses intro/outro), en s. Défaut 35. */
   durationS?:     number
@@ -1907,7 +1909,7 @@ async function exportFilm3dImpl(
   composite.width = OUT_W; composite.height = OUT_H
   const ctx2d = composite.getContext('2d')!
   const drawProfile = buildProfileCardCanvas(trailPts, TOTAL_DISTANCE_M, minElev - 3.5)
-  const startTimeText = startTimeLine(opts.startTime, opts.startTimePlanned ?? true)
+  const startTimeText = startClock(opts.startTime, opts.startTimePlanned ?? true, opts.trackStart)
 
   const hasWC = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'
   let useWC = false
@@ -2100,7 +2102,7 @@ async function exportFilm3dImpl(
           : 0
         // Nom au sol centré sur le point : ligne sous le nom ; col (pancarte au-dessus du point) : juste sous le point.
         const isLabel = departurePanel?.center.y === 0.5
-        const fontPx = isLabel ? Math.max(20, Math.min(40, labelH * 0.27)) : 24
+        const fontPx = isLabel ? Math.max(24, Math.min(48, labelH * 0.34)) : 30
         drawStartTimePill(ctx2d, startTimeText, sx, sy + (isLabel ? labelH * 0.5 : 10), fontPx, timeA)
       }
     }

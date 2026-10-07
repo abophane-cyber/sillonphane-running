@@ -19,7 +19,7 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
-import { borneNumber, borneReached, borneTimeLine, startTimeLine, type Borne, type EndCard, type Ravito } from './raceSplits'
+import { borneNumber, borneReached, borneTimeLine, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -1252,7 +1252,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   let hkMergeWas = false                                // mise en file du second en cours à l'image précédente
   /** Taille des panneaux couchés au zoom affiché : celle des personnages (1 pendant la course). */
   const signScale = () => hiker3dScaleForZoom(exportMap.getZoom(), zoom)
-  const startTimeText = startTimeLine(opts.startTime, opts.startTimePlanned ?? true)
+  const startTimeText = startClock(opts.startTime, opts.startTimePlanned ?? true, opts.points[0]?.time)
   /** Écart (px, taille de marche) entre le nom du lieu de départ et le haut de la pastille d'heure en dessous. */
   const START_TIME_DY = 16
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
@@ -1274,7 +1274,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const ev = landmarks.length ? landmarks.reduce((a, b) => (d2(b) < d2(a) ? b : a)) : departureEvent!
       const pt = exportMap.project([ev.lon, ev.lat])
       const s = signScale()
-      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 16 * s, timeAlpha)
+      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 20 * s, timeAlpha)
     }
   }
   /** Bornes kilométriques (sous les panneaux de commune) : toujours au sol, sur le tracé. */

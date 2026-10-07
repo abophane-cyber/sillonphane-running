@@ -1,40 +1,40 @@
-// Heure de départ des films 2D et 3D : pastille arrondie (horloge + « Départ 9 h 00 ») sous le nom du lieu de départ.
+// Heure de départ des films 2D et 3D : horloge de course (cadre noir, « DÉPART » et chiffres jaunes « 09:00 »)
+// sous le nom du lieu de départ.
 
-/** Couleur de la pastille : l'orange du ruban, en attendant la couleur choisie pour l'épreuve. */
-export const START_PILL_COLOR = '#D97A3D'
-
-/** Dessine la pastille centrée en `cx`, son bord haut en `top` (px de l'image) ; `fontPx` : taille du texte. */
-export function drawStartTimePill(ctx: CanvasRenderingContext2D, text: string, cx: number, top: number, fontPx: number, alpha: number) {
+/** Dessine l'horloge centrée en `cx`, son bord haut en `top` (px de l'image) ; `fontPx` : taille des chiffres. */
+export function drawStartTimePill(
+  ctx: CanvasRenderingContext2D, start: { label: string; clock: string }, cx: number, top: number, fontPx: number, alpha: number,
+) {
   if (alpha <= 0) return
   ctx.save()
   ctx.globalAlpha = alpha
-  ctx.font = `700 ${Math.round(fontPx)}px Arial, Helvetica, sans-serif`
-  const r = fontPx * 0.42                       // rayon de l'horloge
-  const padL = fontPx * 0.55, padR = fontPx * 0.75, gap = fontPx * 0.4
-  const h = fontPx * 1.7
-  const w = padL + 2 * r + gap + ctx.measureText(text).width + padR
+  const labelFont = `700 ${Math.round(fontPx * 0.36)}px Arial, Helvetica, sans-serif`
+  const clockFont = `700 ${Math.round(fontPx)}px "Courier New", Courier, monospace`
+  const track = fontPx * 0.07                   // espacement des lettres du libellé
+  const padX = fontPx * 0.4, gap = fontPx * 0.35
+  ctx.font = labelFont
+  const labelW = ctx.measureText(start.label).width + track * (start.label.length - 1)
+  ctx.font = clockFont
+  const clockW = ctx.measureText(start.clock).width
+  const w = padX + labelW + gap + clockW + padX
+  const h = fontPx * 1.3
   const x = cx - w / 2, cy = top + h / 2
-  const border = Math.max(2, fontPx * 0.11)
 
-  // Fond : pilule de couleur, liseré blanc, ombre légère pour la détacher du satellite.
+  // Cadre : fond noir, bord gris, ombre légère pour le détacher du satellite.
   ctx.beginPath()
-  ctx.roundRect(x, top, w, h, h / 2)
+  ctx.roundRect(x, top, w, h, fontPx * 0.13)
   ctx.shadowColor = 'rgba(0,0,0,0.45)'; ctx.shadowBlur = fontPx * 0.4; ctx.shadowOffsetY = fontPx * 0.08
-  ctx.fillStyle = START_PILL_COLOR
+  ctx.fillStyle = '#111'
   ctx.fill()
   ctx.shadowColor = 'transparent'
-  ctx.lineWidth = border; ctx.strokeStyle = '#fff'
+  ctx.lineWidth = Math.max(2, fontPx * 0.07); ctx.strokeStyle = '#444'
   ctx.stroke()
 
-  // Horloge : cercle et aiguilles (9 h).
-  const ix = x + padL + r
-  ctx.lineWidth = Math.max(1.5, fontPx * 0.09); ctx.lineCap = 'round'
-  ctx.beginPath(); ctx.arc(ix, cy, r, 0, Math.PI * 2); ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(ix, cy - r * 0.6); ctx.lineTo(ix, cy); ctx.lineTo(ix - r * 0.45, cy)
-  ctx.stroke()
-
-  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
-  ctx.fillText(text, ix + r + gap, cy + fontPx * 0.04)
+  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
+  ctx.font = labelFont; ctx.fillStyle = '#bbb'
+  let lx = x + padX
+  for (const ch of start.label) { ctx.fillText(ch, lx, cy); lx += ctx.measureText(ch).width + track }
+  ctx.font = clockFont; ctx.fillStyle = '#ffd23f'
+  ctx.fillText(start.clock, x + padX + labelW + gap, cy + fontPx * 0.04)
   ctx.restore()
 }

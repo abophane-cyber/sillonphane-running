@@ -129,12 +129,17 @@ export function formatClock(d: Date): string {
   return `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/** Texte de la pastille d'heure de départ des films : « Départ prévu 9 h 00 » (heure saisie, temps prévus) ou
- * « Départ 9 h 00 » (GPX horodaté). Sans heure « HH:MM » valide : null. */
-export function startTimeLine(hhmm: string | undefined, planned: boolean): string | null {
+/** Horloge de départ des films : libellé « DÉPART PRÉVU » (heure saisie, temps prévus) ou « DÉPART » (GPX horodaté)
+ * et heure « 09:00 », avec les secondes « 09:00:00 » seulement si le tracé est horodaté (`trackStart`, premier point)
+ * et que l'heure saisie est bien la sienne. Sans heure « HH:MM » valide : null. */
+export function startClock(hhmm: string | undefined, planned: boolean, trackStart?: Date): { label: string; clock: string } | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm ?? '')
   if (!m) return null
-  return `${planned ? 'Départ prévu' : 'Départ'} ${Number(m[1])} h ${m[2]}`
+  const pad = (n: number) => String(n).padStart(2, '0')
+  let clock = `${pad(Number(m[1]))}:${m[2]}`
+  if (!planned && trackStart && trackStart.getHours() === Number(m[1]) && trackStart.getMinutes() === Number(m[2]))
+    clock += `:${pad(trackStart.getSeconds())}`
+  return { label: planned ? 'DÉPART PRÉVU' : 'DÉPART', clock }
 }
 
 function pointAtM(points: GpxPoint[], distances: number[], m: number) {

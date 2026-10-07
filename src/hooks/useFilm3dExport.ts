@@ -115,6 +115,7 @@ export function useFilm3dExport() {
         weatherCard: ctx.weather,
         startTime: ctx.departureTime || undefined,
         startTimePlanned: ctx.startTimePlanned,
+        trackStart: ctx.activeTrack.startTime,
         durationS,
         fps: 30,
         onProgress: p => {
