@@ -155,7 +155,7 @@ export function AnimateScreen({
   const wizardInProgress = wizardStep > 0 && !wizardDone
   // Zoom de la carte : échelle des incrustations (FilmOverlayPreview).
   const [mapZoom, setMapZoom] = useState<number | null>(null)
-  // Noms de rue affichés (rues d'au moins 500 m, places), comme dans les films.
+  // Noms de rue affichés (rues d'au moins 400 m, places), comme dans les films.
   const captionStreetList = useMemo(() => captionStreets(race.streets), [race.streets])
 
   // Lire l'aperçu n'est pas nécessaire pour créer un film : un personnage (ou le ruban seul) choisi suffit.

@@ -84,7 +84,7 @@ export function PanelWizard({
   const [allStreets, setAllStreets] = useState(false) // petites rues affichées aussi
   const chosenStreets = race.streets ?? []
   // Une ligne par nom (une rue empruntée plusieurs fois, ex. sur une boucle, n'apparaît qu'une fois) : cocher la
-  // rue choisit toutes ses portions. Liste : rues d'au moins 500 m et places (isMainStreet), les petites sur demande.
+  // rue choisit toutes ses portions. Liste : rues d'au moins 400 m et places (isMainStreet), les petites sur demande.
   const byName = new Map<string, StreetRun[]>()
   for (const r of [...(streetList ?? []), ...chosenStreets.filter(c => !(streetList ?? []).some(s => s.name === c.name))])
     byName.set(r.name, [...(byName.get(r.name) ?? []), r])
@@ -116,7 +116,7 @@ export function PanelWizard({
     fetchRouteStreets(points, distances)
       .then(list => {
         setStreetList(list); setStreetState('idle')
-        // Première recherche : rues d'au moins 500 m et places cochées d'office (leurs noms s'affichent dans le film).
+        // Première recherche : rues d'au moins 400 m et places cochées d'office (leurs noms s'affichent dans le film).
         if (!chosenStreets.length) {
           const runsOf = (name: string) => list.filter(r => r.name === name)
           const main = new Set(list.map(r => r.name).filter(n => isMainStreet(runsOf(n))))
