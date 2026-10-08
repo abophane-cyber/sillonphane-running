@@ -318,11 +318,12 @@ function panelTexture(name: string, style: 'lieudit' | 'col' | 'standard' | 'poi
 /** Résolution du canvas des noms au sol (px canvas par px « logique » 2D). */
 const GROUND_LABEL_RES = 6
 
-function groundLabelTexture(name: string, style: 'standard' | 'lieudit' | 'poi'): THREE.CanvasTexture {
-  // Même écriture que l'aperçu et le film 2D (mapLabels.ts) : sans-serif, léger halo, pictogramme des POI.
-  const tex = new THREE.CanvasTexture(renderGroundLabel(name, style, GROUND_LABEL_RES).canvas)
+function groundLabelTexture(name: string, style: 'standard' | 'lieudit' | 'poi'): { tex: THREE.CanvasTexture; ax: number; ay: number; w: number; h: number } {
+  // Même écriture que l'aperçu et le film 2D (mapLabels.ts) : villes en vert, POI en bulle blanche à pictogramme.
+  const l = renderGroundLabel(name, style, GROUND_LABEL_RES)
+  const tex = new THREE.CanvasTexture(l.canvas)
   tex.colorSpace = THREE.SRGBColorSpace
-  return tex
+  return { tex, ax: l.ax, ay: l.ay, w: l.w, h: l.h }
 }
 
 // ─── Courbes du tracé (port de main.ts) ─────────────────────────────────────────────────────
@@ -1375,18 +1376,27 @@ async function exportFilm3dImpl(
   const GROUND_LABEL_WORLD_PER_PX = 1.7
   /** Nom de lieu comme en 2D : écrit À PLAT sur la carte (plan couché, centré sur le point), orienté une fois pour toutes
    * dans le sens de la course (`t` : position sur le tracé), à taille fixe pendant le survol — il ne pivote ni ne
-   * change de taille avec la caméra (sinon flou et mal des transports). Les cols gardent leur pancarte debout. */
+   * change de taille avec la caméra (sinon flou et mal des transports). Les cols gardent leur pancarte debout. Les
+   * POI, eux, flottent : étiquette toujours horizontale à l'écran, le bout de son trait vertical posé sur le lieu. */
   type Label = THREE.Sprite | THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
   const _labTan = new THREE.Vector3()
   function makeLocSprite(name: string, style: 'lieudit' | 'col' | 'standard' | 'poi', anchor: THREE.Vector3, t: number, ele?: number, colWidth = 340): Label {
     const isCol = style === 'col'
-    const tex = isCol ? panelTexture(name, style, ele) : groundLabelTexture(name, style)
+    const lab = isCol ? null : groundLabelTexture(name, style)
+    const tex = lab ? lab.tex : panelTexture(name, style, ele)
     renderer.initTexture(tex)
     let label: Label
     if (isCol) {
       const sprite = makePanelSprite(tex)
       sizeSpriteFromTexture(sprite, tex, colWidth)
       sprite.center.set(0.5, 0)
+      label = sprite
+    } else if (style === 'poi' && lab) {
+      const sprite = makePanelSprite(tex)
+      const k = GROUND_LABEL_WORLD_PER_PX
+      sprite.scale.set(lab.w * k, lab.h * k, 1)
+      sprite.center.set(lab.ax / lab.w, 1 - lab.ay / lab.h)
+      sprite.userData.poi = true
       label = sprite
     } else {
       const img = tex.image as HTMLCanvasElement
@@ -1426,18 +1436,28 @@ async function exportFilm3dImpl(
   const PANEL_MIN_ANGULAR = 0.165
   const LABEL_MIN_ANGULAR_H = 0.055
   const LABEL_TILT_K = 1.5
+  /** Hauteur apparente des étiquettes de POI (bulle + trait), en part de la distance caméra : ≈ leur taille du film 2D
+   * en 1080p (champ vertical de 55° : l'image couvre 1,04 × la distance). */
+  const POI_ANGULAR_H = 0.08
   const panelBaseScales = [
     ...panelSprites.map(p => p.sprite),
     ...[departurePanel, arrivalPanel].filter((s): s is Label => s != null),
   ].map(sprite => {
     const isLabel = sprite instanceof THREE.Mesh
-    return { sprite, w: sprite.scale.x, h: isLabel ? sprite.scale.z : sprite.scale.y, isLabel, fixedK: 0 }
+    const isPoi = sprite.userData.poi === true
+    return { sprite, w: sprite.scale.x, h: isLabel ? sprite.scale.z : sprite.scale.y, isLabel, isPoi, fixedK: 0 }
   })
   function enforcePanelMinSize(camPos: THREE.Vector3, overview: boolean): void {
     for (const rec of panelBaseScales) {
-      const { sprite, w, h, isLabel } = rec
+      const { sprite, w, h, isLabel, isPoi } = rec
       if (!sprite.visible) continue
       const d = sprite.position.distanceTo(camPos)
+      if (isPoi) {
+        // POI : taille constante à l'écran (étiquette flottante, toujours face à la caméra).
+        const k = (d * POI_ANGULAR_H) / h
+        sprite.scale.set(w * k, h * k, 1)
+        continue
+      }
       if (isLabel) {
         if (!rec.fixedK || overview) rec.fixedK = Math.max(rec.fixedK || 1, (d * LABEL_MIN_ANGULAR_H * LABEL_TILT_K) / h)
         sprite.scale.set(w * rec.fixedK, 1, h * rec.fixedK)

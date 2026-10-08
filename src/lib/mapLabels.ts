@@ -1,25 +1,39 @@
-// Écritures cartographiques communes à l'aperçu (TrackMap), au film 2D (filmExport) et au film 3D (filmExport3d) :
-// noms de lieux écrits au sol (localité, lieu-dit, point d'intérêt avec pictogramme) et noms de rue inscrits le long
-// du parcours. Style « cartographie sportive » : sans-serif, blanc cassé, léger halo sombre, pas de gros contour ;
-// hiérarchie boulevards (capitales) > rues (casse normale, plus discrètes) ; le parcours reste au-dessus de tout.
+// Écritures cartographiques communes à l'aperçu (TrackMap), au film 2D (filmExport) et au film 3D (filmExport3d).
+// Quatre familles, quatre traitements distincts :
+// - VILLE (localité, lieu-dit) = label territorial : vert de la signature du ruban, gras, petit point de position ;
+// - POI = label flottant : blanc pur, gras, plus grand, pictogramme dans un cercle, petite bulle sombre et trait
+//   vertical qui pointe vers le lieu ; toujours horizontal à l'écran ;
+// - RUE = label cartographique : petit, léger, gris clair, légèrement transparent, sans icône ni bulle, imprimé le
+//   long de la rue ;
+// - PARCOURS = ruban signature (ribbon.ts), au-dessus de tout.
 
 export type GroundLabelStyle = 'standard' | 'lieudit' | 'poi'
 
 export const LABEL_FONT = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
 
-const GROUND: Record<GroundLabelStyle, { weight: string; italic: boolean; size: number; fill: string }> = {
-  standard: { weight: '700', italic: false, size: 22, fill: '#ffffff' },
-  lieudit:  { weight: '600', italic: true,  size: 18, fill: '#f1f1ec' },
-  poi:      { weight: '600', italic: false, size: 21, fill: '#ffffff' },
+/** Vert des villes : le vert de la signature du ruban (ribbon.ts, #2f5c45), éclairci pour rester lisible sur le fond
+ * satellite sombre. */
+export const CITY_GREEN = '#7fcf9c'
+/** Vert du ruban lui-même : point de position des villes. */
+const RIBBON_GREEN = '#2f5c45'
+
+const GROUND: Record<GroundLabelStyle, { weight: string; italic: boolean; size: number; fill: string; caps: boolean; spacing: number }> = {
+  standard: { weight: '800', italic: false, size: 19, fill: CITY_GREEN, caps: true,  spacing: 0.08 },
+  lieudit:  { weight: '700', italic: true,  size: 16, fill: CITY_GREEN, caps: false, spacing: 0.02 },
+  poi:      { weight: '800', italic: false, size: 21, fill: '#ffffff',  caps: true,  spacing: 0.04 },
 }
 const POI_ICON = 26
-const POI_GAP = 7
+const POI_GAP = 8
+/** Bulle du POI : marge intérieure, rayon ; trait vertical sous la bulle jusqu'au lieu. */
+const POI_PAD_X = 6, POI_PAD_Y = 5, POI_STEM = 22
+/** Point de position des villes, à gauche du nom. */
+const CITY_DOT = 7, CITY_DOT_GAP = 7
 
 /** Pictogramme des points d'intérêt : disque sombre cerclé de blanc, petit monument blanc (fronton, colonnes). */
 export function drawPoiPictogram(ctx: CanvasRenderingContext2D, cx: number, cy: number, d: number) {
   const r = d / 2, u = d / 26
   ctx.save()
-  ctx.fillStyle = 'rgba(18,22,20,0.82)'
+  ctx.fillStyle = 'rgba(18,22,20,0.9)'
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill()
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6 * u; ctx.stroke()
   ctx.fillStyle = '#fff'
@@ -29,35 +43,81 @@ export function drawPoiPictogram(ctx: CanvasRenderingContext2D, cx: number, cy: 
   ctx.restore()
 }
 
-/** Nom de lieu écrit au sol, dans un canvas à la résolution `res` (px de canvas par px logique). Taille logique `w` × `h` ;
- * ancre (`ax`, `ay`, px logiques) = centre du nom, ou le pictogramme d'un POI (posé sur le point, nom à sa droite). */
+/** Texte des noms de lieux selon le style (villes et POI en capitales). */
+export function groundLabelText(name: string, style: GroundLabelStyle): string {
+  return GROUND[style].caps ? name.toLocaleUpperCase('fr-FR') : name
+}
+
+/** Nom de lieu, dans un canvas à la résolution `res` (px de canvas par px logique). Taille logique `w` × `h` ;
+ * ancre (`ax`, `ay`, px logiques) = le point du lieu : centre du nom (villes), bas du trait vertical (POI). */
 export function renderGroundLabel(name: string, style: GroundLabelStyle, res: number): { canvas: HTMLCanvasElement; w: number; h: number; ax: number; ay: number } {
   const g = GROUND[style]
-  const font = (px: number) => `${g.italic ? 'italic ' : ''}${g.weight} ${px}px ${LABEL_FONT}`
+  const text = groundLabelText(name, style)
+  const font = `${g.italic ? 'italic ' : ''}${g.weight} ${g.size}px ${LABEL_FONT}`
+  const spacing = g.spacing * g.size
   const HALO = 3, MARGIN = 7
-  const icon = style === 'poi' ? POI_ICON + POI_GAP : 0
+  const isPoi = style === 'poi'
+  const isCity = style === 'standard'
   const m = document.createElement('canvas').getContext('2d')!
-  m.font = font(g.size)
-  const textW = m.measureText(name).width
-  const w = Math.ceil(icon + textW + (HALO + MARGIN) * 2)
-  const h = Math.ceil(Math.max(g.size * 1.3, style === 'poi' ? POI_ICON : 0) + (HALO + MARGIN) * 2)
+  m.font = font
+  const chars = [...text]
+  const textW = chars.reduce((a, ch) => a + m.measureText(ch).width + spacing, 0) - spacing
+  const lead = isPoi ? POI_ICON + POI_GAP : isCity ? CITY_DOT + CITY_DOT_GAP : 0
+  const bubbleW = lead + textW + (isPoi ? POI_PAD_X * 2 : 0)
+  const bubbleH = Math.max(g.size * 1.3, isPoi ? POI_ICON : 0) + (isPoi ? POI_PAD_Y * 2 : 0)
+  const w = Math.ceil(bubbleW + (HALO + MARGIN) * 2)
+  const h = Math.ceil(bubbleH + (HALO + MARGIN) * 2 + (isPoi ? POI_STEM : 0))
   const canvas = document.createElement('canvas')
   canvas.width = Math.ceil(w * res); canvas.height = Math.ceil(h * res)
   const ctx = canvas.getContext('2d')!
   ctx.scale(res, res)
-  const cy = h / 2
-  if (style === 'poi') drawPoiPictogram(ctx, HALO + MARGIN + POI_ICON / 2, cy, POI_ICON)
-  const tx = HALO + MARGIN + icon
-  ctx.font = font(g.size)
+  const bx = HALO + MARGIN, by = HALO + MARGIN
+  const cy = by + bubbleH / 2
+  let tx = bx
+  if (isPoi) {
+    // Trait vertical de la bulle jusqu'au lieu, terminé par un petit point.
+    const sx = w / 2, sy0 = by + bubbleH, sy1 = sy0 + POI_STEM
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 3
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6
+    ctx.beginPath(); ctx.moveTo(sx, sy0); ctx.lineTo(sx, sy1 - 2); ctx.stroke()
+    ctx.fillStyle = '#fff'
+    ctx.beginPath(); ctx.arc(sx, sy1 - 2, 2.4, 0, Math.PI * 2); ctx.fill()
+    // Bulle sombre, discrète : le POI est un objet graphique posé au-dessus de la carte.
+    ctx.fillStyle = 'rgba(14,17,15,0.62)'
+    ctx.beginPath(); ctx.roundRect(bx, by, bubbleW, bubbleH, bubbleH / 2); ctx.fill()
+    ctx.restore()
+    drawPoiPictogram(ctx, bx + POI_PAD_X + POI_ICON / 2 - 2, cy, POI_ICON)
+    tx = bx + POI_PAD_X + POI_ICON + POI_GAP - 2
+  } else if (isCity) {
+    // Point de position : vert du ruban cerclé de vert clair, léger halo.
+    const dx = bx + CITY_DOT / 2
+    ctx.save()
+    ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
+    ctx.fillStyle = RIBBON_GREEN
+    ctx.beginPath(); ctx.arc(dx, cy, CITY_DOT / 2, 0, Math.PI * 2); ctx.fill()
+    ctx.restore()
+    ctx.strokeStyle = CITY_GREEN; ctx.lineWidth = 1.6
+    ctx.beginPath(); ctx.arc(dx, cy, CITY_DOT / 2, 0, Math.PI * 2); ctx.stroke()
+    tx = bx + CITY_DOT + CITY_DOT_GAP
+  }
+  ctx.font = font
   ctx.textAlign = 'left'; ctx.textBaseline = 'middle'
   ctx.lineJoin = 'round'
-  ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 4
-  ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = HALO
-  ctx.strokeText(name, tx, cy)
-  ctx.shadowColor = 'transparent'
+  const each = (fn: (ch: string, x: number) => void) => {
+    let x = tx
+    for (const ch of chars) { fn(ch, x); x += ctx.measureText(ch).width + spacing }
+  }
+  if (!isPoi) {
+    // Villes : halo sombre (le POI a sa bulle).
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = HALO
+    each((ch, x) => ctx.strokeText(ch, x, cy))
+    ctx.shadowColor = 'transparent'
+  }
   ctx.fillStyle = g.fill
-  ctx.fillText(name, tx, cy)
-  return { canvas, w, h, ax: style === 'poi' ? HALO + MARGIN + POI_ICON / 2 : w / 2, ay: cy }
+  each((ch, x) => ctx.fillText(ch, x, cy))
+  return { canvas, w, h, ax: w / 2, ay: isPoi ? by + bubbleH + POI_STEM - 2 : cy }
 }
 
 // ── Noms de rue le long du parcours ──────────────────────────────────────────────────────────────────────────────
@@ -146,18 +206,19 @@ export function drawStreetAlongPath(
   // Le nom doit tenir sur la portion de rue visible (sinon ses lettres s'empilaient aux extrémités) : taille réduite
   // jusqu'à 70 %, au-delà on ne l'écrit pas.
   const chars = [...label.text]
-  const base = 15 * k
+  // Rue = écriture cartographique : petite, légère, gris clair, légèrement transparente, sans icône ni bulle.
+  const base = 12.5 * k
   let size = base, spacing = 0, widths: number[] = [], textW = 0
   ctx.save()
   for (; size >= base * 0.7; size -= 0.5 * k) {
-    spacing = (label.major ? 0.06 : 0.02) * size
-    ctx.font = `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
+    spacing = (label.major ? 0.1 : 0.03) * size
+    ctx.font = `${label.major ? 600 : 500} ${size}px ${LABEL_FONT}`
     widths = chars.map(ch => ctx.measureText(ch).width + spacing)
     textW = widths.reduce((a, b) => a + b, 0) - spacing
     if (textW <= total * 0.92) break
   }
   if (textW > total * 0.92) { ctx.restore(); return }
-  ctx.globalAlpha = alpha * (label.major ? 0.95 : 0.75)
+  ctx.globalAlpha = alpha * (label.major ? 0.8 : 0.66)
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
   let s = (total - textW) / 2
   for (let i = 0; i < chars.length; i++) {
@@ -168,11 +229,11 @@ export function drawStreetAlongPath(
     ctx.save()
     ctx.translate(p.x + nx * offset * k, p.y + ny * offset * k)
     ctx.rotate(ang)
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 3 * k
-    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 2.5 * k
+    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 2.5 * k
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2 * k
     ctx.strokeText(chars[i], 0, 0)
     ctx.shadowColor = 'transparent'
-    ctx.fillStyle = '#f4f1ea'
+    ctx.fillStyle = '#dcdcd6'
     ctx.fillText(chars[i], 0, 0)
     ctx.restore()
     s += widths[i]

@@ -711,33 +711,50 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   letter-spacing: 0.04em;
 }
 
-/* Running : noms de lieux écrits à même la carte (localité, lieu-dit, point d'intérêt) — grandes lettres blanches
-   cernées de sombre, sans pancarte, comme le film 2D (buildGroundLabelSprite). Cols et bornes gardent leur pancarte. */
+/* Running : noms de lieux, comme les films (mapLabels.ts). Ville = label territorial (vert du ruban, gras, capitales,
+   point de position) ; POI = label flottant (blanc, gras, bulle sombre, pictogramme, trait vers le lieu). Cols et
+   bornes gardent leur pancarte. */
 .loc-sign:not(.loc-sign--col):not(.loc-sign--borne) { filter: drop-shadow(0 1px 2px rgba(0,0,0,0.35)); }
 .loc-sign:not(.loc-sign--col):not(.loc-sign--borne) .loc-sign__board {
   background: none;
   border: none;
   box-shadow: none;
   padding: 2px 6px;
-  color: #fff;
+  color: #7fcf9c; /* CITY_GREEN (mapLabels.ts) */
   font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-  font-size: 22px;
-  font-weight: 700;
+  font-size: 19px;
+  font-weight: 800;
   font-style: normal;
-  letter-spacing: 0;
-  text-transform: none;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   /* Léger halo sombre, comme les films (mapLabels.ts) : pas de gros contour. */
   -webkit-text-stroke: 3px rgba(0,0,0,0.6);
   paint-order: stroke fill;
   text-shadow: 0 0 4px rgba(0,0,0,0.55);
 }
-.loc-sign--lieudit .loc-sign__board { font-size: 18px !important; font-weight: 600 !important; font-style: italic !important; color: #f1f1ec !important; }
-/* Point d'intérêt : sans-serif blanc, pictogramme (monument blanc sur disque sombre) à gauche. */
+/* Ville : point de position (vert du ruban cerclé de vert clair) à gauche du nom. */
+.loc-sign:not(.loc-sign--col):not(.loc-sign--borne):not(.loc-sign--poi):not(.loc-sign--ravito):not(.loc-sign--lieudit) .loc-sign__board::before {
+  content: ''; display: inline-block; width: 7px; height: 7px; margin: 0 7px 2px 0; vertical-align: middle;
+  border-radius: 50%; background: #2f5c45; box-shadow: 0 0 0 1.6px #7fcf9c, 0 0 4px rgba(0,0,0,0.7);
+}
+.loc-sign--lieudit .loc-sign__board { font-size: 16px !important; font-style: italic !important; letter-spacing: 0.02em !important; text-transform: none !important; }
+/* Point d'intérêt : blanc pur, gras, capitales, dans une bulle sombre avec pictogramme ; trait vertical (le poteau)
+   jusqu'au lieu, dont le bas est posé sur le point. */
+.loc-sign.loc-sign--poi { transform: scale(var(--ground-scale, 1)); transform-origin: bottom center; }
 .loc-sign--poi .loc-sign__board {
-  font-size: 21px !important; font-weight: 600 !important; position: relative; padding-left: 39px !important;
+  color: #fff !important; font-size: 21px !important; letter-spacing: 0.04em !important;
+  position: relative; padding: 5px 12px 5px 40px !important; border-radius: 999px !important;
+  background: rgba(14,17,15,0.62) !important; -webkit-text-stroke: 0 !important; text-shadow: none !important;
+}
+.loc-sign--poi .loc-sign__pole {
+  display: block !important; position: relative; width: 1.6px; height: 20px; background: #fff; border-radius: 0;
+  box-shadow: 0 0 3px rgba(0,0,0,0.6);
+}
+.loc-sign--poi .loc-sign__pole::after {
+  content: ''; position: absolute; left: -1.7px; bottom: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: #fff;
 }
 .loc-sign--poi .loc-sign__board::before {
-  content: ''; position: absolute; left: 6px; top: 50%; width: 26px; height: 26px; margin-top: -13px;
+  content: ''; position: absolute; left: 4px; top: 50%; width: 26px; height: 26px; margin-top: -13px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Ccircle cx='13' cy='13' r='12' fill='%23121614' fill-opacity='.82' stroke='%23fff' stroke-width='1.6'/%3E%3Cpath d='M6 10 13 5 20 10Z' fill='%23fff'/%3E%3Cpath d='M8 11h3v7H8zM11.5 11h3v7h-3zM15 11h3v7h-3zM6 18.5h14v2H6z' fill='%23fff'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 /* Ravitaillement : pastille bleue à goutte, nom blanc cerné de bleu. */
@@ -745,6 +762,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .loc-sign.loc-sign--ravito { transform: translate(calc(50% + 13px), 50%) scale(max(var(--ground-scale, 1), 1)); transform-origin: left center; }
 .loc-sign--ravito .loc-sign__board {
   font-size: 18px !important; -webkit-text-stroke-color: #0a3d6b !important; position: relative;
+  color: #fff !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: none !important;
 }
 .loc-sign--ravito .loc-sign__board::before {
   content: ''; position: absolute; left: -26px; top: 50%; width: 26px; height: 26px; margin-top: -13px;
