@@ -315,6 +315,13 @@ export function drawElevOverlay(
   ctx.strokeStyle = '#3ad15a'; ctx.lineWidth = 3.5; ctx.stroke()
   drawFinishDot(ctx, toX(1), toY(endEle), 8)
 
+  // Avancée sur le parcours : point blanc cerclé de vert foncé, sur le profil.
+  if (p > 0.004 && p < 0.996) {
+    ctx.beginPath(); ctx.arc(toX(p), toY(sampled[k]?.ele ?? minEle), 7, 0, Math.PI * 2)
+    ctx.fillStyle = '#fff'; ctx.fill()
+    ctx.strokeStyle = '#1f7a35'; ctx.lineWidth = 3; ctx.stroke()
+  }
+
   ctx.font = `italic bold 15px ${SANS}`; ctx.fillStyle = '#fff'
   ctx.letterSpacing = '1px'
   ctx.textAlign = 'left'; ctx.fillText('DÉPART', gX - 8, PH - 12)
