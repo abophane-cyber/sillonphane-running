@@ -18,6 +18,7 @@ import type { EventCartouche } from '../lib/filmExport'
 import type { useAnimation } from '../hooks/useAnimation'
 import type { useLocalityPanels } from '../hooks/useLocalityPanels'
 import type { useLocality, useColMarkers } from '../hooks/useLocality'
+import { captionStreets } from '../lib/routeStreets'
 
 type AnimationState = ReturnType<typeof useAnimation>['state']
 type LocalityPanels = ReturnType<typeof useLocalityPanels>
@@ -154,6 +155,8 @@ export function AnimateScreen({
   const wizardInProgress = wizardStep > 0 && !wizardDone
   // Zoom de la carte : échelle des incrustations (FilmOverlayPreview).
   const [mapZoom, setMapZoom] = useState<number | null>(null)
+  // Noms de rue affichés (rues d'au moins 500 m, places), comme dans les films.
+  const captionStreetList = useMemo(() => captionStreets(race.streets), [race.streets])
 
   // Lire l'aperçu n'est pas nécessaire pour créer un film : un personnage (ou le ruban seul) choisi suffit.
   const choiceMade = characters.length > 0 || ribbonOnly
@@ -203,7 +206,7 @@ export function AnimateScreen({
           customLocalities={customLocalities}
           bornes={bornes}
           ravitos={ravitos}
-          streets={race.streets}
+          streets={captionStreetList}
           bibNumber={race.bibNumber}
           onRemoveCustomLocality={handleRemoveCustomLocality}
           onMoveCustomLocality={handleMoveCustomLocality}

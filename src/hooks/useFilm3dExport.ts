@@ -10,6 +10,7 @@ import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 import { ESSAI_FILM_S, essaiPortion, isEssaiFilm } from '../lib/filmEssai'
+import { captionStreets } from '../lib/routeStreets'
 
 export interface CreateFilm3dContext {
   activeTrack: GpxTrack
@@ -158,7 +159,7 @@ export function useFilm3dExport() {
           const km = parseFloat((ctx.endCard?.distance ?? '').replace(',', '.'))
           return km > 0 ? km * 1000 : undefined
         })(),
-        streets: ctx.streets?.filter(s => inCut(s.startM))
+        streets: captionStreets(ctx.streets).filter(s => inCut(s.startM))
           .map(s => ({ name: s.name, from: s.startM / trackM, to: Math.min(1, s.endM / trackM) })),
         durationS,
         essai,

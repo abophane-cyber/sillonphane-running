@@ -5,23 +5,29 @@
 export const STREET_CAPTION_Y = 110
 const FADE_S = 0.4
 
-/** Portion de rue en part du parcours (0 = départ, 1 = arrivée). */
-export interface StreetSpan { name: string; from: number; to: number }
+/** Portion de rue en part du parcours (0 = départ, 1 = arrivée) ; `minS` : durée d'affichage minimale (s, places). */
+export interface StreetSpan { name: string; from: number; to: number; minS?: number }
 
 /** Nom affiché, avec fondu : `update` chaque image avec la position de la coureuse (part du parcours), puis `draw`. */
 export class StreetCaption {
   private shown: string | null = null
+  private shownMinS = 0
+  private heldS = 0
   private alpha = 0
   private spans: StreetSpan[]
   constructor(spans: StreetSpan[]) { this.spans = spans }
 
   update(pos: number | null, dt: number) {
-    const active = pos == null ? null : this.spans.find(s => pos >= s.from && pos <= s.to)?.name ?? null
+    const span = pos == null ? undefined : this.spans.find(s => pos >= s.from && pos <= s.to)
+    let active = span?.name ?? null
+    if (this.shown) this.heldS += dt
+    // Nom tenu sa durée minimale (place traversée en un instant), même une fois la portion dépassée.
+    if (active !== this.shown && this.shown && this.heldS < this.shownMinS) active = this.shown
     if (active === this.shown) this.alpha = Math.min(1, this.alpha + dt / FADE_S)
     else {
       // Autre rue (ou plus de rue) : le nom affiché s'efface d'abord, puis le suivant apparaît.
       this.alpha = Math.max(0, this.alpha - dt / FADE_S)
-      if (this.alpha === 0) this.shown = active
+      if (this.alpha === 0) { this.shown = active; this.shownMinS = span?.minS ?? 0; this.heldS = 0 }
     }
   }
 

@@ -141,3 +141,15 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
   }
   return merged
 }
+
+/** Noms de rue affichés dans les films et l'aperçu : rues d'au moins CAPTION_MIN_M empruntés (lisibles assez
+ * longtemps), et places quelle que soit leur longueur (tenues PLACE_HOLD_S à l'écran, cf. StreetCaption). */
+export const CAPTION_MIN_M = 500
+export const PLACE_HOLD_S = 1.5
+/** Place (« PL DU GENERAL DE GAULLE » au format IGN, ou « Place … »). */
+export function isPlaceName(name: string): boolean {
+  return /^(PL|PLACE)\s/i.test(name.trim())
+}
+export function captionStreets(runs: StreetRun[] | undefined): StreetRun[] {
+  return (runs ?? []).filter(r => r.endM - r.startM >= CAPTION_MIN_M || isPlaceName(r.name))
+}
