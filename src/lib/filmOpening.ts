@@ -60,9 +60,11 @@ export function buildOpeningEvent(o: {
  * hors champ (derrière la caméra). */
 export interface OpeningPt { x: number; y: number; f: number; ok?: boolean }
 /** Lieu à l'écran : point d'intérêt (`type` 'poi' ou absent) ou quartier / commune (`type` 'district'). */
-export interface OpeningPoi { x: number; y: number; name: string; type?: string; ok?: boolean }
+export interface OpeningPoi { x: number; y: number; name: string; type?: string; icon?: string; ok?: boolean }
+/** Cours d'eau nommé, en points à l'écran le long de son tracé. */
+export interface OpeningWater { name: string; pts: { x: number; y: number }[] }
 /** Ce que chaque film calcule avec sa caméra, image par image : parcours et lieux à l'écran. */
-export interface OpeningFrame { ribbon: OpeningPt[]; pois: OpeningPoi[] }
+export interface OpeningFrame { ribbon: OpeningPt[]; pois: OpeningPoi[]; waters?: OpeningWater[] }
 
 // ─── Réglages ────────────────────────────────────────────────────────────────
 
@@ -74,7 +76,7 @@ const CREAM: [number, number, number] = [0xf6, 0xef, 0xe2]
  * jusqu'à `orangeTo`, puis orange → crème jusqu'à l'arrivée. Une seule fois sur tout le parcours. */
 export const RIBBON_STOPS = { orangeFrom: 0.45, orangeTo: 0.7 }
 /** Ruban : largeur du trait, largeur et opacité du léger halo (en px pour une image de 1080 px de haut). */
-export const RIBBON_STYLE = { width: 13, glowWidth: 22, glowBlur: 6, glowAlpha: 0.38 }
+export const RIBBON_STYLE = { width: 13, glowWidth: 18, glowBlur: 5, glowAlpha: 0.14 }
 
 /** Durées de l'ouverture (s) : la carte apparaît avec le ruban déjà en place, le titre entre d'un seul fondu, plan
  * tenu (lent rapprochement), puis passage à la première scène (« plongée ») ; titre, lieux et ruban s'effacent. */
@@ -256,10 +258,10 @@ export function drawRouteRibbon(ctx: CanvasRenderingContext2D, w: number, h: num
   ctx.globalAlpha = alpha * RIBBON_STYLE.glowAlpha
   ctx.drawImage(glowCanvas, 0, 0, w, h)
   ctx.globalAlpha = alpha
-  ctx.strokeStyle = 'rgba(200,110,40,0.55)'
+  ctx.strokeStyle = 'rgba(176,64,24,0.6)'
   strokePlain((RIBBON_STYLE.width + 3) * k)
   strokeRibbon(ctx, RIBBON_STYLE.width * k)
-  ctx.globalAlpha = alpha * 0.35
+  ctx.globalAlpha = alpha * 0.18
   ctx.strokeStyle = '#fffaf0'
   strokePlain(2 * k)
   ctx.restore()
@@ -280,11 +282,47 @@ function poiLines(name: string): string[] {
   return best
 }
 
+/** Pictogramme d'un point d'intérêt, blanc, dans un carré de `s` px centré en (cx, cy) : `fort` (étoile de
+ * citadelle), `arena` (dôme), `gate` (porte, arc), `park` (arbre), sinon `monument` (fronton à colonnes). */
+function drawPoiIcon(ctx: CanvasRenderingContext2D, icon: string | undefined, cx: number, cy: number, s: number) {
+  ctx.save()
+  ctx.translate(cx - s / 2, cy - s / 2)
+  ctx.scale(s / 24, s / 24)
+  ctx.strokeStyle = '#ffffff'; ctx.fillStyle = '#ffffff'
+  ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  ctx.beginPath()
+  if (icon === 'fort') {
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 4.6 : 10.5
+      if (i) ctx.lineTo(12 + Math.cos(a) * r, 12.5 + Math.sin(a) * r); else ctx.moveTo(12 + Math.cos(a) * r, 12.5 + Math.sin(a) * r)
+    }
+    ctx.closePath(); ctx.stroke()
+  } else if (icon === 'arena') {
+    ctx.moveTo(3, 19); ctx.lineTo(21, 19); ctx.moveTo(4.5, 19); ctx.lineTo(4.5, 15); ctx.lineTo(19.5, 15); ctx.lineTo(19.5, 19)
+    ctx.moveTo(5, 15); ctx.arc(12, 15, 7, Math.PI, 0); ctx.moveTo(12, 8); ctx.lineTo(12, 5)
+    for (const x of [8, 12, 16]) { ctx.moveTo(x, 15); ctx.lineTo(x, 19) }
+    ctx.stroke()
+  } else if (icon === 'gate') {
+    ctx.moveTo(3, 20); ctx.lineTo(3, 7); ctx.lineTo(21, 7); ctx.lineTo(21, 20)
+    ctx.moveTo(2, 4.5); ctx.lineTo(22, 4.5)
+    ctx.moveTo(8.5, 20); ctx.lineTo(8.5, 14); ctx.arc(12, 14, 3.5, Math.PI, 0); ctx.lineTo(15.5, 20)
+    ctx.stroke()
+  } else if (icon === 'park') {
+    ctx.arc(12, 9.5, 6.5, 0, Math.PI * 2); ctx.moveTo(12, 16); ctx.lineTo(12, 21); ctx.stroke()
+  } else {
+    ctx.moveTo(2.5, 8); ctx.lineTo(12, 3); ctx.lineTo(21.5, 8); ctx.closePath()
+    ctx.moveTo(3, 20.5); ctx.lineTo(21, 20.5); ctx.moveTo(4, 18); ctx.lineTo(20, 18)
+    for (const x of [5.5, 9.5, 14.5, 18.5]) { ctx.moveTo(x, 10); ctx.lineTo(x, 17) }
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
 /**
- * Lieux sur la carte. Points d'intérêt (`type` 'poi' ou absent, au plus 5) : rond blanc cerclé de noir, étiquette
- * blanche à texte noir posée au-dessus (relevée si elle chevauche une autre). Quartiers et communes (`type`
- * 'district', au plus 6) : capitales grises espacées, sans repère. Hors champ et zone du titre écartés. Pas de noms de
- * rues sur l'ouverture.
+ * Lieux sur la carte. Points d'intérêt (`type` 'poi' ou absent, au plus 5) : rond blanc cerclé de noir sur le lieu, tige,
+ * étiquette sombre arrondie avec pictogramme (`icon`) et nom en blanc, relevée si elle chevauche une autre. Quartiers et
+ * communes (`type` 'district', au plus 6) : capitales gris foncé espacées, auréolées de clair. Hors champ et zone du
+ * titre écartés. Pas de noms de rues sur l'ouverture.
  */
 export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: number, pois: OpeningPoi[], alpha: number): void {
   if (alpha <= 0 || !pois.length) return
@@ -294,43 +332,107 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.globalAlpha = alpha
   ctx.textAlign = 'center'
   // Quartiers.
-  ctx.font = `600 ${Math.round(21 * k)}px ${FONT}`
+  ctx.font = `600 ${Math.round(24 * k)}px ${FONT}`
   ctx.letterSpacing = `${4 * k}px`
-  ctx.fillStyle = 'rgba(70,72,76,0.72)'
   ctx.textBaseline = 'middle'
-  for (const p of pois.filter(q => q.type === 'district' && inView(q)).slice(0, 6)) ctx.fillText(p.name.toLocaleUpperCase('fr-FR'), p.x, p.y)
+  for (const p of pois.filter(q => q.type === 'district' && inView(q)).slice(0, 6)) {
+    const t = p.name.toLocaleUpperCase('fr-FR')
+    ctx.shadowColor = 'rgba(250,246,238,0.95)'; ctx.shadowBlur = 14 * k
+    ctx.fillStyle = 'rgba(250,246,238,0.6)'
+    ctx.fillText(t, p.x, p.y)
+    ctx.fillStyle = '#34373c'
+    ctx.fillText(t, p.x, p.y)
+  }
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
   ctx.letterSpacing = '0px'
   // Points d'intérêt.
-  const size = Math.round(21 * k)
-  ctx.font = `600 ${size}px ${FONT}`
+  const size = Math.round(22 * k)
+  ctx.font = `700 ${size}px ${FONT}`
+  ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   const placed: { x0: number; x1: number; y0: number; y1: number }[] = []
   for (const p of pois.filter(q => q.type !== 'district' && inView(q)).slice(0, 5)) {
     const lines = poiLines(p.name)
-    const padX = 9 * k, padY = 6 * k, lineH = size * 1.12
-    const bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + padX * 2, bh = lines.length * lineH + padY * 2
-    let stem = 26 * k
+    const padX = 14 * k, padY = 9 * k, lineH = size * 1.1, iconS = 34 * k, gap = 12 * k
+    const textW = Math.max(...lines.map(l => ctx.measureText(l).width))
+    const bw = padX + iconS + gap + textW + padX, bh = Math.max(iconS, lines.length * lineH) + padY * 2
+    let stem = 30 * k
     const rectAt = (s: number) => ({ x0: p.x - bw / 2, x1: p.x + bw / 2, y1: p.y - s, y0: p.y - s - bh })
     const hits = (r: ReturnType<typeof rectAt>) => placed.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0)
     for (let i = 0; i < 4 && hits(rectAt(stem)); i++) stem += bh + 6 * k
     const r = rectAt(stem)
     placed.push(r)
-    ctx.strokeStyle = 'rgba(25,25,28,0.8)'
-    ctx.lineWidth = 1.5 * k
+    ctx.strokeStyle = '#1d262c'
+    ctx.lineWidth = 2 * k
     ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, r.y1); ctx.stroke()
-    ctx.shadowColor = 'rgba(0,0,0,0.22)'; ctx.shadowBlur = 8 * k; ctx.shadowOffsetY = 2 * k
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 3 * k); ctx.fill()
+    ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10 * k; ctx.shadowOffsetY = 3 * k
+    ctx.fillStyle = 'rgba(29,38,44,0.94)'
+    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 9 * k); ctx.fill()
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
-    ctx.fillStyle = '#16171a'
-    lines.forEach((l, i) => ctx.fillText(l, p.x, r.y0 + padY + lineH * (i + 1) - size * 0.22))
+    ctx.strokeStyle = 'rgba(255,255,255,0.55)'
+    ctx.lineWidth = 1.5 * k
+    ctx.stroke()
+    drawPoiIcon(ctx, p.icon, r.x0 + padX + iconS / 2, (r.y0 + r.y1) / 2, iconS)
     ctx.fillStyle = '#ffffff'
-    ctx.beginPath(); ctx.arc(p.x, p.y, 7 * k, 0, Math.PI * 2); ctx.fill()
-    ctx.strokeStyle = '#16171a'; ctx.lineWidth = 2.5 * k
+    const ty = (r.y0 + r.y1) / 2 - ((lines.length - 1) * lineH) / 2 + size * 0.36
+    lines.forEach((l, i) => ctx.fillText(l, r.x0 + padX + iconS + gap, ty + i * lineH))
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath(); ctx.arc(p.x, p.y, 8 * k, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = '#1d262c'; ctx.lineWidth = 3 * k
     ctx.stroke()
   }
   ctx.restore()
 }
+
+/** Noms des cours d'eau, en italique blanc, inscrits le long de l'eau (au milieu du tronçon visible), lettre par
+ * lettre et toujours dans le sens de la lecture. */
+export function drawWaterLabels(ctx: CanvasRenderingContext2D, w: number, h: number, waters: OpeningWater[], alpha: number): void {
+  if (alpha <= 0 || !waters.length) return
+  const k = h / 1080
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.font = `italic 600 ${Math.round(25 * k)}px ${FONT}`
+  ctx.letterSpacing = `${1 * k}px`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillStyle = '#ffffff'
+  ctx.shadowColor = 'rgba(20,50,80,0.55)'; ctx.shadowBlur = 6 * k
+  for (const wtr of waters) {
+    let pts = wtr.pts
+    // Sens de lecture : de gauche à droite.
+    if (pts[pts.length - 1].x < pts[0].x) pts = [...pts].reverse()
+    const cum = [0]
+    for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y))
+    const total = cum[cum.length - 1]
+    const textW = ctx.measureText(wtr.name).width
+    if (textW > total * 0.9) continue
+    /** Point et direction (moyennée sur ±span px, pour des lettres alignées malgré les méandres) à l'abscisse s. */
+    const at = (s: number) => {
+      const pos = (d: number) => {
+        const c = Math.max(0, Math.min(total, d))
+        let i = 1
+        while (i < cum.length - 1 && cum[i] < c) i++
+        const u = (c - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1])
+        return { x: pts[i - 1].x + (pts[i].x - pts[i - 1].x) * u, y: pts[i - 1].y + (pts[i].y - pts[i - 1].y) * u }
+      }
+      const span = 40 * k, a = pos(s - span), b = pos(s + span)
+      return { ...pos(s), angle: Math.atan2(b.y - a.y, b.x - a.x) }
+    }
+    let s = total / 2 - textW / 2
+    for (const ch of wtr.name) {
+      const cw = ctx.measureText(ch).width
+      const p = at(s + cw / 2)
+      ctx.save()
+      ctx.translate(p.x, p.y)
+      ctx.rotate(p.angle)
+      ctx.fillText(ch, 0, 0)
+      ctx.restore()
+      s += cw
+    }
+  }
+  ctx.restore()
+}
+
 
 // ─── Titre, chiffres, logo ───────────────────────────────────────────────────
 
@@ -505,6 +607,7 @@ export function drawOpeningScene(
   drawOpeningMapGrade(ctx, w, h, t)
   drawRouteRibbon(ctx, w, h, frame.ribbon, openingRibbonAlpha(t))
   const a = titleAlpha(t)
+  drawWaterLabels(ctx, w, h, frame.waters ?? [], a)
   drawPoiLabels(ctx, w, h, frame.pois, a)
   if (a <= 0) return
   ctx.save()

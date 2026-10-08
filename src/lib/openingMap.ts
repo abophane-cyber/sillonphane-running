@@ -7,7 +7,7 @@
 
 import maplibregl from 'maplibre-gl'
 import { makeStyle } from './mapStyle'
-import type { OpeningPoi, OpeningPt } from './filmOpening'
+import type { OpeningPoi, OpeningPt, OpeningWater } from './filmOpening'
 
 /** Réglages de la vue d'ouverture. */
 export const OPENING_VIEW = {
@@ -28,7 +28,7 @@ export interface OpeningMapInput {
   route: { lon: number; lat: number }[]
   dist: number[]
   /** Lieux de l'épreuve : points d'intérêt (`type` 'poi') et quartiers ou communes (`type` 'district'). */
-  pois: { name: string; lon: number; lat: number; type?: string }[]
+  pois: { name: string; lon: number; lat: number; type?: string; icon?: string }[]
   width: number
   height: number
   signal?: AbortSignal
@@ -39,6 +39,8 @@ export interface OpeningShot {
   /** Parcours et lieux à l'écran sur cette image. */
   ribbon: OpeningPt[]
   pois: OpeningPoi[]
+  /** Cours d'eau nommés à l'écran. */
+  waters: OpeningWater[]
 }
 
 /** Attend que `ready()` soit vrai en forçant le dessin de la carte (map.redraw) : MapLibre ne dessine qu'aux images
@@ -99,10 +101,10 @@ export function calculateOpeningCamera(map: maplibregl.Map, route: { lon: number
   place(best.bearing, best.zoom)
 }
 
-/** Rend la vue d'ouverture (carte hors écran détruite ensuite). */
-/** Hydrographie IGN (BD TOPO, WFS Géoplateforme) dans l'emprise de la vue, peinte en bleu sur l'image. Échec réseau :
- * l'image reste sans. */
-async function paintWater(g: CanvasRenderingContext2D, map: maplibregl.Map, w: number, h: number, signal?: AbortSignal): Promise<void> {
+/** Hydrographie IGN (BD TOPO, WFS Géoplateforme) dans l'emprise de la vue, peinte en bleu sur l'image. Renvoie les
+ * cours d'eau nommés à l'écran (le plus long tronçon visible de chacun, les plus importants d'abord) pour inscrire
+ * leur nom. Échec réseau : image sans eau repeinte, sans noms. */
+async function paintWater(g: CanvasRenderingContext2D, map: maplibregl.Map, w: number, h: number, signal?: AbortSignal): Promise<OpeningWater[]> {
   const corners = [[0, 0], [w, 0], [0, h], [w, h]].map(([x, y]) => map.unproject([x, y]))
   const lon0 = Math.min(...corners.map(c => c.lng)), lon1 = Math.max(...corners.map(c => c.lng))
   const lat0 = Math.min(...corners.map(c => c.lat)), lat1 = Math.max(...corners.map(c => c.lat))
@@ -124,6 +126,8 @@ async function paintWater(g: CanvasRenderingContext2D, map: maplibregl.Map, w: n
     ring.forEach(([lon, lat], i) => { const q = map.project([lon, lat]); if (i === 0) g.moveTo(q.x, q.y); else g.lineTo(q.x, q.y) })
     if (close) g.closePath()
   }
+  const lineParts = (geo: { type?: string; coordinates?: number[][] | number[][][] } | undefined): number[][][] =>
+    geo?.type === 'LineString' ? [geo.coordinates as number[][]] : geo?.type === 'MultiLineString' ? geo.coordinates as number[][][] : []
   g.save()
   g.fillStyle = OPENING_VIEW.water
   g.globalAlpha = 0.85
@@ -138,14 +142,42 @@ async function paintWater(g: CanvasRenderingContext2D, map: maplibregl.Map, w: n
   g.lineWidth = Math.max(2, h / 400)
   g.lineCap = 'round'; g.lineJoin = 'round'
   g.beginPath()
-  for (const f of lines) {
-    const geo = f?.geometry
-    if (geo?.type === 'LineString') trace(geo.coordinates, false)
-    else if (geo?.type === 'MultiLineString') for (const l of geo.coordinates) trace(l, false)
-  }
+  for (const f of lines) for (const l of lineParts(f?.geometry)) trace(l, false)
   g.stroke()
   g.restore()
+
+  // Noms : pour chaque cours d'eau, le plus long tronçon continu dans l'image.
+  const best = new Map<string, OpeningWater & { len: number; importance: number }>()
+  for (const f of lines) {
+    const raw = String(f?.properties?.toponyme ?? '').trim()
+    if (!raw) continue
+    const name = raw.charAt(0).toLocaleUpperCase('fr-FR') + raw.slice(1)
+    const importance = Number(f?.properties?.importance) || 9
+    for (const l of lineParts(f?.geometry)) {
+      let run: { x: number; y: number }[] = []
+      const flush = () => {
+        let len = 0
+        for (let i = 1; i < run.length; i++) len += Math.hypot(run[i].x - run[i - 1].x, run[i].y - run[i - 1].y)
+        const cur = best.get(name)
+        if (run.length > 1 && (!cur || len > cur.len)) best.set(name, { name, pts: run, len, importance })
+        run = []
+      }
+      for (const [lon, lat] of l) {
+        const q = map.project([lon, lat])
+        if (q.x > 0 && q.x < w && q.y > 0 && q.y < h) run.push({ x: q.x, y: q.y })
+        else flush()
+      }
+      flush()
+    }
+  }
+  return [...best.values()]
+    .filter(r => r.len > w * 0.12)
+    .sort((a, b) => a.importance - b.importance || b.len - a.len)
+    .slice(0, 3)
+    .map(({ name, pts }) => ({ name, pts }))
 }
+
+/** Rend la vue d'ouverture (carte hors écran détruite ensuite). */
 
 export async function captureOpeningView(inp: OpeningMapInput): Promise<OpeningShot> {
   const { width: w, height: h, signal } = inp
@@ -184,7 +216,7 @@ export async function captureOpeningView(inp: OpeningMapInput): Promise<OpeningS
     g.filter = OPENING_VIEW.grade
     g.drawImage(map.getCanvas(), 0, 0, w, h)
     g.filter = 'none'
-    await paintWater(g, map, w, h, signal)
+    const waters = await paintWater(g, map, w, h, signal)
 
     const total = inp.dist[inp.dist.length - 1] || 1
     const step = Math.max(1, Math.floor(inp.route.length / 2000))
@@ -195,8 +227,8 @@ export async function captureOpeningView(inp: OpeningMapInput): Promise<OpeningS
     }
     const last = inp.route[inp.route.length - 1], ql = map.project([last.lon, last.lat])
     ribbon.push({ x: ql.x, y: ql.y, f: 1 })
-    const pois: OpeningPoi[] = inp.pois.map(p => ({ ...map.project([p.lon, p.lat]), name: p.name, type: p.type }))
-    return { image, ribbon, pois }
+    const pois: OpeningPoi[] = inp.pois.map(p => ({ ...map.project([p.lon, p.lat]), name: p.name, type: p.type, icon: p.icon }))
+    return { image, ribbon, pois, waters }
   } finally {
     map.remove()
     container.remove()
