@@ -11,7 +11,7 @@ import { drawElevOverlay, elevOverlayRect } from './drawElevOverlay'
 import type { CharacterId } from './characters'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './tilePrefetch'
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
-import { smoothTrackPoints } from './gpx'
+import { smoothTrackPointsByDistance } from './gpx'
 import { BASEMAP_BACKGROUND } from './tileSources'
 import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
@@ -992,15 +992,17 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   if (points.length < 2) return new Blob()
   await loadOpeningFont() // police des étiquettes de POI (mapLabels.ts), avant leur pré-rendu
   // Tracé lissé (bruit GPS) pour le ruban dessiné et la position du randonneur — mêmes distances
-  // cumulées que les points réels (voir smoothTrackPoints), pour ne pas décaler la
-  // progression/l'altimétrie.
-  const visualPoints = smoothTrackPoints(points)
+  // cumulées que les points réels, pour ne pas décaler la progression/l'altimétrie. Lissage EN MÈTRES
+  // (smoothTrackPointsByDistance) : lissé par nombre de points, un tracé aux points irréguliers (tracé de
+  // planification) raccourcissait par endroits et la coureuse y semblait ralentir.
+  const visualPoints = smoothTrackPointsByDistance(points, distances, 8, 2)
   // Tracé beaucoup plus lissé, réservé à la cible que poursuit la caméra : un lissage léger
   // (visualPoints) laissait encore un résidu de bruit GPS transmis au filtre exponentiel de
   // suivi de caméra (FOLLOW_K plus bas), qui fait trembler TOUT ce qui est projeté avec elle
   // (fond de carte, ruban, panneaux). Même principe à deux courbes que filmExport3d.ts (trail vs
-  // cameraCurve), qui n'a pas ce défaut — paramètres repris tels quels (10 passes, rayon 14).
-  const cameraPoints = smoothTrackPoints(points, 10, 14)
+  // cameraCurve), qui n'a pas ce défaut. En mètres (±60 m, 4 passes) : lissée par nombre de points (10 passes,
+  // rayon 14), la cible coupait les boucles denses — la caméra y avançait à peine, le fond de carte semblait s'arrêter.
+  const cameraPoints = smoothTrackPointsByDistance(points, distances, 60, 4)
 
   // Précharge dès maintenant les tuiles qu'empruntera la caméra pendant la capture (mêmes niveaux
   // de zoom que la boucle principale), en parallèle de l'initialisation de la carte hors-écran et

@@ -221,6 +221,47 @@ export function smoothTrackPoints(points: GpxPoint[], iterations = TRACK_SMOOTH.
   return points.map((p, i) => ({ ...p, lon: coords[i][0], lat: coords[i][1] }))
 }
 
+/** Lissage EN MÈTRES (et non en nombre de points) : le tracé est rééchantillonné tous les `stepM` m, lissé sur ±`radiusM`
+ * (moyenne pondérée, `iterations` passes, extrémités fixes), puis chaque point d'origine est replacé sur la courbe lissée
+ * à sa propre distance (`distances`) — mêmes indices et mêmes distances que `points`. Un lissage par nombre de points
+ * déforme un tracé aux points irréguliers (tracé de planification : longues droites à 2 points, boucles très denses) :
+ * la courbe y raccourcit et ce qui la suit à vitesse constante en mètres semble ralentir à l'écran. */
+export function smoothTrackPointsByDistance(points: GpxPoint[], distances: number[], radiusM: number, iterations = 3, stepM = 5): GpxPoint[] {
+  const total = distances[distances.length - 1] ?? 0
+  if (points.length < 3 || !(total > 0)) return points.map(p => ({ ...p }))
+  const n = Math.max(2, Math.ceil(total / stepM) + 1)
+  let lons = new Float64Array(n), lats = new Float64Array(n)
+  for (let i = 0, seg = 1; i < n; i++) {
+    const m = Math.min(total, i * stepM)
+    while (seg < distances.length - 1 && distances[seg] < m) seg++
+    const d0 = distances[seg - 1], d1 = distances[seg]
+    const t = d1 > d0 ? (m - d0) / (d1 - d0) : 0
+    const a = points[seg - 1], b = points[seg]
+    lons[i] = a.lon + (b.lon - a.lon) * t
+    lats[i] = a.lat + (b.lat - a.lat) * t
+  }
+  const r = Math.max(1, Math.round(radiusM / stepM))
+  for (let iter = 0; iter < iterations; iter++) {
+    const nl = lons.slice(), na = lats.slice()
+    for (let i = 1; i < n - 1; i++) {
+      let sl = 0, sa = 0, ws = 0
+      for (let k = -r; k <= r; k++) {
+        const j = i + k
+        if (j < 0 || j >= n) continue
+        const w = r + 1 - Math.abs(k)
+        sl += lons[j] * w; sa += lats[j] * w; ws += w
+      }
+      nl[i] = sl / ws; na[i] = sa / ws
+    }
+    lons = nl; lats = na
+  }
+  return points.map((p, i) => {
+    const x = Math.min(n - 1, distances[i] / stepM)
+    const j = Math.min(n - 2, Math.floor(x)), t = x - j
+    return { ...p, lon: lons[j] + (lons[j + 1] - lons[j]) * t, lat: lats[j] + (lats[j + 1] - lats[j]) * t }
+  })
+}
+
 // Cumul des distances de chaque point depuis le départ
 export function buildDistanceArray(points: GpxPoint[]): number[] {
   const d = [0]
