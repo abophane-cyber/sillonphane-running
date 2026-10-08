@@ -142,6 +142,11 @@ export function useFilmRecording() {
         ravitos: ctx.ravitos,
         streets: ctx.streets,
         endCard: ctx.endCard,
+        // « 21,1 km » du carton final -> 21 100 m (illisible : distance du tracé).
+        shownDistanceM: (() => {
+          const km = parseFloat((ctx.endCard?.distance ?? '').replace(',', '.'))
+          return km > 0 ? km * 1000 : undefined
+        })(),
         speedLevel: ctx.speedLevel,
         trackName: ctx.trackName,
         durationS,

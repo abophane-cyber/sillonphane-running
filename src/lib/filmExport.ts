@@ -64,6 +64,9 @@ export interface FilmExportOptions {
   streets?:          StreetRun[]
   /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
   endCard?:          EndCard
+  /** Distance annoncée de l'épreuve (m, celle du carton final : 21,1 km pour un semi) : fin du compteur et écran-titre ;
+   * absent = distance mesurée sur le tracé. */
+  shownDistanceM?:   number
   speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
   trackName:         string
   durationS:         number // Défaut: 30s (correspond à la Preview)
@@ -1286,7 +1289,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const openingTitle = (opts.title?.trim())
     || [opts.startName, opts.endName].filter(Boolean).join(' → ') || 'Sillonphane'
   const openingDate = opts.trailDate?.trim() ?? ''
-  const openingKm = `${(totalDistance / 1000).toFixed(1).replace('.', ',')} km`
+  // Distance annoncée (carton final) : le compteur s'y arrête, l'écran-titre l'affiche (bornes : km mesuré).
+  const shownM = opts.shownDistanceM ?? totalDistance
+  const openingKm = `${(shownM / 1000).toFixed(1).replace('.', ',')} km`
   const openingGain = `D+ ${Math.round(opts.elevGain / 10) * 10} m`
   function drawOpening(tSec: number): void {
     const revealT = tSec - TITLE_IN_S
@@ -1535,7 +1540,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     }
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
-      points, distances, progress: 0, distanceCovered: 0, totalDistance,
+      points, distances, progress: 0, distanceCovered: 0, totalDistance: shownM,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
       currentEle: currentElevation(points, distances, 0), trackName: '',
     })
@@ -1574,7 +1579,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     drawHikers3d(p0.x, p0.y, startScale(z))
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
-      points, distances, progress: 0, distanceCovered: 0, totalDistance,
+      points, distances, progress: 0, distanceCovered: 0, totalDistance: shownM,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
       currentEle: currentElevation(points, distances, 0), trackName: '',
     })
@@ -1677,7 +1682,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     drawWeatherCard(ctx, OUT_W, opts.weather ?? null, progress)
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress,
-      distanceCovered: progress * totalDistance, totalDistance,
+      distanceCovered: Math.min(progress * totalDistance, shownM), totalDistance: shownM,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
       currentEle: currentElevation(points, distances, progress),
       trackName: '',
@@ -1746,7 +1751,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 1)
       drawElevOverlay(ctx, OUT_W, OUT_H, {
         points, distances, progress: 1,
-        distanceCovered: totalDistance, totalDistance,
+        distanceCovered: shownM, totalDistance: shownM,
         elevGain: opts.elevGain, elevLoss: opts.elevLoss,
         currentEle: currentElevation(points, distances, 1), trackName: '',
       })
@@ -1858,7 +1863,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // d'ensemble, reste affichée jusqu'à la fin sans fondu de sortie.
       drawElevOverlay(ctx, OUT_W, OUT_H, {
         points, distances, progress: 1,
-        distanceCovered: totalDistance, totalDistance,
+        distanceCovered: shownM, totalDistance: shownM,
         elevGain: opts.elevGain, elevLoss: opts.elevLoss,
         currentEle: currentElevation(points, distances, 1),
         trackName: '',
