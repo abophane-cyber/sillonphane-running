@@ -78,14 +78,19 @@ export const RIBBON_STOPS = { orangeFrom: 0.45, orangeTo: 0.7 }
 /** Ruban : largeur du trait, largeur et opacité du léger halo (en px pour une image de 1080 px de haut). */
 export const RIBBON_STYLE = { width: 17, glowWidth: 24, glowBlur: 6, glowAlpha: 0.16 }
 
-/** Durées de l'ouverture (s) : la carte apparaît avec le ruban déjà en place, le titre entre d'un seul fondu, plan
- * tenu (lent rapprochement), puis passage à la première scène (« plongée ») ; titre, lieux et ruban s'effacent. */
+/** Durées de l'ouverture (s) : sur fond blanc, seul le tracé se dessine du départ à l'arrivée pendant que la carte
+ * apparaît en fondu depuis le blanc, puis le titre et les lieux ; plan tenu, puis passage à la première scène
+ * (« plongée ») : titre, lieux et ruban s'effacent. */
 export const OPENING = {
-  /** Levée du voile sombre du tout début. */
-  mapInS: 0.8,
-  /** Fondu d'entrée du titre. */
-  titleFromS: 0.4,
-  titleInS: 1.0,
+  /** Le tracé se dessine de ribbonFromS à ribbonFromS + ribbonS. */
+  ribbonFromS: 0.2,
+  ribbonS: 3.2,
+  /** Fondu de la carte depuis le blanc. */
+  mapFromS: 0.5,
+  mapInS: 2.7,
+  /** Fondu d'entrée du titre et des lieux. */
+  titleFromS: 1.2,
+  titleInS: 2.0,
   /** Début du passage à la première scène (fin du plan d'ensemble). */
   diveFromS: 6.6,
   /** Durée du passage. */
@@ -102,8 +107,13 @@ export function openingDiveK(t: number): number {
   const u = clamp01((t - OPENING.diveFromS) / OPENING.diveS)
   return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
 }
-/** Opacité du ruban d'ouverture : présent dès la première image, s'efface pendant le passage (le ruban de la course
+/** Opacité du ruban d'ouverture : plein pendant qu'il se dessine et le plan tenu, s'efface pendant le passage (le ruban de la course
  * prend le relais). */
+/** Part du parcours déjà dessinée par le ruban d'ouverture (0..1, adoucie aux deux bouts). */
+export function openingRibbonHead(t: number): number {
+  const u = clamp01((t - OPENING.ribbonFromS) / OPENING.ribbonS)
+  return u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2
+}
 export function openingRibbonAlpha(t: number): number {
   return 1 - smooth((t - OPENING.diveFromS - OPENING.diveS * 0.25) / (OPENING.diveS * 0.5))
 }
@@ -173,10 +183,11 @@ export function drawOpeningMapGrade(ctx: CanvasRenderingContext2D, w: number, h:
     ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
-  const veil = 1 - smooth(t / OPENING.mapInS)
+  // Départ sur fond blanc : la carte (et son étalonnage) apparaît en fondu depuis le blanc.
+  const veil = 1 - smooth((t - OPENING.mapFromS) / OPENING.mapInS)
   if (veil > 0) {
     ctx.save()
-    ctx.fillStyle = `rgba(${PAPER},${veil})`
+    ctx.fillStyle = `rgba(255,255,255,${veil})`
     ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
@@ -213,7 +224,7 @@ export function ribbonColorAtDistance(f: number): string {
 
 let glowCanvas: HTMLCanvasElement | null = null
 
-/** Ruban du parcours, FIXE, posé sur la carte : dégradé à la distance parcourue, halo doux de sa couleur (lisible sur
+/** Ruban du parcours (partie déjà dessinée), posé sur la carte : dégradé à la distance parcourue, halo doux de sa couleur (lisible sur
  * la carte claire, sans l'effacer), liseré fin orangé qui détache la partie crème du fond clair. */
 export function drawRouteRibbon(ctx: CanvasRenderingContext2D, w: number, h: number, path: OpeningPt[], alpha: number): void {
   if (alpha <= 0 || path.length < 2) return
@@ -642,7 +653,7 @@ export function drawOpeningScene(
 ): void {
   if (t >= OPENING_S) return
   drawOpeningMapGrade(ctx, w, h, t)
-  drawRouteRibbon(ctx, w, h, frame.ribbon, openingRibbonAlpha(t))
+  drawRouteRibbon(ctx, w, h, ribbonUpTo(frame.ribbon, openingRibbonHead(t)), openingRibbonAlpha(t))
   const a = titleAlpha(t)
   drawWaterLabels(ctx, w, h, frame.waters ?? [], a)
   drawPoiLabels(ctx, w, h, frame.pois, a)
@@ -653,4 +664,21 @@ export function drawOpeningScene(
   const y = drawEventStats(ctx, h, ev, drawEventTitle(ctx, w, h, ev) + 30 * k)
   drawBranding(ctx, h, y + 56 * k)
   ctx.restore()
+}
+
+/** Parcours jusqu'à la part `head` (dernier point interpolé) : le tracé qui se dessine. */
+function ribbonUpTo(pts: OpeningPt[], head: number): OpeningPt[] {
+  if (head >= 1) return pts
+  const out: OpeningPt[] = []
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]
+    if (p.f <= head) { out.push(p); continue }
+    const q = pts[i - 1]
+    if (q && p.f > q.f) {
+      const u = (head - q.f) / (p.f - q.f)
+      out.push({ x: q.x + (p.x - q.x) * u, y: q.y + (p.y - q.y) * u, f: head, ok: p.ok !== false && q.ok !== false })
+    }
+    break
+  }
+  return out
 }
