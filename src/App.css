@@ -2251,10 +2251,12 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 
 /* flex-shrink: 0 nécessaire — dans .vp-detail (colonne flex), un <video> sans hauteur explicite
  * peut voir sa taille minimale automatique résolue à 0 et disparaître complètement. */
-.vp-player { margin-bottom: 20px; border-radius: 10px; overflow: hidden; background: #000; position: relative; flex-shrink: 0; }
-.vp-player__video { width: 100%; max-height: 55vh; aspect-ratio: 16 / 9; display: block; }
+/* Le bouton Fermer est dans une barre au-dessus de la vidéo, et non posé dessus : il masquait la météo du film. */
+.vp-player { margin-bottom: 20px; border-radius: 10px; overflow: hidden; background: #000; position: relative; flex-shrink: 0; display: flex; flex-direction: column; }
+.vp-player__video { width: 100%; max-height: 55vh; aspect-ratio: 16 / 9; display: block; order: 1; }
+.vp-player__error { order: 2; }
 .vp-player__close {
-  position: absolute; top: 10px; right: 10px;
+  align-self: flex-end; margin: 6px 8px;
   background: rgba(0,0,0,0.6); border: 1px solid rgba(255,255,255,0.2);
   color: #fff; border-radius: 6px; padding: 4px 12px; font-size: 0.8rem;
   cursor: pointer; transition: background 0.15s;

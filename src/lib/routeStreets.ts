@@ -37,7 +37,7 @@ const ABBREV: Record<string, string> = {
 /** Nom au format du Plan IGN : capitales sans accents, type de voie abrégé (« Avenue Léon Jouhaux » -> « AV LEON
  * JOUHAUX ») ; les noms déjà à ce format restent tels quels. */
 export function ignStreetName(name: string): string {
-  const up = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/s+/g, ' ').trim()
+  const up = name.normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/\s+/g, ' ').trim()
   const [first, ...rest] = up.split(' ')
   return ABBREV[first] ? [ABBREV[first], ...rest].join(' ') : up
 }
