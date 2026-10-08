@@ -1,6 +1,6 @@
-// Ouverture des films 2D et 3D, façon affiche de film sportif : la vraie carte en vue aérienne oblique dans une lumière
-// de matin, le ruban du parcours FIXE (vert au départ, orange, crème à l'arrivée), quelques lieux connus, le titre de
-// l'épreuve à gauche ; plan presque fixe (lent rapprochement), puis passage à la première scène du film.
+// Ouverture des films 2D et 3D, façon affiche : sur fond blanc, le tracé du parcours se dessine (vert au départ,
+// orange, crème à l'arrivée) pendant que la carte de la ville (vue du dessus, claire) apparaît en fondu, puis le titre
+// de l'épreuve à gauche et quelques lieux ; plan tenu, puis passage à la première scène du film.
 //
 // Composant réutilisable pour toute épreuve : il ne connaît aucune ville. Il reçoit
 //   A. les DONNÉES de l'épreuve (OpeningEvent, construites par buildOpeningEvent à partir du titre, de la ville, de la
