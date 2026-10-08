@@ -52,7 +52,7 @@ export const OPENING = {
   titleFromS: 0.4,
   titleInS: 1.0,
   /** Début de la plongée vers le départ (fin du plan d'ensemble). */
-  diveFromS: 6.6,
+  diveFromS: 4.8,
   /** Durée de la plongée. */
   diveS: 3.2,
 } as const
