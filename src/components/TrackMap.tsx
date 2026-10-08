@@ -833,7 +833,10 @@ export function TrackMap({
         const pts: { x: number; y: number }[] = []
         for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
           if (distances[i] >= st.startM) pts.push(map.project([points[i].lon, points[i].lat]))
-        drawStreetAlongPath(ctx, st.label, pts, a, Math.max(0.6, w / 1920), 20, { w, h })
+        // Fond lu sur le canvas de la carte (preserveDrawingBuffer), une fois ses tuiles chargées : nom blanc sur fond
+        // sombre, noir sur fond clair.
+        const bg = map.areTilesLoaded() ? { src: map.getCanvas(), scale: map.getCanvas().width / w } : null
+        drawStreetAlongPath(ctx, st.label, pts, a, Math.max(0.6, w / 1920), 20, { w, h }, bg)
       }
     }
     draw()

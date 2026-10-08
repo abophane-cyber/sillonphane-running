@@ -3,8 +3,8 @@
 // - VILLE (localité, lieu-dit) = label territorial : vert de la signature du ruban, gras, petit point de position ;
 // - POI = label flottant, style de l'ouverture « image 2D clair » : étiquette à fond sombre très transparent et contour
 //   clair, pictogramme au trait, nom blanc ; tige fine jusqu'au repère posé sur le lieu ; toujours horizontal à l'écran ;
-// - RUE = label cartographique : petit, léger, gris clair, légèrement transparent, sans icône ni bulle, imprimé le
-//   long de la rue ;
+// - RUE = label cartographique : petit, sans icône ni bulle, imprimé le long de la rue et fixe sur la carte ; blanc
+//   sur fond sombre, noir sur fond clair ;
 // - PARCOURS = ruban signature (ribbon.ts), au-dessus de tout.
 
 export type GroundLabelStyle = 'standard' | 'lieudit' | 'poi'
@@ -233,8 +233,9 @@ export interface StreetLabel {
   text: string
   major: boolean
   /** Place figée à la première image où le nom tient : centre du nom (indice fractionnaire dans `pts`, donc un point
-   *  fixe de la rue), taille des lettres, sens de lecture (vers les indices décroissants si `flip`). */
-  fix?: { at: number; size: number; flip: boolean }
+   *  fixe de la rue), taille des lettres, sens de lecture (vers les indices décroissants si `flip`), teinte (`dark` :
+   *  lettres noires sur fond clair ; mesurée à la première image où le fond est lisible). */
+  fix?: { at: number; size: number; flip: boolean; dark?: boolean }
 }
 
 type Pt = { x: number; y: number }
@@ -244,14 +245,17 @@ const STEP = 4
  * px sur le côté gauche du sens de lecture, lettre par lettre en suivant la courbe. Le nom est FIXE sur la carte : à la
  * première image où il tient sur la partie visible de la rue (`view`, taille de l'image), son centre, sa taille et son
  * sens de lecture sont figés (`label.fix`) ; ensuite il suit ce point de la rue, sans glisser avec la caméra. `pts` doit
- * donc décrire la même rue, dans le même ordre, à chaque image. `k` : échelle. */
+ * donc décrire la même rue, dans le même ordre, à chaque image. `k` : échelle. Blanc sur fond sombre, noir sur fond
+ * clair : fond lu dans `bg` (défaut : le canvas de `ctx`, carte déjà dessinée ; `scale` = px du fond par px de dessin ;
+ * null : fond pas encore prêt, mesure remise à une image suivante). */
 export function drawStreetAlongPath(
   ctx: CanvasRenderingContext2D, label: StreetLabel, pts: (Pt | null)[],
   alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
+  bg?: { src: CanvasImageSource; scale: number } | null,
 ) {
   if (alpha <= 0 || pts.length < 2) return
   const chars = [...label.text]
-  const fontAt = (size: number) => `${label.major ? 600 : 500} ${size}px ${LABEL_FONT}`
+  const fontAt = (size: number) => `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
   const spacingAt = (size: number) => (label.major ? 0.1 : 0.03) * size
   const measure = (size: number) => {
     ctx.font = fontAt(size)
@@ -275,7 +279,7 @@ export function drawStreetAlongPath(
     const cum = [0]
     for (let i = i0 + 1; i <= i1; i++) cum.push(cum[cum.length - 1] + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y))
     const total = cum[cum.length - 1]
-    const base = 12.5 * k
+    const base = 13.5 * k
     let size = base
     for (; size >= base * 0.7; size -= 0.5 * k) if (measure(size).textW <= total * 0.85) break
     if (measure(size).textW > total * 0.85) { ctx.restore(); return }
@@ -334,25 +338,66 @@ export function drawStreetAlongPath(
     return { x: sm[i].x + (sm[i + 1].x - sm[i].x) * u, y: sm[i].y + (sm[i + 1].y - sm[i].y) * u }
   }
   const { widths, textW, sp } = measure(size)
-  ctx.globalAlpha = alpha * (label.major ? 0.8 : 0.66)
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
+  const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
   let s = s0 - textW / 2
   for (let i = 0; i < chars.length; i++) {
     const mid = s + widths[i] / 2 - sp / 2
     const p0 = at2(mid - widths[i] / 2), p1 = at2(mid + widths[i] / 2), p = at2(mid)
     const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x)
     const nx = Math.sin(ang), ny = -Math.cos(ang) // normale à gauche du sens de lecture (vers le haut)
-    ctx.save()
-    ctx.translate(p.x + nx * offset * k, p.y + ny * offset * k)
-    ctx.rotate(ang)
-    ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 2.5 * k
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2 * k
-    ctx.strokeText(chars[i], 0, 0)
-    ctx.shadowColor = 'transparent'
-    ctx.fillStyle = '#dcdcd6'
-    ctx.fillText(chars[i], 0, 0)
-    ctx.restore()
+    glyphs.push({ ch: chars[i], x: p.x + nx * offset * k, y: p.y + ny * offset * k, ang })
     s += widths[i]
   }
+  // Teinte selon le fond sous le nom, mesurée une fois (le nom est fixe sur la carte, son fond ne change pas) : blanc
+  // sur fond sombre, noir sur fond clair.
+  if (label.fix.dark === undefined && bg !== null) {
+    const l = backgroundLuma(bg ?? { src: ctx.canvas, scale: 1 }, glyphs, size)
+    if (l != null) label.fix.dark = l > LIGHT_BG_LUMA
+  }
+  const dark = label.fix.dark === true
+  ctx.globalAlpha = alpha * (label.major ? 0.97 : 0.9)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
+  for (const g of glyphs) {
+    ctx.save()
+    ctx.translate(g.x, g.y)
+    ctx.rotate(g.ang)
+    ctx.shadowColor = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.65)'; ctx.shadowBlur = 3 * k
+    ctx.strokeStyle = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2.6 * k
+    ctx.strokeText(g.ch, 0, 0)
+    ctx.shadowColor = 'transparent'
+    ctx.fillStyle = dark ? '#111111' : '#ffffff'
+    ctx.fillText(g.ch, 0, 0)
+    ctx.restore()
+  }
   ctx.restore()
+}
+
+/** Au-delà de cette luminance moyenne (0 noir, 1 blanc), le fond est clair : nom de rue écrit en noir. */
+const LIGHT_BG_LUMA = 0.55
+let lumaCanvas: HTMLCanvasElement | null = null
+
+/** Luminance moyenne du fond autour des lettres (carré d'une hauteur de lettre centré sur chacune) ; null si le fond
+ * n'est pas lisible (canvas vide ou protégé). `bg.scale` : px du fond par px de dessin. */
+function backgroundLuma(bg: { src: CanvasImageSource; scale: number }, glyphs: { x: number; y: number }[], size: number): number | null {
+  const N = 6
+  const step = Math.max(1, Math.floor(glyphs.length / 8))
+  const pick = glyphs.filter((_, i) => i % step === 0)
+  lumaCanvas ??= document.createElement('canvas')
+  lumaCanvas.width = N * pick.length; lumaCanvas.height = N
+  const c = lumaCanvas.getContext('2d', { willReadFrequently: true })
+  if (!c) return null
+  c.clearRect(0, 0, lumaCanvas.width, N)
+  const r = size * bg.scale
+  try {
+    pick.forEach((g, i) => c.drawImage(bg.src, g.x * bg.scale - r, g.y * bg.scale - r, 2 * r, 2 * r, i * N, 0, N, N))
+    const d = c.getImageData(0, 0, lumaCanvas.width, N).data
+    let sum = 0, n = 0
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 128) continue
+      sum += (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255; n++
+    }
+    return n > d.length / 8 ? sum / n : null
+  } catch {
+    return null
+  }
 }
