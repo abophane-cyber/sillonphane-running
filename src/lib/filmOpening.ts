@@ -346,14 +346,14 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
   ctx.letterSpacing = '0px'
   // Points d'intérêt.
-  const size = Math.round(22 * k)
+  const size = Math.round(18 * k)
   ctx.font = `700 ${size}px ${FONT}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   const placed: { x0: number; x1: number; y0: number; y1: number }[] = []
   for (const p of pois.filter(q => q.type !== 'district' && inView(q)).slice(0, 5)) {
     const lines = poiLines(p.name)
-    const padX = 14 * k, padY = 9 * k, lineH = size * 1.1, iconS = 34 * k, gap = 12 * k
+    const padX = 11 * k, padY = 7 * k, lineH = size * 1.1, iconS = 27 * k, gap = 9 * k
     const textW = Math.max(...lines.map(l => ctx.measureText(l).width))
     const bw = padX + iconS + gap + textW + padX, bh = Math.max(iconS, lines.length * lineH) + padY * 2
     let stem = 30 * k
@@ -367,7 +367,7 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
     ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, r.y1); ctx.stroke()
     ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10 * k; ctx.shadowOffsetY = 3 * k
     ctx.fillStyle = 'rgba(29,38,44,0.94)'
-    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 9 * k); ctx.fill()
+    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 4 * k); ctx.fill()
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
     ctx.strokeStyle = 'rgba(255,255,255,0.55)'
     ctx.lineWidth = 1.5 * k
@@ -377,7 +377,7 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
     const ty = (r.y0 + r.y1) / 2 - ((lines.length - 1) * lineH) / 2 + size * 0.36
     lines.forEach((l, i) => ctx.fillText(l, r.x0 + padX + iconS + gap, ty + i * lineH))
     ctx.fillStyle = '#ffffff'
-    ctx.beginPath(); ctx.arc(p.x, p.y, 8 * k, 0, Math.PI * 2); ctx.fill()
+    ctx.beginPath(); ctx.arc(p.x, p.y, 6.5 * k, 0, Math.PI * 2); ctx.fill()
     ctx.strokeStyle = '#1d262c'; ctx.lineWidth = 3 * k
     ctx.stroke()
   }
