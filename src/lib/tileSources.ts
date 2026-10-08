@@ -15,4 +15,4 @@ export const BASEMAP_TILE_URL = ignWmts('ORTHOIMAGERY.ORTHOPHOTOS', 'image/jpeg'
 export const BASEMAP_BACKGROUND = '#1d2320'
 /** Réglages de couleur du fond, appliqués par MapLibre (raster-*) dans l'aperçu et reproduits à l'identique sur la
  * mosaïque du film (filmMapMosaic.ts) : contraste, saturation, luminosité max (assombrissement), teinte. */
-export const BASEMAP_ADJUST = { contrast: 0.12, saturation: -0.1, brightnessMax: 0.62, hueRotate: 0 }
+export const BASEMAP_ADJUST = { contrast: 0.2, saturation: -0.25, brightnessMax: 0.62, hueRotate: 0 }

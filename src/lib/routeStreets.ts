@@ -143,7 +143,7 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
 }
 
 /** Noms de rue affichés dans les films et l'aperçu : rues d'au moins CAPTION_MIN_M empruntés, et places quelle que
- * soit leur longueur ; chaque nom reste au moins CAPTION_HOLD_S à l'écran (cf. StreetCaption). */
+ * soit leur longueur ; chaque nom reste au moins CAPTION_HOLD_S à l'écran (cf. mapLabels.ts). */
 export const CAPTION_MIN_M = 400
 export const CAPTION_HOLD_S = 1.5
 /** Place (« PL DU GENERAL DE GAULLE » au format IGN, ou « Place … »). */

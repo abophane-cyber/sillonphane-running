@@ -167,7 +167,7 @@ export function useFilm3dExport() {
           return km > 0 ? km * 1000 : undefined
         })(),
         streets: captionStreets(ctx.streets).filter(s => inCut(s.startM))
-          .map(s => ({ name: s.name, from: s.startM / trackM, to: Math.min(1, s.endM / trackM) })),
+          .map(s => ({ name: s.name, from: s.startM / trackM, to: Math.min(1, s.endM / trackM), importance: s.importance })),
         durationS,
         essai,
         fps: 30,

@@ -27,7 +27,7 @@ import {
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
-import { StreetCaption } from './streetCaption'
+import { drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from './mapLabels'
 
 export interface FilmExportOptions {
   points:            GpxPoint[]
@@ -306,6 +306,11 @@ const GROUND_LABEL: Partial<Record<SignStyle, { font: string; size: number; fill
 
 /** Nom de lieu écrit à même la carte, sans pancarte (cf. GROUND_LABEL). */
 function buildGroundLabelSprite(name: string, style: SignStyle): LocSignSprite {
+  // Localité, lieu-dit, point d'intérêt : écriture cartographique commune (mapLabels.ts, aussi dans l'aperçu et le 3D).
+  if (style === 'standard' || style === 'lieudit' || style === 'poi') {
+    const l = renderGroundLabel(name, style, SIGN_RES)
+    return { canvas: l.canvas, offX: l.ax, offY: l.ay }
+  }
   const g = GROUND_LABEL[style] ?? GROUND_LABEL.standard!
   const isRavito = style === 'ravito'
   const STROKE = 4.5
@@ -1391,8 +1396,20 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const departureEvent: LocalityEvent | null = opts.startName ? { name: opts.startName, lon: points[0].lon, lat: points[0].lat, style: opts.startColEle != null ? 'col' : opts.startLieudit ? 'lieudit' : 'standard', ele: opts.startColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: 0 } : null
   const arrivalEvent: LocalityEvent | null   = opts.endName   ? { name: opts.endName,   lon: points[points.length - 1].lon, lat: points[points.length - 1].lat, style: opts.endColEle != null ? 'col' : opts.endLieudit ? 'lieudit' : 'standard', ele: opts.endColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: estTotalFrames } : null
 
-  // Rues empruntées : nom affiché en haut de l'écran (cf. streetCaption.ts), selon la part du parcours faite.
-  const streetCaption = new StreetCaption(captionStreets(opts.streets).map(st => ({ name: st.name, from: st.startM / totalDistance, to: st.endM / totalDistance, minS: CAPTION_HOLD_S })))
+  // Rues empruntées : nom inscrit le long du parcours, sous le ruban (cf. mapLabels.ts), à l'approche de la rue ;
+  // tenu au moins CAPTION_HOLD_S, effacé en 0,6 s (durées converties en mètres à la vitesse moyenne du film).
+  const streetLabels = captionStreets(opts.streets).map(st => ({ ...st, label: streetLabel(st.name, st.importance) }))
+  const filmMps = totalDistance / Math.max(1, walkS)
+  const drawStreetLabels = (project: ProjectFn, m: number) => {
+    for (const st of streetLabels) {
+      const a = streetLabelAlpha(m, st.startM, st.endM, CAPTION_HOLD_S * filmMps, 0.6 * filmMps)
+      if (a <= 0) continue
+      const pts: { x: number; y: number }[] = []
+      for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
+        if (distances[i] >= st.startM) pts.push(project(visualPoints[i].lon, visualPoints[i].lat))
+      drawStreetAlongPath(ctx, st.label, pts, a, OUT_H / 1080, 20)
+    }
+  }
 
   const totalFrames       = Math.ceil(walkS * fps)
   // debugMaxFrames tronque la marche à la vraie vitesse (durationS inchangé) au lieu de la
@@ -1792,11 +1809,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // 2. Tracé GPX (projeté de manière synchrone) : le ruban s'arrête juste derrière la coureuse (RIBBON_LAG_PX).
     const lagM = hikers3d && progress < 1
       ? RIBBON_LAG_PX * FILM_SCALE * metersPerPixel(points[0].lat, mapMosaic ? mapMosaic.zoom : zoom) : 0
+    drawStreetLabels(project, progress * totalDistance) // noms de rue sous le ruban
     drawTrack(ctx, project, visualPoints, distances, totalDistance, Math.max(0, progress - lagM / totalDistance))
     drawBornes(project, 1, 1, progress * totalDistance) // bornes approchées, au sol sous les panneaux
-    // Rue empruntée : son nom en haut de l'écran pendant que la coureuse y court, les rues se succédant en fondu.
-    streetCaption.update(progress, 1 / fps)
-    streetCaption.draw(ctx, OUT_W / 2)
     // Cartouche d'épreuve : en fondu au départ de la course, tenu jusqu'à l'arrivée.
     if (opts.eventCartouche) drawEventCartouche(ctx, OUT_W, OUT_H, opts.eventCartouche, Math.min(1, f / (0.8 * fps)))
     // Échelle et nord (bas droite) : mètres par pixel mesurés sur la projection de l'image.

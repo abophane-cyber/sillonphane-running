@@ -23,6 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S } from '../routeStreets'
+import { drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -44,7 +45,7 @@ import { drawStartTimePill } from '../startTimePill'
 import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, startPresentAt, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
-import { StreetCaption, type StreetSpan } from '../streetCaption'
+import type { StreetSpan } from '../streetCaption'
 import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
@@ -310,41 +311,12 @@ function panelTexture(name: string, style: 'lieudit' | 'col' | 'standard' | 'poi
   return tex
 }
 
-/** Noms de lieux écrits à même le sol, sans pancarte — mêmes polices et couleurs que le film 2D (GROUND_LABEL de
- * src/lib/filmExport.ts) et l'aperçu (.loc-sign) : localité en grandes lettres blanches cernées de noir, lieu-dit
- * en italique plus petit, point d'intérêt en italique doré à empattements cerné de brun. Les cols gardent leur
- * pancarte (panelTexture), comme en 2D. */
-const GROUND_LABEL_3D: Record<'standard' | 'lieudit' | 'poi', { font: string; size: number; fill: string; stroke: string }> = {
-  standard: { font: '700 {s}px Arial, Helvetica, sans-serif', size: 24, fill: '#fff', stroke: '#1b1b1b' },
-  lieudit:  { font: 'italic 700 {s}px Arial, Helvetica, sans-serif', size: 19, fill: '#fff', stroke: '#1b1b1b' },
-  poi:      { font: 'italic 700 {s}px Georgia, "Times New Roman", serif', size: 20, fill: '#ffe3a3', stroke: '#4a2a10' },
-}
 /** Résolution du canvas des noms au sol (px canvas par px « logique » 2D). */
 const GROUND_LABEL_RES = 6
 
 function groundLabelTexture(name: string, style: 'standard' | 'lieudit' | 'poi'): THREE.CanvasTexture {
-  const g = GROUND_LABEL_3D[style]
-  const R = GROUND_LABEL_RES
-  const STROKE = 4.5, MARGIN = 8
-  const FONT = g.font.replace('{s}', String(g.size * R))
-  const m = document.createElement('canvas').getContext('2d')!
-  m.font = FONT
-  const textW = m.measureText(name).width / R
-  const W = Math.ceil(textW + STROKE * 2 + MARGIN * 2)
-  const H = Math.ceil(g.size * 1.3 + STROKE * 2 + MARGIN * 2)
-  const c = document.createElement('canvas')
-  c.width = W * R; c.height = H * R
-  const ctx = c.getContext('2d')!
-  ctx.font = FONT
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.lineJoin = 'round'
-  ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 4 * R; ctx.shadowOffsetY = 1 * R
-  ctx.strokeStyle = g.stroke; ctx.lineWidth = STROKE * R
-  ctx.strokeText(name, c.width / 2, c.height / 2)
-  ctx.shadowColor = 'transparent'
-  ctx.fillStyle = g.fill
-  ctx.fillText(name, c.width / 2, c.height / 2)
-  const tex = new THREE.CanvasTexture(c)
+  // Même écriture que l'aperçu et le film 2D (mapLabels.ts) : sans-serif, léger halo, pictogramme des POI.
+  const tex = new THREE.CanvasTexture(renderGroundLabel(name, style, GROUND_LABEL_RES).canvas)
   tex.colorSpace = THREE.SRGBColorSpace
   return tex
 }
@@ -1334,7 +1306,7 @@ async function exportFilm3dImpl(
   let runnerSeg = 0
   /** Tête du ruban arrivée au bout : la visée en avant l'y amène avant la fin du survol (cf. simStep). */
   let runnerAtEnd = false
-  /** Part du parcours atteinte par la tête du ruban pendant le survol (rue affichée, cf. StreetCaption). */
+  /** Part du parcours atteinte par la tête du ruban pendant le survol (noms de rue, cf. mapLabels.ts). */
   let headFrac = 0
   function updateTipCap(seg: number, colorT: number): void {
     const sf = Math.max(1, Math.min(RIBBON_SEGMENTS, seg))
@@ -1972,7 +1944,8 @@ async function exportFilm3dImpl(
     ctx.restore()
   }
 
-  const streetCaption = new StreetCaption((opts.streets ?? []).map(s => ({ ...s, minS: CAPTION_HOLD_S })))
+  // Rues empruntées : nom inscrit le long du ruban (cf. mapLabels.ts), à l'approche de la rue, tenu au moins CAPTION_HOLD_S.
+  const streetLabels3d = (opts.streets ?? []).map(s => ({ ...s, label: streetLabel(s.name, s.importance) }))
   const borneSignCache: LocSignCache = new Map()
   const trackM = TRACK_M
 
@@ -2188,8 +2161,19 @@ async function exportFilm3dImpl(
     }
     drawRunner(ctx2d, simElapsed, lastOverlay.profileT, 1 / fps)
     // Rue empruntée, en haut de l'écran : après l'effacement du nom de départ, jusqu'à la fin du survol.
-    streetCaption.update(simElapsed >= PHASE1_END + 2.2 && simElapsed < PHASE2_END ? headFrac : null, 1 / fps)
-    streetCaption.draw(ctx2d, OUT_W / 2)
+    if (simElapsed >= PHASE1_END && simElapsed < PHASE3_END) {
+      const m = headFrac * trackM, mps = trackM / DURATION
+      for (const st of streetLabels3d) {
+        const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, CAPTION_HOLD_S * mps, 0.6 * mps)
+        if (a <= 0) continue
+        const pts: { x: number; y: number }[] = []
+        for (let i = 0; i <= 40; i++) {
+          const p = ribbonScreenAt((st.from + (st.to - st.from) * i / 40) * RIBBON_SEGMENTS)
+          if (p.z < 1) pts.push(p)
+        }
+        drawStreetAlongPath(ctx2d, st.label, pts, a, OUT_H / 1080, 20)
+      }
+    }
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
     // Cartouche d'épreuve (bas gauche) pendant le survol et la pause d'arrivée, comme le film 2D.
     if (opts.eventCartouche) {

@@ -18,6 +18,8 @@ import {
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
 import { CAPTION_HOLD_S, type StreetRun } from '../lib/routeStreets'
+import { drawStreetAlongPath, streetLabel, streetLabelAlpha } from '../lib/mapLabels'
+import { ANIM_SETTINGS } from '../hooks/useAnimationSettings'
 import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 import { makeStyle, EMPTY_FC } from '../lib/mapStyle'
 
@@ -806,18 +808,37 @@ export function TrackMap({
     presentRef.current?.sprite.setBibNumber(bibNumber)
   }, [bibNumber])
 
-  // ── Rue empruntée : son nom en haut de la carte pendant que la coureuse y court (comme les films, cf.
-  // streetCaption.ts) ; le dernier nom reste dans l'élément pour s'effacer en fondu ──
+  // ── Noms de rue : inscrits le long du parcours, comme dans les films (mapLabels.ts), à l'approche de la rue et tenus
+  // au moins CAPTION_HOLD_S ; canvas par-dessus la carte, redessiné à chaque rendu de MapLibre ──
   const coveredM = progress * (distances[distances.length - 1] ?? 0)
-  const onStreet = progress > 0 && progress < 1
-    ? streets?.find(st => coveredM >= st.startM && coveredM <= st.endM)?.name ?? null : null
-  const lastStreetRef = useRef<string | null>(null)
-  // Nom tenu CAPTION_HOLD_S après son apparition, même une fois la portion dépassée (comme StreetCaption dans les films).
-  const placeUntilRef = useRef(0)
-  if (onStreet && onStreet !== lastStreetRef.current) placeUntilRef.current = performance.now() + CAPTION_HOLD_S * 1000
-  if (onStreet) lastStreetRef.current = onStreet
-  const holdPlace = !onStreet && playing && lastStreetRef.current != null && performance.now() < placeUntilRef.current
-  const currentStreet = onStreet ?? (holdPlace ? lastStreetRef.current : null)
+  const streetCanvasRef = useRef<HTMLCanvasElement>(null)
+  const streetLabels = useMemo(() => (streets ?? []).map(st => ({ ...st, label: streetLabel(st.name, st.importance) })), [streets])
+  useEffect(() => {
+    const map = mapRef.current, c = streetCanvasRef.current
+    if (!map || !c) return
+    const mps = 1000 / ANIM_SETTINGS.randonneur.secondsPerKm // vitesse de l'aperçu (m de parcours par s)
+    const draw = () => {
+      const { clientWidth: w, clientHeight: h } = map.getContainer()
+      const dpr = window.devicePixelRatio || 1
+      if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr) }
+      const ctx = c.getContext('2d')
+      if (!ctx) return
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      ctx.clearRect(0, 0, w, h)
+      if (!(progress > 0 && progress < 1)) return
+      for (const st of streetLabels) {
+        const a = streetLabelAlpha(coveredM, st.startM, st.endM, CAPTION_HOLD_S * mps, 0.6 * mps)
+        if (a <= 0) continue
+        const pts: { x: number; y: number }[] = []
+        for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
+          if (distances[i] >= st.startM) pts.push(map.project([points[i].lon, points[i].lat]))
+        drawStreetAlongPath(ctx, st.label, pts, a, Math.max(0.6, w / 1920), 20)
+      }
+    }
+    draw()
+    map.on('render', draw)
+    return () => { map.off('render', draw) }
+  }, [coveredM, progress, streetLabels, distances, points])
 
   // ── Bornes kilométriques (cf. raceSplits.ts) : couchées sur le tracé, elles apparaissent au fil de la course, à
   // l'approche (sur une boucle, pas de « 20 KM » avant « 5 KM »), et sont toutes là à la fin ──
@@ -1572,9 +1593,7 @@ export function TrackMap({
   return (
     <div className="track-map" onDragOver={onDragOver} onDrop={onDrop}>
       <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
-      {lastStreetRef.current && (
-        <div className={`street-caption${currentStreet ? ' street-caption--on' : ''}`}>{lastStreetRef.current}</div>
-      )}
+      <canvas ref={streetCanvasRef} className="street-labels" aria-hidden="true" />
     </div>
   )
 }
