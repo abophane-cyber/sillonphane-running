@@ -23,7 +23,7 @@ import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, type B
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
-  START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, START_PRESENT,
+  START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, startPresentAt,
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import type { StreetRun } from './routeStreets'
@@ -1631,8 +1631,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // Plan serré du départ : coureuse en grand, entièrement visible (corps = FILM_START_BODY de la hauteur de
   // l'image), pieds en bas à gauche (FILM_START_FEET, en part de l'image) ; elle revient en douceur au centre et à sa
   // taille de course pendant le dézoom (part `frac` du plan serré).
-  const FILM_START_BODY = START_PRESENT.body // même place que la présentation de l'aperçu
-  const FILM_START_FEET = { x: START_PRESENT.feetX, y: START_PRESENT.feetY }
+  const FILM_START = startPresentAt(OUT_W, OUT_H)
+  const FILM_START_BODY = FILM_START.body // même place que la présentation de l'aperçu
+  const FILM_START_FEET = { x: FILM_START.feetX, y: FILM_START.feetY }
   const startFrac = (z: number) => Math.max(0, Math.min(1, (z - zoom) / HIKER3D_CLOSE_ZOOM))
   const body1 = hikers[0] ? hikers[0].layout().body : 98 // ≈ taille du corps à l'échelle 1 (hiker3dSprite : H × 0,53)
   const closeScale = (OUT_H * FILM_START_BODY) / (body1 * FILM_SCALE * HIKER3D_BODY_SCALE)

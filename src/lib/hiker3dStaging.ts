@@ -1,5 +1,6 @@
 // Mise en scène des randonneurs 3D (cf. hiker3dSprite.ts), partagée par l'aperçu (TrackMap.tsx) et le film 2D
 // (filmExport.ts) : mêmes plans serrés, mêmes durées, même écart du duo, même filtre de cap.
+import { elevOverlayRect } from './drawElevOverlay'
 
 /** Randonneurs 3D dès que l'appareil a WebGL2 ; sinon, le ruban seul (aperçu et film). */
 export const HIKER3D_ENABLED = (() => {
@@ -33,10 +34,21 @@ export const HIKER3D_MAX_SCALE = 4.5
 /** Running : taille du coureur sur la carte (× la taille de marche d'origine), plus petit avec la caméra rapprochée.
  * Ne touche que les personnages (pas les noms de lieux ni les bornes, cf. --ground-scale). */
 export const HIKER3D_BODY_SCALE = 0.75
+/** Hauteur du cartouche d'épreuve (bas gauche) avec sa marge basse, en px d'une image de 1080 px de haut (cf.
+ * drawEventCartouche) : sert à placer la coureuse présentée au départ entre les incrustations. */
+export const CARTOUCHE_TOP_1080 = 64 + 118
+
 /** Running : coureur présenté en grand au départ, même place dans l'aperçu (par-dessus la carte, avant la lecture et
- * pendant le décompte) et dans le film (plan serré du départ) : corps = `body` de la hauteur de l'image, pieds en
- * (`feetX`, `feetY`), en part de l'image — en bas à gauche. Il rejoint ensuite sa taille et sa place de course. */
-export const START_PRESENT = { body: 0.5, feetX: 0.12, feetY: 0.93 }
+ * pendant le décompte) et dans les films (plan serré du départ) : corps = `body` de la hauteur de l'image, pieds en
+ * (`feetX`, `feetY`), en part de l'image. À gauche, à mi-distance entre l'encart du haut et le cartouche d'épreuve,
+ * pour une image de `w` × `h` px. Il rejoint ensuite sa taille et sa place de course. */
+export function startPresentAt(w: number, h: number): { body: number; feetX: number; feetY: number } {
+  const r = elevOverlayRect(1920, 1080)
+  const top = (r.y + r.h) * (w / 1920)
+  const bottom = h - CARTOUCHE_TOP_1080 * Math.min(w / 1920, h / 1080)
+  const bodyPx = Math.min(0.5 * h, 0.82 * (bottom - top))
+  return { body: bodyPx / h, feetX: 0.09, feetY: ((top + bottom) / 2 + bodyPx / 2) / h }
+}
 
 /** Taille des personnages (1 = taille de marche) au zoom `zoom`, la marche se faisant au zoom `walkZoom`. */
 export function hiker3dScaleForZoom(zoom: number, walkZoom: number): number {

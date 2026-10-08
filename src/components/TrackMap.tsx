@@ -13,7 +13,7 @@ import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX, HIKER3D_FOLLOW_PX,
-  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, START_PRESENT, HIKER3D_MAX_SCALE, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, HIKER3D_END_HOLD_MS, hiker3dScaleForZoom, smoothEase, metersPerPixel,
+  HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, startPresentAt, HIKER3D_MAX_SCALE, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, HIKER3D_END_HOLD_MS, hiker3dScaleForZoom, smoothEase, metersPerPixel,
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
@@ -724,14 +724,15 @@ export function TrackMap({
     presentRef.current = null
     if (markerElRef.current) markerElRef.current.style.visibility = ''
   }
-  /** Taille de la carte et échelle de présentation (cf. START_PRESENT). */
+  /** Taille de la carte et échelle de présentation (cf. startPresentAt). */
   const presentLayout = () => {
     const p = presentRef.current
     const map = mapRef.current
     if (!p || !map) return null
     const { clientWidth: cw, clientHeight: ch } = map.getContainer()
     const body1 = p.sprite.layout().body / Math.max(0.01, presentScaleRef.current)
-    return { cw, ch, scale: Math.min(HIKER3D_MAX_SCALE, (ch * START_PRESENT.body) / body1) }
+    const sp = startPresentAt(cw, ch)
+    return { cw, ch, feetX: sp.feetX, feetY: sp.feetY, scale: Math.min(HIKER3D_MAX_SCALE, (ch * sp.body) / body1) }
   }
   /** Place le coureur présenté : pieds en (x, y) (px de la carte), à l'échelle `scale`. */
   const placePresented = (x: number, y: number, scale: number) => {
@@ -760,7 +761,7 @@ export function TrackMap({
       presentRef.current = { wrap, sprite, token }
       const layout = () => {
         const L = presentLayout()
-        if (L) placePresented(L.cw * START_PRESENT.feetX, L.ch * START_PRESENT.feetY, L.scale)
+        if (L) placePresented(L.cw * L.feetX, L.ch * L.feetY, L.scale)
       }
       sprite.onFeet(layout)
       layout()
@@ -773,7 +774,7 @@ export function TrackMap({
     const map = mapRef.current
     const L = presentLayout()
     if (!p || !map || !L) { removePresentation(); return }
-    const x0 = L.cw * START_PRESENT.feetX, y0 = L.ch * START_PRESENT.feetY, s0 = presentScaleRef.current
+    const x0 = L.cw * L.feetX, y0 = L.ch * L.feetY, s0 = presentScaleRef.current
     const token = p.token
     const t0 = performance.now()
     const frame = (now: number) => {
