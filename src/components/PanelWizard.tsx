@@ -84,8 +84,7 @@ export function PanelWizard({
   const [allStreets, setAllStreets] = useState(false) // petites rues affichées aussi
   const chosenStreets = race.streets ?? []
   // Une ligne par nom (une rue empruntée plusieurs fois, ex. sur une boucle, n'apparaît qu'une fois) : cocher la
-  // rue choisit toutes ses portions. Liste : rues importantes (isMainStreet), plus les petites sur demande, plus
-  // celles déjà choisies.
+  // rue choisit toutes ses portions. Liste : rues d'au moins 500 m et places (isMainStreet), les petites sur demande.
   const byName = new Map<string, StreetRun[]>()
   for (const r of [...(streetList ?? []), ...chosenStreets.filter(c => !(streetList ?? []).some(s => s.name === c.name))])
     byName.set(r.name, [...(byName.get(r.name) ?? []), r])
@@ -95,9 +94,8 @@ export function PanelWizard({
     const m = runs.reduce((a, r) => a + r.endM - r.startM, 0)
     return m < 1000 ? `${Math.round(m / 10) * 10} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`
   }
-  const isChosen = (name: string) => chosenStreets.some(c => c.name === name)
-  const minorCount = groups.filter(g => !isMainStreet(g.runs) && !isChosen(g.name)).length
-  const shownGroups = groups.filter(g => allStreets || isMainStreet(g.runs) || isChosen(g.name))
+  const minorCount = groups.filter(g => !isMainStreet(g.runs)).length
+  const shownGroups = groups.filter(g => allStreets || isMainStreet(g.runs))
   const setChosen = (names: Set<string>) => onRaceChange({
     ...race, streets: groups.filter(g => names.has(g.name)).flatMap(g => g.runs).sort((a, b) => a.startM - b.startM),
   })

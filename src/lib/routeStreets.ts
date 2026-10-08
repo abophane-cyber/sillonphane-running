@@ -8,10 +8,10 @@ import type { GpxPoint } from '../types'
  * 6 = desserte ; la plus forte des tronçons suivis). */
 export interface StreetRun { name: string; startM: number; endM: number; importance?: number }
 
-/** Rue « importante », proposée d'office dans le widget : axe d'importance IGN 1 à 3, ou au moins 600 m empruntés. */
+/** Rue proposée d'office dans le widget : une portion d'au moins CAPTION_MIN_M empruntés (seules affichées dans les
+ * films), ou une place. */
 export function isMainStreet(runs: StreetRun[]): boolean {
-  const total = runs.reduce((a, r) => a + r.endM - r.startM, 0)
-  return runs.some(r => (r.importance ?? 6) <= 3) || total >= 600
+  return runs.some(r => r.endM - r.startM >= CAPTION_MIN_M || isPlaceName(r.name))
 }
 
 const SAMPLE_M = 15
@@ -142,10 +142,10 @@ export async function fetchRouteStreets(points: GpxPoint[], distances: number[],
   return merged
 }
 
-/** Noms de rue affichés dans les films et l'aperçu : rues d'au moins CAPTION_MIN_M empruntés (lisibles assez
- * longtemps), et places quelle que soit leur longueur (tenues PLACE_HOLD_S à l'écran, cf. StreetCaption). */
+/** Noms de rue affichés dans les films et l'aperçu : rues d'au moins CAPTION_MIN_M empruntés, et places quelle que
+ * soit leur longueur ; chaque nom reste au moins CAPTION_HOLD_S à l'écran (cf. StreetCaption). */
 export const CAPTION_MIN_M = 500
-export const PLACE_HOLD_S = 1.5
+export const CAPTION_HOLD_S = 1.5
 /** Place (« PL DU GENERAL DE GAULLE » au format IGN, ou « Place … »). */
 export function isPlaceName(name: string): boolean {
   return /^(PL|PLACE)\s/i.test(name.trim())

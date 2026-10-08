@@ -26,7 +26,7 @@ import {
   START_SIGN_OFFSET_PX, HIKER3D_BODY_SCALE, HIKER3D_OUTRO_AT, startPresentAt,
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
-import { captionStreets, isPlaceName, PLACE_HOLD_S, type StreetRun } from './routeStreets'
+import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
 import { StreetCaption } from './streetCaption'
 
 export interface FilmExportOptions {
@@ -1379,7 +1379,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const arrivalEvent: LocalityEvent | null   = opts.endName   ? { name: opts.endName,   lon: points[points.length - 1].lon, lat: points[points.length - 1].lat, style: opts.endColEle != null ? 'col' : opts.endLieudit ? 'lieudit' : 'standard', ele: opts.endColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: estTotalFrames } : null
 
   // Rues empruntées : nom affiché en haut de l'écran (cf. streetCaption.ts), selon la part du parcours faite.
-  const streetCaption = new StreetCaption(captionStreets(opts.streets).map(st => ({ name: st.name, from: st.startM / totalDistance, to: st.endM / totalDistance, minS: isPlaceName(st.name) ? PLACE_HOLD_S : undefined })))
+  const streetCaption = new StreetCaption(captionStreets(opts.streets).map(st => ({ name: st.name, from: st.startM / totalDistance, to: st.endM / totalDistance, minS: CAPTION_HOLD_S })))
 
   const totalFrames       = Math.ceil(walkS * fps)
   // debugMaxFrames tronque la marche à la vraie vitesse (durationS inchangé) au lieu de la

@@ -22,7 +22,7 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import { isPlaceName, PLACE_HOLD_S } from '../routeStreets'
+import { CAPTION_HOLD_S } from '../routeStreets'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -2043,7 +2043,7 @@ async function exportFilm3dImpl(
     ctx.restore()
   }
 
-  const streetCaption = new StreetCaption((opts.streets ?? []).map(s => ({ ...s, minS: isPlaceName(s.name) ? PLACE_HOLD_S : undefined })))
+  const streetCaption = new StreetCaption((opts.streets ?? []).map(s => ({ ...s, minS: CAPTION_HOLD_S })))
   const borneSignCache: LocSignCache = new Map()
   const trackM = TRACK_M
 

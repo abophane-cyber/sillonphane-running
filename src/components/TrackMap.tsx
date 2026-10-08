@@ -17,7 +17,7 @@ import {
 } from '../lib/hiker3dStaging'
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
-import { isPlaceName, PLACE_HOLD_S, type StreetRun } from '../lib/routeStreets'
+import { CAPTION_HOLD_S, type StreetRun } from '../lib/routeStreets'
 import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 import { makeStyle, EMPTY_FC } from '../lib/mapStyle'
 
@@ -812,9 +812,9 @@ export function TrackMap({
   const onStreet = progress > 0 && progress < 1
     ? streets?.find(st => coveredM >= st.startM && coveredM <= st.endM)?.name ?? null : null
   const lastStreetRef = useRef<string | null>(null)
-  // Place : nom tenu PLACE_HOLD_S après son apparition, même une fois traversée (comme StreetCaption dans les films).
+  // Nom tenu CAPTION_HOLD_S après son apparition, même une fois la portion dépassée (comme StreetCaption dans les films).
   const placeUntilRef = useRef(0)
-  if (onStreet && onStreet !== lastStreetRef.current && isPlaceName(onStreet)) placeUntilRef.current = performance.now() + PLACE_HOLD_S * 1000
+  if (onStreet && onStreet !== lastStreetRef.current) placeUntilRef.current = performance.now() + CAPTION_HOLD_S * 1000
   if (onStreet) lastStreetRef.current = onStreet
   const holdPlace = !onStreet && playing && lastStreetRef.current != null && performance.now() < placeUntilRef.current
   const currentStreet = onStreet ?? (holdPlace ? lastStreetRef.current : null)
