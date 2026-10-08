@@ -1,12 +1,21 @@
 // Films d'essai : « ?essai » dans l'URL de l'appli -> films 2D et 3D réduits aux ESSAI_FILM_S premières secondes du
 // parcours, à vitesse normale, sans écran-titre ni plans de fin. Seule cette portion du tracé est préparée (vues
 // aériennes, terrain 3D) : la création est bien plus rapide. Rangés dans Mes sillons comme les autres.
+// Mémorisé pour l'onglet (le lien « Commencer » de la page d'accueil ne garde pas ?essai) ; « ?essai=0 » l'arrête.
 import type { GpxPoint } from '../types'
 
 export const ESSAI_FILM_S = 15
+const KEY = 'sillonphane.essai'
 
 export function isEssaiFilm(): boolean {
-  return new URLSearchParams(window.location.search).has('essai')
+  const v = new URLSearchParams(window.location.search).get('essai')
+  try {
+    if (v === '0') sessionStorage.removeItem(KEY)
+    else if (v != null) sessionStorage.setItem(KEY, '1')
+    return sessionStorage.getItem(KEY) === '1'
+  } catch {
+    return v != null && v !== '0'
+  }
 }
 
 /** Début du tracé couvert en ESSAI_FILM_S par un film qui le parcourt entier en `filmS` : nombre de points gardés,

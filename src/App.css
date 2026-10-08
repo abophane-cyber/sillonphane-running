@@ -2609,6 +2609,9 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   font-size: 1.05rem; font-weight: 600;
   margin-bottom: 18px; color: var(--color-text);
 }
+.film-modal__essai {
+  margin: -10px 0 16px; font-size: 0.8rem; font-weight: 600; color: #b26a00;
+}
 .film-modal__bar-bg {
   background: var(--color-bg);
   border-radius: 99px; height: 8px;

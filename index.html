@@ -1248,6 +1248,14 @@
          effet (il ne faisait que défiler vers la section Disponibilité). vite-plugin-pwa n'injecte pas
          l'enregistrement ici (l'app React sur /app.html utilise virtual:pwa-register), on le fait donc
          à la main. La navigation vers « / » n'est pas interceptée (navigateFallbackDenylist). */
+      /* Films d'essai (?essai, cf. src/lib/filmEssai.ts) : mémorisés pour l'onglet, le lien « Commencer » ne garde
+         pas le paramètre ; ?essai=0 les arrête. */
+      try {
+        var essai = new URLSearchParams(location.search).get('essai');
+        if (essai === '0') sessionStorage.removeItem('sillonphane.essai');
+        else if (essai != null) sessionStorage.setItem('sillonphane.essai', '1');
+      } catch (e) {}
+
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', function () {
           navigator.serviceWorker.register('sw.js').catch(function () {});

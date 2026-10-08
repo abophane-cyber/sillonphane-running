@@ -10,6 +10,7 @@ import type { CharacterId } from '../lib/characters'
 import type { ActivityMode } from '../hooks/useAnimationSettings'
 import type { EndpointKind } from '../hooks/useTrackNaming'
 import { formatEta } from '../lib/exportEta'
+import { ESSAI_FILM_S, isEssaiFilm } from '../lib/filmEssai'
 import type { Borne, Ravito, RaceSettings } from '../lib/raceSplits'
 import type { BannerText } from '../lib/raceSplits'
 import type { useAnimation } from '../hooks/useAnimation'
@@ -311,6 +312,7 @@ export function AnimateScreen({
             <div className="film-modal-overlay">
               <div className="film-modal">
                 <p className="film-modal__title">{title}</p>
+                {isEssaiFilm() && <p className="film-modal__essai">Film d'essai : {ESSAI_FILM_S} premières secondes du parcours</p>}
                 <div className="film-modal__bar-bg">
                   <div
                     className={`film-modal__bar-fill${prog === 1 ? ' film-modal__bar-fill--indeterminate' : ''}`}
