@@ -38,13 +38,15 @@ import {
   lon2tileX, lat2tileY, tileX2lon, tileY2lat,
 } from './terrainSources'
 import { cancel3dPrefetch } from './prefetch3d'
-import { startClock } from '../raceSplits'
+import { raceClock, startClock } from '../raceSplits'
+import type { GpxPoint } from '../../types'
 import { drawStartTimePill } from '../startTimePill'
 import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, startPresentAt, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import { StreetCaption, type StreetSpan } from '../streetCaption'
-import { drawBorneLayer, drawEndCard, OVERVIEW_BORNE_SCALE, type LocSignCache } from '../filmExport'
+import { drawBorneLayer, drawEndCard, drawEventCartouche, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
+import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
 
 /** Adresse du site, signée sur l'écran-titre et en fin de film (comme le film 2D). */
@@ -190,6 +192,11 @@ export interface FilmExport3dOptions {
   shownDistanceM?: number
   /** Carton final du film 2D (titre, date, distance, D+, temps, moyenne), à la place de l'adresse seule. */
   endCard?:       EndCard
+  /** Encart du haut (comme le film 2D) : points du GPX (profil, chrono) et chrono réel ou prévu (cf. raceClock). */
+  profilePoints?: GpxPoint[]
+  raceTiming?:    { useRealTimes: boolean; speedsKmh?: number[] }
+  /** Cartouche d'épreuve (bas gauche) pendant le survol. */
+  eventCartouche?: EventCartouche
 }
 
 // ─── Estimation du temps restant ───────────────────────────────────────────────────────────
@@ -218,114 +225,6 @@ function saveEtaRates(prev: EtaRates, measured: Partial<EtaRates>): void {
       msPerFrame: mix(prev.msPerFrame, measured.msPerFrame),
     }))
   } catch { /* stockage indisponible */ }
-}
-
-// ─── Cartel du profil altimétrique (port canvas de buildProfileCard de main.ts) ──────────────
-
-function buildProfileCardCanvas(
-  pts: THREE.Vector3[], totalDistanceM: number, altOffset: number,
-): (ctx: CanvasRenderingContext2D, t: number) => void {
-  const GW = 408, GH = 108
-  const n = pts.length - 1
-
-  const rawElev = pts.map(p => p.y + altOffset)
-  const med = rawElev.map((_, i) => {
-    const a = rawElev[Math.max(0, i - 1)], b = rawElev[i], c = rawElev[Math.min(rawElev.length - 1, i + 1)]
-    return Math.max(Math.min(a, b), Math.min(Math.max(a, b), c))
-  })
-  const SM = 4
-  const elev = med.map((_, i) => {
-    let s = 0, w = 0
-    for (let k = -SM; k <= SM; k++) { const j = i + k; if (j >= 0 && j < med.length) { s += med[j]; w++ } }
-    return s / w
-  })
-
-  let elevMin = Infinity, elevMax = -Infinity
-  for (const a of elev) { if (a < elevMin) elevMin = a; if (a > elevMax) elevMax = a }
-
-  const MIN_SPAN = 180
-  let drawLo = elevMin, drawHi = elevMax
-  if (drawHi - drawLo < MIN_SPAN) {
-    const mid = (drawLo + drawHi) / 2
-    drawLo = mid - MIN_SPAN / 2
-    drawHi = mid + MIN_SPAN / 2
-  }
-  const range = Math.max(1, drawHi - drawLo)
-
-  const altAt = (u: number) => {
-    const fi = Math.max(0, Math.min(n, u * n))
-    const i0 = Math.floor(fi), i1 = Math.min(n, i0 + 1), f = fi - i0
-    return elev[i0] * (1 - f) + elev[i1] * f
-  }
-  const xAt = (u: number) => u * GW
-  const yAt = (u: number) => GH - ((altAt(u) - drawLo) / range) * (GH - 6) - 3
-
-  let gain = 0
-  const gStep = Math.max(1, Math.round(elev.length / 25))
-  for (let i = gStep; i < elev.length; i += gStep) { const dz = elev[i] - elev[i - gStep]; if (dz > 0) gain += dz }
-  const statsLine =
-    `Alt. ${Math.round(elevMin)}–${Math.round(elevMax)} m   ·   ` +
-    `D+ ${Math.round(gain)} m   ·   ${(totalDistanceM / 1000).toFixed(1).replace('.', ',')} km`
-
-  const PAD_L = 17, PAD_T = 13
-  const TITLE_H = 22, GAP = 8
-
-  return (ctx: CanvasRenderingContext2D, t: number) => {
-    const cardX = 16
-    const cardY = 16 // haut gauche
-    const gx0 = cardX + PAD_L
-    const gy0 = cardY + PAD_T + TITLE_H
-
-    // Pas de fond (comme le film 2D) : posé sur le paysage, textes clairs cernés d'un halo sombre.
-    const haloText = (text: string, x: number, y: number) => {
-      ctx.save()
-      ctx.lineJoin = 'round'
-      ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 4
-      ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 6
-      ctx.strokeText(text, x, y)
-      ctx.restore()
-      ctx.fillText(text, x, y)
-    }
-
-    ctx.save()
-    ctx.fillStyle = '#fff'
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top'
-    ctx.font = "700 13px system-ui, sans-serif"
-    haloText('PROFIL DU TRACÉ', gx0, cardY + PAD_T)
-
-    // Aire sous la courbe
-    ctx.beginPath()
-    ctx.moveTo(gx0 + xAt(0), gy0 + yAt(0))
-    const N = 160
-    for (let k = 1; k <= N; k++) ctx.lineTo(gx0 + xAt(k / N), gy0 + yAt(k / N))
-    ctx.lineTo(gx0 + GW, gy0 + GH)
-    ctx.lineTo(gx0, gy0 + GH)
-    ctx.closePath()
-    ctx.fillStyle = 'rgba(230,150,90,0.38)'
-    ctx.fill()
-
-    // Ligne de crête
-    ctx.beginPath()
-    ctx.moveTo(gx0 + xAt(0), gy0 + yAt(0))
-    for (let k = 1; k <= N; k++) ctx.lineTo(gx0 + xAt(k / N), gy0 + yAt(k / N))
-    ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
-    ctx.strokeStyle = '#ffb072'; ctx.lineWidth = 2.4; ctx.stroke()
-    ctx.restore()
-
-    // Curseur de position
-    const u = Math.max(0, Math.min(1, t))
-    const cx = gx0 + xAt(u), cy = gy0 + yAt(u)
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6
-    ctx.beginPath(); ctx.moveTo(cx, gy0); ctx.lineTo(cx, gy0 + GH); ctx.stroke()
-    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#000'; ctx.lineWidth = 0.8
-    ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-
-    ctx.fillStyle = '#fff'
-    ctx.font = "15px system-ui, sans-serif"
-    haloText(statsLine, gx0, gy0 + GH + GAP + 2)
-    ctx.restore()
-  }
 }
 
 // ─── Panneaux de localité (port de panelTexture de main.ts) ──────────────────────────────────
@@ -2050,7 +1949,26 @@ async function exportFilm3dImpl(
   const composite = document.createElement('canvas')
   composite.width = OUT_W; composite.height = OUT_H
   const ctx2d = composite.getContext('2d')!
-  const drawProfile = buildProfileCardCanvas(trailPts, SHOWN_M, minElev - 3.5)
+  // Encart du haut (même dessin que le film 2D) : profil du GPX, D+, pente, chrono (réel, prévu ou estimé).
+  const prof = opts.profilePoints ?? []
+  const profDist = [0]
+  for (let i = 1; i < prof.length; i++) {
+    const a = prof[i - 1], b = prof[i]
+    profDist.push(profDist[i - 1] + Math.hypot((b.lon - a.lon) * 111320 * Math.cos((a.lat * Math.PI) / 180), (b.lat - a.lat) * 110540))
+  }
+  const profTotal = profDist[profDist.length - 1] || 1
+  const clock = raceClock(prof, profDist, opts.raceTiming ?? { useRealTimes: false })
+  const drawProfile = (ctx: CanvasRenderingContext2D, t: number, distanceM: number) => {
+    if (prof.length < 2) return
+    const m = t * profTotal
+    const i = Math.max(0, profDist.findIndex(d => d >= m))
+    drawElevOverlay(ctx, OUT_W, OUT_H, {
+      points: prof, distances: profDist, progress: t,
+      distanceCovered: Math.min(distanceM, SHOWN_M), totalDistance: SHOWN_M,
+      elevGain: elevGainM, elevLoss: 0, currentEle: prof[i]?.ele ?? 0, trackName: '',
+      elapsedS: clock.elapsedAtM(m), timeLabel: clock.label,
+    })
+  }
   const startTimeText = startClock(opts.startTime, opts.startTimePlanned ?? true, opts.trackStart)
 
   const hasWC = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'
@@ -2243,16 +2161,18 @@ async function exportFilm3dImpl(
     streetCaption.update(simElapsed >= PHASE1_END + 2.2 && simElapsed < PHASE2_END ? headFrac : null, 1 / fps)
     streetCaption.draw(ctx2d, OUT_W / 2)
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
+    // Cartouche d'épreuve (bas gauche) pendant le survol et la pause d'arrivée, comme le film 2D.
+    if (opts.eventCartouche) {
+      const a = Math.min((simElapsed - PHASE1_END) / 0.8, (PHASE3_END - simElapsed) / 0.5)
+      if (a > 0) drawEventCartouche(ctx2d, OUT_W, OUT_H, opts.eventCartouche, Math.min(1, a))
+    }
     drawOverlays(ctx2d, {
-      date: opts.trailDate,
-      route: `${opts.departureName} → ${opts.arrivalName}`,
       distanceM: lastOverlay.distanceM,
       profileT: lastOverlay.profileT,
       weather: opts.weatherCard ?? null,
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
       // Carton final saisi : il porte déjà l'adresse, on n'ajoute pas l'adresse seule.
       watermarkReveal: opts.endCard ? 0 : Math.max(0, Math.min(1, intoWatermark / 0.5)),
-      kmAlpha: 1 - Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
     // Nom du départ et heure de départ, en haut de l'écran sous le titre. L'heure s'efface sur START_CLOCK_FADE_S à
     // la fin de la pause sur le départ ; le nom reste jusqu'à la première seconde du survol, puis s'efface sur 0,6 s.
@@ -2485,60 +2405,6 @@ function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: number, o
   ctx.fillText(SITE_ADDRESS, cw - cw * 0.03, barBottom - barH * 0.35)
   ctx.restore()
 }
-
-// Cartel météo (port de drawWeatherCard de src/lib/filmExport.ts) — placé en bas à gauche,
-// bord bas aligné sur le badge kilométrage.
-function drawWeatherCard(ctx: CanvasRenderingContext2D, weather: WeatherCardData | null, progress: number) {
-  if (!weather) return
-
-  const hasDep = weather.departure != null
-  const hasArr = weather.arrival != null
-  let icon: string, tempStr: string, desc: string
-
-  if (hasDep && hasArr) {
-    const dep = weather.departure!, arr = weather.arrival!
-    const temp = Math.round(dep.temp + progress * (arr.temp - dep.temp))
-    const side = progress < 0.5 ? dep : arr
-    icon = side.icon ?? '🌡️'; tempStr = `${temp}°C`; desc = side.description ?? ''
-  } else if (hasDep) {
-    icon = weather.departure!.icon ?? '🌡️'; tempStr = `${weather.departure!.temp}°C`; desc = weather.departure!.description ?? ''
-  } else if (hasArr) {
-    icon = weather.arrival!.icon ?? '🌡️'; tempStr = `${weather.arrival!.temp}°C`; desc = weather.arrival!.description ?? ''
-  } else {
-    icon = '🌡️'; tempStr = `${weather.tempMin}–${weather.tempMax}°C`; desc = ''
-  }
-
-  const PAD = 21, ICON_W = 72, cardH = 102
-  const cardY = 16 // haut droite
-
-  ctx.save()
-  ctx.font = 'bold 38px "Segoe UI", system-ui, sans-serif'
-  const tempW = ctx.measureText(tempStr).width
-  ctx.font = '22px "Segoe UI", system-ui, sans-serif'
-  const descW = desc ? ctx.measureText(desc).width : 0
-  const cardW = PAD + ICON_W + Math.max(tempW, descW) + PAD
-  const cardX = OUT_W - cardW - 16
-
-  ctx.fillStyle = 'rgba(10,26,14,0.82)'
-  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 12); ctx.fill()
-
-  ctx.font = '51px serif'; ctx.fillStyle = '#fff'
-  ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
-  ctx.fillText(icon, cardX + PAD, cardY + cardH / 2)
-
-  const colX = cardX + PAD + ICON_W, midY = cardY + cardH / 2
-  ctx.font = 'bold 38px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#e8f5e9'
-  ctx.textBaseline = desc ? 'alphabetic' : 'middle'
-  ctx.fillText(tempStr, colX, desc ? midY - 1 : midY)
-
-  if (desc) {
-    ctx.font = '22px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#a5c8a8'
-    ctx.textBaseline = 'top'; ctx.fillText(desc, colX, midY + 6)
-  }
-
-  ctx.restore()
-}
-
 // ─── Overlays 2D (port canvas des cartels HTML de index.html) ────────────────────────────────
 
 /** Ouverture : nom du lieu de départ (lettres blanches cernées, comme les noms au sol ; italique pour un lieu-dit)
@@ -2629,24 +2495,10 @@ function drawIntroCard(
 
 function drawOverlays(
   ctx: CanvasRenderingContext2D,
-  o: { date: string; route: string; distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number; kmAlpha: number },
-  drawProfile: (ctx: CanvasRenderingContext2D, t: number) => void,
+  o: { distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number },
+  drawProfile: (ctx: CanvasRenderingContext2D, t: number, distanceM: number) => void,
 ): void {
-  // Titre (route) centré en haut, date juste EN DESSOUS (même casse : MAJUSCULES).
-  ctx.save()
-  ctx.textBaseline = 'alphabetic'
-  ctx.textAlign = 'center'
-  ctx.shadowColor = 'rgba(0,0,0,0.65)'
-  ctx.shadowBlur = 8; ctx.shadowOffsetY = 2
-  ctx.font = "800 22px system-ui, sans-serif"
-  ctx.fillStyle = '#fff'
-  ctx.fillText(o.route, OUT_W / 2, 33)
-  ctx.font = "600 15px system-ui, sans-serif"
-  ctx.fillStyle = '#dfe6ec'
-  ctx.fillText(o.date.toUpperCase(), OUT_W / 2, 55)
-  ctx.restore()
-
-  // Adresse « sillonphane.fr/running » en bas à droite sur la fin du film (comme les films 2D et 2D+).
+  // Habillage aligné sur le film 2D : encart du haut (chiffres et profil), météo en haut à droite, adresse de fin.
   drawEndAddress(ctx, OUT_W, OUT_H, o.watermarkReveal)
 
   // Crédits sources (bas GAUCHE, discret) — orthophotos IGN + repli Esri World Imagery,
@@ -2660,28 +2512,6 @@ function drawOverlays(
   ctx.fillText('© IGN · Esri, Maxar · AWS Terrain Tiles', 16, OUT_H - 12)
   ctx.restore()
 
-  // Badge distance (bas centre) — remonté pour ne pas passer sous la barre de lecture du lecteur. Effacé quand les
-  // infos de fin (bornes, carton final) apparaissent.
-  ctx.save()
-  ctx.globalAlpha = Math.max(0, Math.min(1, o.kmAlpha))
-  const km = `${(o.distanceM / 1000).toFixed(1).replace('.', ',')} km`
-  ctx.font = "800 26px system-ui, sans-serif"
-  const kmW = ctx.measureText(km).width
-  const padX = 24, badgeH = 50
-  const badgeW = kmW + padX * 2
-  const bx = (OUT_W - badgeW) / 2, by = OUT_H - Math.round(OUT_H * 0.12) - badgeH
-  ctx.fillStyle = '#e31c1c'
-  ctx.shadowColor = 'rgba(0,0,0,0.4)'; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3
-  ctx.beginPath(); ctx.roundRect(bx, by, badgeW, badgeH, 999); ctx.fill()
-  ctx.shadowColor = 'transparent'
-  ctx.fillStyle = '#fff'
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-  ctx.fillText(km, OUT_W / 2, by + badgeH / 2 + 1)
-  ctx.restore()
-
-  // Cartel météo (bas gauche, même niveau que le badge kilométrage)
-  drawWeatherCard(ctx, o.weather, o.profileT)
-
-  // Profil altimétrique (bas droite, même niveau que le badge kilométrage)
-  drawProfile(ctx, o.profileT)
+  drawWeatherCard(ctx, OUT_W, o.weather, o.profileT)
+  drawProfile(ctx, o.profileT, o.distanceM)
 }

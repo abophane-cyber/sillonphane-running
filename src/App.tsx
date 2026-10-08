@@ -517,6 +517,8 @@ export default function App() {
       bornes,
       ravitos,
       endCard,
+      raceTiming,
+      eventCartouche,
       trackName: bannerDefaults.title,
       activeSillonId,
       activeSillonTrackId,

@@ -9,6 +9,7 @@ import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
+import type { EventCartouche } from '../lib/filmExport'
 import { ESSAI_FILM_S, essaiPortion, isEssaiFilm } from '../lib/filmEssai'
 import { captionStreets } from '../lib/routeStreets'
 
@@ -43,6 +44,9 @@ export interface CreateFilm3dContext {
   bornes?: Borne[]
   ravitos?: Ravito[]
   endCard?: EndCard
+  /** Encart du haut et cartouche d'épreuve, comme le film 2D. */
+  raceTiming?: { useRealTimes: boolean; speedsKmh?: number[] }
+  eventCartouche?: EventCartouche
   trackName: string
   activeSillonId: string | null
   /** Id du tracé déjà enregistré dans le sillon actif — cf. useFilmRecording.ts (rattachement
@@ -153,6 +157,9 @@ export function useFilm3dExport() {
         bornes: ctx.bornes?.filter(b => inCut(b.km * 1000)),
         ravitos: ctx.ravitos?.filter(r => inCut(r.km * 1000)),
         endCard: ctx.endCard,
+        profilePoints: points,
+        raceTiming: ctx.raceTiming,
+        eventCartouche: ctx.eventCartouche,
         trackDistanceM: trackM,
         // « 21,1 km » du carton final -> 21 100 m (illisible : distance du tracé).
         shownDistanceM: cut ? undefined : (() => {
