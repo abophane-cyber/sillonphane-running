@@ -941,13 +941,26 @@ export function drawScaleNorth(ctx: CanvasRenderingContext2D, cw: number, ch: nu
   ctx.fillText('0', x0, y - 18 * k)
   ctx.fillText(fmt(L / 2), x0 + len / 2, y - 18 * k)
   ctx.fillText(`${fmt(L)} ${unit}`, right, y - 18 * k)
-  // Flèche du nord : « N » au-dessus d'une pointe de flèche, moitié pleine, moitié en contour.
-  const ax = right, aTop = y - 112 * k, aBot = y - 58 * k, half = 15 * k
-  ctx.font = `700 ${Math.round(28 * k)}px "Segoe UI", system-ui, sans-serif`
-  ctx.fillText('N', ax, aTop - 8 * k)
+  ctx.restore()
+  drawNorthArrow(ctx, right, y - 92 * k, k, 0)
+}
+
+/** Flèche du nord centrée en (cx, cy) : « N » au-dessus d'une pointe de flèche (moitié pleine, moitié en contour),
+ * tournée de `rot` radians (sens horaire ; 0 = nord en haut de l'image). */
+export function drawNorthArrow(ctx: CanvasRenderingContext2D, cx: number, cy: number, k: number, rot: number, alpha = 1) {
+  if (alpha <= 0) return
+  const half = 15 * k
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.translate(cx, cy); ctx.rotate(rot)
+  ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'
+  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 6 * k
   ctx.lineWidth = 2.5 * k; ctx.lineJoin = 'round'
-  ctx.beginPath(); ctx.moveTo(ax, aTop); ctx.lineTo(ax + half, aBot); ctx.lineTo(ax, aBot - 12 * k); ctx.closePath(); ctx.fill()
-  ctx.beginPath(); ctx.moveTo(ax, aTop); ctx.lineTo(ax - half, aBot); ctx.lineTo(ax, aBot - 12 * k); ctx.closePath(); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(0, -20 * k); ctx.lineTo(half, 34 * k); ctx.lineTo(0, 22 * k); ctx.closePath(); ctx.fill()
+  ctx.beginPath(); ctx.moveTo(0, -20 * k); ctx.lineTo(-half, 34 * k); ctx.lineTo(0, 22 * k); ctx.closePath(); ctx.stroke()
+  ctx.font = `700 ${Math.round(28 * k)}px "Segoe UI", system-ui, sans-serif`
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'
+  ctx.fillText('N', 0, -28 * k)
   ctx.restore()
 }
 

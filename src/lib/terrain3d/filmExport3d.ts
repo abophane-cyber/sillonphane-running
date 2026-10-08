@@ -45,7 +45,7 @@ import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, startPresentAt, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import { StreetCaption, type StreetSpan } from '../streetCaption'
-import { drawBorneLayer, drawEndCard, drawEventCartouche, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
+import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
 
@@ -1476,7 +1476,10 @@ async function exportFilm3dImpl(
   // ── PHASE 3 : RIG CAMÉRA + TIMELINE (port de main.ts, sans slider/orbite/replay) ─────────
   const CAM_OFFSET_ALT = 590 // (470 avant) caméra un peu plus haute : le relief est mieux dominé
   const CAM_OFFSET_DIST = 700
-  const HEADING_INERTIA = 0.006
+  // Cap de la caméra : inertie (part de l'écart rattrapée par pas de simulation) et vitesse de rotation plafonnée,
+  // basses pour limiter le mal des transports (le paysage qui pivote est ce qui écœure le plus).
+  const HEADING_INERTIA = 0.0035
+  const MAX_YAW_DEG_S = 9
   const LOOK_RAISE = 60
   const LOOK_AHEAD = 0.02
   const LOOK_AHEAD_RAMP_S = 3.5 // s : montée progressive de l'avance de visée en début de survol
@@ -1562,6 +1565,7 @@ async function exportFilm3dImpl(
   const _ob = new THREE.Vector3()
   const _smoothHeading = new THREE.Vector3()
   let smoothHeadingInit = false
+  let headingAngle = 0
   let camTcur = 0              // position courante sur la courbe caméra (vitesse plafonnée, voir simStep)
   const CAM_MAX_SPEED_K = 1.6  // vitesse d'avance max de la caméra, en multiple de sa vitesse moyenne
   // Cap de la caméra (elle se place « derrière » le ruban) : tangente de la courbe caméra mesurée sur une
@@ -1569,15 +1573,21 @@ async function exportFilm3dImpl(
   // inertie d'autant plus forte que la caméra est loin — à ~5 km derrière le ruban, un virage de 90°
   // lui faisait balayer ~7 km en 2-3 s (paysage qui tourne très vite).
   const camCurveLen = cameraCurve.getLength()
-  const HEAD_WIN = Math.min(0.05, Math.max(0.001, (CAM_OFFSET_DIST * camK) / camCurveLen))
+  const HEAD_WIN = Math.min(0.08, Math.max(0.002, (2 * CAM_OFFSET_DIST * camK) / camCurveLen))
   const headingInertia = HEADING_INERTIA / Math.sqrt(camK)
   /** `ct` : position sur la COURBE CAMÉRA (0..1), pas sur le ruban (voir camTFor / camTcur). */
   function cameraWorldOffset(ct: number, out: THREE.Vector3): void {
     cameraCurve.getPointAt(Math.max(0, ct - HEAD_WIN), _oa)
     cameraCurve.getPointAt(Math.min(1, ct + HEAD_WIN), _ob)
     _ob.sub(_oa).setY(0).normalize()
-    if (!smoothHeadingInit) { _smoothHeading.copy(_ob); smoothHeadingInit = true }
-    else _smoothHeading.lerp(_ob, headingInertia).normalize()
+    const target = Math.atan2(_ob.z, _ob.x)
+    if (!smoothHeadingInit) { headingAngle = target; smoothHeadingInit = true }
+    else {
+      const d = Math.atan2(Math.sin(target - headingAngle), Math.cos(target - headingAngle))
+      const maxStep = (MAX_YAW_DEG_S * Math.PI / 180) * SIM_DT
+      headingAngle += Math.max(-maxStep, Math.min(maxStep, d * headingInertia))
+    }
+    _smoothHeading.set(Math.cos(headingAngle), 0, Math.sin(headingAngle))
     out.set(-_smoothHeading.x * CAM_OFFSET_DIST, CAM_OFFSET_ALT, -_smoothHeading.z * CAM_OFFSET_DIST)
   }
   function arrivalZoomK(elapsed: number): number {
@@ -1855,7 +1865,7 @@ async function exportFilm3dImpl(
     }
 
     currentCamPos.lerp(targetCamPos, 0.045)
-    currentLookAt.lerp(targetLookAt, 0.06)
+    currentLookAt.lerp(targetLookAt, 0.035) // visée plus lissée (moins de balancements)
     if (water) (water.material as THREE.ShaderMaterial).uniforms['time'].value += SIM_DT
     return { distanceM, profileT }
   }
@@ -2174,6 +2184,12 @@ async function exportFilm3dImpl(
       // Carton final saisi : il porte déjà l'adresse, on n'ajoute pas l'adresse seule.
       watermarkReveal: opts.endCard ? 0 : Math.max(0, Math.min(1, intoWatermark / 0.5)),
     }, drawProfile)
+    // Flèche du nord (bas droite), tournée selon le cap de la caméra (x = est, z = sud) ; effacée avec l'adresse de fin.
+    {
+      const fx = currentLookAt.x - currentCamPos.x, fz = currentLookAt.z - currentCamPos.z
+      const k = Math.min(OUT_W / 1920, OUT_H / 1080)
+      drawNorthArrow(ctx2d, OUT_W - 60 * k, OUT_H - 70 * k, k, Math.atan2(-fx, -fz), 1 - Math.max(0, Math.min(1, intoWatermark / 0.5)))
+    }
     // Nom du départ et heure de départ, en haut de l'écran sous le titre. L'heure s'efface sur START_CLOCK_FADE_S à
     // la fin de la pause sur le départ ; le nom reste jusqu'à la première seconde du survol, puis s'efface sur 0,6 s.
     const startA = Math.max(0, Math.min(1, (PHASE1_END + 1.6 - simElapsed) / 0.6))
