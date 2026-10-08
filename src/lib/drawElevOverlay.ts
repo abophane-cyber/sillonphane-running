@@ -1,5 +1,4 @@
 import type { GpxPoint } from '../types'
-import { formatElapsed } from './raceSplits'
 
 interface OverlayState {
   points: GpxPoint[]
@@ -20,7 +19,7 @@ interface OverlayState {
 }
 
 /** Tablette sombre translucide : pictogrammes jaunes, chiffres blancs, profil vert lumineux. */
-const ICON = '#f5c518'
+const ICON = '#f7b500'
 const LINE = '#7be36f'
 const PANEL_BG = 'rgba(8,14,12,0.78)'
 const SANS = '"Segoe UI", system-ui, sans-serif'
@@ -105,61 +104,64 @@ export function elevOverlayRect(cw: number, ch: number, scale = ELEV_OVERLAY_SCA
   return { x: PX, y: PY, w: PW, h: PH }
 }
 
-// ── Pictogrammes (traits jaunes, carré de 30 px dont (x, y) est le coin haut gauche) ──
+// ── Pictogrammes jaunes pleins (carré de 30 px dont (x, y) est le coin haut gauche ; fillStyle = strokeStyle = ICON) ──
 type IconFn = (ctx: CanvasRenderingContext2D, x: number, y: number) => void
+const CUT = 'rgba(8,14,12,1)' // découpes sombres dans les pictogrammes pleins
 
-/** Distance : double flèche entre deux butées. */
+/** Distance : triangle de relief plein, sentier sombre en zigzag. */
 const iconDistance: IconFn = (ctx, x, y) => {
-  const m = y + 15
   ctx.beginPath()
-  ctx.moveTo(x + 2, m - 9); ctx.lineTo(x + 2, m + 9)
-  ctx.moveTo(x + 28, m - 9); ctx.lineTo(x + 28, m + 9)
-  ctx.moveTo(x + 6, m); ctx.lineTo(x + 24, m)
-  ctx.moveTo(x + 11, m - 5); ctx.lineTo(x + 6, m); ctx.lineTo(x + 11, m + 5)
-  ctx.moveTo(x + 19, m - 5); ctx.lineTo(x + 24, m); ctx.lineTo(x + 19, m + 5)
+  ctx.moveTo(x + 15, y + 2); ctx.lineTo(x + 29, y + 27); ctx.lineTo(x + 1, y + 27); ctx.closePath()
+  ctx.fill()
+  ctx.save()
+  ctx.strokeStyle = CUT; ctx.lineWidth = 2.4
+  ctx.beginPath()
+  ctx.moveTo(x + 9, y + 24); ctx.lineTo(x + 18, y + 20); ctx.lineTo(x + 12, y + 16); ctx.lineTo(x + 16, y + 11)
   ctx.stroke()
+  ctx.restore()
 }
 
-/** Dénivelé positif : relief et flèche montante. */
+/** Dénivelé positif : deux sommets pleins, flèche montante. */
 const iconGain: IconFn = (ctx, x, y) => {
   ctx.beginPath()
-  ctx.moveTo(x + 1, y + 27); ctx.lineTo(x + 11, y + 12); ctx.lineTo(x + 16, y + 19); ctx.lineTo(x + 21, y + 13); ctx.lineTo(x + 29, y + 27); ctx.closePath()
-  ctx.stroke()
+  ctx.moveTo(x + 1, y + 28); ctx.lineTo(x + 11, y + 10); ctx.lineTo(x + 16, y + 18); ctx.lineTo(x + 21, y + 12); ctx.lineTo(x + 29, y + 28); ctx.closePath()
+  ctx.fill()
   ctx.beginPath()
-  ctx.moveTo(x + 24, y + 10); ctx.lineTo(x + 24, y + 1)
-  ctx.moveTo(x + 20, y + 5); ctx.lineTo(x + 24, y + 1); ctx.lineTo(x + 28, y + 5)
+  ctx.moveTo(x + 24, y + 9); ctx.lineTo(x + 24, y + 1)
+  ctx.moveTo(x + 20.5, y + 4.5); ctx.lineTo(x + 24, y + 1); ctx.lineTo(x + 27.5, y + 4.5)
   ctx.stroke()
 }
 
-/** Pente : triangle rectangle et arc d'angle. */
+/** Pente : triangle rectangle épais, rayé de deux traits. */
 const iconSlope: IconFn = (ctx, x, y) => {
   ctx.beginPath()
-  ctx.moveTo(x + 2, y + 26); ctx.lineTo(x + 28, y + 26); ctx.lineTo(x + 28, y + 6); ctx.closePath()
+  ctx.moveTo(x + 2, y + 26); ctx.lineTo(x + 28, y + 26); ctx.lineTo(x + 28, y + 5); ctx.closePath()
   ctx.stroke()
   ctx.beginPath()
-  ctx.arc(x + 2, y + 26, 11, -0.66, 0)
+  ctx.moveTo(x + 13, y + 26); ctx.lineTo(x + 16, y + 17)
+  ctx.moveTo(x + 20, y + 26); ctx.lineTo(x + 22, y + 13)
   ctx.stroke()
 }
 
-/** Temps : chronomètre. */
+/** Temps : compteur (arc ouvert en bas, aiguille, moyeu). */
 const iconTime: IconFn = (ctx, x, y) => {
-  ctx.beginPath(); ctx.arc(x + 15, y + 17, 11, 0, Math.PI * 2); ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(x + 11, y + 2); ctx.lineTo(x + 19, y + 2)
-  ctx.moveTo(x + 15, y + 2); ctx.lineTo(x + 15, y + 6)
-  ctx.moveTo(x + 15, y + 17); ctx.lineTo(x + 20, y + 11)
-  ctx.moveTo(x + 24, y + 7); ctx.lineTo(x + 26.5, y + 4.5)
-  ctx.stroke()
+  ctx.beginPath(); ctx.arc(x + 15, y + 17, 12, Math.PI * 0.8, Math.PI * 2.2); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(x + 15, y + 17); ctx.lineTo(x + 22, y + 10); ctx.stroke()
+  ctx.beginPath(); ctx.arc(x + 15, y + 17, 3, 0, Math.PI * 2); ctx.fill()
 }
 
-/** Altitude (quatrième case sans chrono) : sommet et repère. */
+/** Altitude (quatrième case sans chrono) : sommet plein. */
 const iconAltitude: IconFn = (ctx, x, y) => {
   ctx.beginPath()
-  ctx.moveTo(x + 1, y + 27); ctx.lineTo(x + 15, y + 5); ctx.lineTo(x + 29, y + 27); ctx.closePath()
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(x + 10, y + 13); ctx.lineTo(x + 15, y + 17); ctx.lineTo(x + 20, y + 13)
-  ctx.stroke()
+  ctx.moveTo(x + 1, y + 27); ctx.lineTo(x + 15, y + 4); ctx.lineTo(x + 29, y + 27); ctx.closePath()
+  ctx.fill()
+}
+
+/** « 4:27 min », « 1:05:12 ». */
+function fmtTime(s: number) {
+  const t = Math.max(0, Math.round(s))
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), sec = String(t % 60).padStart(2, '0')
+  return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec} min`
 }
 
 /** Drapeau à damier de l'arrivée, dans un rond. */
@@ -235,7 +237,7 @@ export function drawElevOverlay(
     { icon: iconGain, val: `+${Math.round(gainNow)} m`, label: 'D+' },
     { icon: iconSlope, val: slopeStr, label: 'PENTE MOYENNE' },
     elapsedS != null
-      ? { icon: iconTime, val: formatElapsed(elapsedS), label: timeLabel ?? 'TEMPS' }
+      ? { icon: iconTime, val: fmtTime(elapsedS), label: timeLabel ?? 'TEMPS' }
       : { icon: iconAltitude, val: `${Math.round(currentEle)} m`, label: 'ALTITUDE' },
   ]
   const cellW = (PW - PADX * 2) / cells.length
@@ -246,7 +248,7 @@ export function drawElevOverlay(
       ctx.beginPath(); ctx.moveTo(x - 8, 18); ctx.lineTo(x - 8, STAT_H - 14); ctx.stroke()
     }
     ctx.save()
-    ctx.strokeStyle = ICON; ctx.lineWidth = 2.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    ctx.strokeStyle = ICON; ctx.fillStyle = ICON; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
     c.icon(ctx, x + 4, 18)
     ctx.restore()
     // Valeur : réduite si elle déborde de sa case (« 1 h 05'12" »).
@@ -283,19 +285,13 @@ export function drawElevOverlay(
     ctx.lineTo(toX(1), gY + gH + 8); ctx.lineTo(toX(0), gY + gH + 8); ctx.closePath()
   }
   const fill = ctx.createLinearGradient(0, gY, 0, gY + gH + 8)
-  fill.addColorStop(0, 'rgba(123,227,111,0.38)'); fill.addColorStop(1, 'rgba(123,227,111,0)')
+  fill.addColorStop(0, 'rgba(123,227,111,0.5)'); fill.addColorStop(1, 'rgba(123,227,111,0.04)')
 
-  // Partie restant à courir, atténuée ; partie courue, lumineuse.
+  // Profil entier, d'un seul éclat : aire remplie en dégradé, ligne lumineuse.
   ctx.save()
-  ctx.globalAlpha = 0.4
   area(); ctx.fillStyle = fill; ctx.fill()
-  line(); ctx.strokeStyle = LINE; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke()
-  ctx.restore()
-  ctx.save()
-  ctx.beginPath(); ctx.rect(0, gY - 20, toX(p), gH + 40); ctx.clip()
-  area(); ctx.fillStyle = fill; ctx.fill()
-  ctx.shadowColor = 'rgba(123,227,111,0.8)'; ctx.shadowBlur = 10
-  line(); ctx.strokeStyle = LINE; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke()
+  ctx.shadowColor = 'rgba(123,227,111,0.85)'; ctx.shadowBlur = 10
+  line(); ctx.strokeStyle = LINE; ctx.lineWidth = 3.5; ctx.lineJoin = 'round'; ctx.stroke()
   ctx.restore()
 
   // Altitudes du départ et de l'arrivée, au-dessus des extrémités.
@@ -304,20 +300,12 @@ export function drawElevOverlay(
   ctx.textAlign = 'left'; ctx.fillText(`${Math.round(startEle)} m`, gX - 8, gY - 14)
   ctx.textAlign = 'right'; ctx.fillText(`${Math.round(endEle)} m`, gX + gW + 8, gY - 14)
 
-  // Départ (rond vert) et arrivée (damier).
+  // Départ (rond blanc cerclé de vert) et arrivée (damier).
   const sx = toX(0), sy = toY(startEle)
-  ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI * 2)
-  ctx.fillStyle = '#3ad15a'; ctx.fill()
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke()
+  ctx.beginPath(); ctx.arc(sx, sy, 8.5, 0, Math.PI * 2)
+  ctx.fillStyle = '#fff'; ctx.fill()
+  ctx.strokeStyle = '#3ad15a'; ctx.lineWidth = 3.5; ctx.stroke()
   drawFinishDot(ctx, toX(1), toY(endEle), 8)
-
-  // Point atteint.
-  if (p > 0.004 && p < 0.996) {
-    const cx = toX(p), cy = toY(sampled[k]?.ele ?? minEle)
-    ctx.beginPath(); ctx.arc(cx, cy, 6.5, 0, Math.PI * 2)
-    ctx.fillStyle = '#fff'; ctx.fill()
-    ctx.strokeStyle = '#1f7a35'; ctx.lineWidth = 2.5; ctx.stroke()
-  }
 
   ctx.font = `italic bold 15px ${SANS}`; ctx.fillStyle = '#fff'
   ctx.letterSpacing = '1px'
