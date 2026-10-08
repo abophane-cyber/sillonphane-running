@@ -78,19 +78,11 @@ export const RIBBON_STOPS = { orangeFrom: 0.45, orangeTo: 0.7 }
 /** Ruban : largeur du trait, largeur et opacité du léger halo (en px pour une image de 1080 px de haut). */
 export const RIBBON_STYLE = { width: 17, glowWidth: 24, glowBlur: 6, glowAlpha: 0.16 }
 
-/** Durées de l'ouverture (s) : sur fond blanc, seul le tracé se dessine du départ à l'arrivée pendant que la carte
- * apparaît en fondu depuis le blanc, puis le titre et les lieux ; plan tenu, puis passage à la première scène
- * (« plongée ») : titre, lieux et ruban s'effacent. */
+/** Durées de l'ouverture (s) : image fixe (carte, ruban, titre, lieux) qui apparaît d'un seul fondu depuis le blanc,
+ * plan tenu, puis passage à la première scène (« plongée ») : titre, lieux et ruban s'effacent. */
 export const OPENING = {
-  /** Le tracé se dessine de ribbonFromS à ribbonFromS + ribbonS. */
-  ribbonFromS: 0.2,
-  ribbonS: 3.2,
-  /** Fondu de la carte depuis le blanc. */
-  mapFromS: 0.5,
-  mapInS: 2.7,
-  /** Fondu d'entrée du titre et des lieux. */
-  titleFromS: 1.2,
-  titleInS: 2.0,
+  /** Fondu d'ouverture de toute l'image, depuis le blanc. */
+  fadeInS: 1.2,
   /** Début du passage à la première scène (fin du plan d'ensemble). */
   diveFromS: 6.6,
   /** Durée du passage. */
@@ -107,13 +99,7 @@ export function openingDiveK(t: number): number {
   const u = clamp01((t - OPENING.diveFromS) / OPENING.diveS)
   return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
 }
-/** Opacité du ruban d'ouverture : plein pendant qu'il se dessine et le plan tenu, s'efface pendant le passage (le ruban de la course
- * prend le relais). */
-/** Part du parcours déjà dessinée par le ruban d'ouverture (0..1, adoucie aux deux bouts). */
-export function openingRibbonHead(t: number): number {
-  const u = clamp01((t - OPENING.ribbonFromS) / OPENING.ribbonS)
-  return u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2
-}
+/** Opacité du ruban d'ouverture : plein jusqu'au passage, puis s'efface (le ruban de la course prend le relais). */
 export function openingRibbonAlpha(t: number): number {
   return 1 - smooth((t - OPENING.diveFromS - OPENING.diveS * 0.25) / (OPENING.diveS * 0.5))
 }
@@ -127,9 +113,9 @@ export const OPENING_FRAME_SHIFT = 0.17
 export function openingFrameShift(t: number): number {
   return OPENING_FRAME_SHIFT * (1 - openingDiveK(t))
 }
-/** Opacité du titre et des lieux : un fondu d'entrée, effacés au début du passage. */
+/** Opacité du titre et des lieux : pleins dès le début, effacés au début du passage. */
 function titleAlpha(t: number): number {
-  return smooth((t - OPENING.titleFromS) / OPENING.titleInS) * (1 - smooth((t - OPENING.diveFromS) / 0.8))
+  return 1 - smooth((t - OPENING.diveFromS) / 0.8)
 }
 
 // ─── Police ──────────────────────────────────────────────────────────────────
@@ -163,8 +149,8 @@ export function loadOpeningFont(): Promise<void> {
 const PAPER = '247,241,231'
 
 /**
- * Étalonnage par-dessus la carte claire (déjà éclaircie par openingMap.ts) : léger voile crème sur toute l'image,
- * voile crème plus dense à gauche (zone du titre, la carte s'y efface en douceur). Apparition depuis le crème au tout
+ * voile crème plus dense à gauche (zone du titre, la carte s'y efface en douceur). Tout s'atténue pendant le
+ * passage à la première scène.
  * début. Tout s'atténue pendant le passage à la première scène.
  */
 export function drawOpeningMapGrade(ctx: CanvasRenderingContext2D, w: number, h: number, t: number): void {
@@ -180,14 +166,6 @@ export function drawOpeningMapGrade(ctx: CanvasRenderingContext2D, w: number, h:
     left.addColorStop(0.75, `rgba(${PAPER},0.3)`)
     left.addColorStop(1, `rgba(${PAPER},0)`)
     ctx.fillStyle = left
-    ctx.fillRect(0, 0, w, h)
-    ctx.restore()
-  }
-  // Départ sur fond blanc : la carte (et son étalonnage) apparaît en fondu depuis le blanc.
-  const veil = 1 - smooth((t - OPENING.mapFromS) / OPENING.mapInS)
-  if (veil > 0) {
-    ctx.save()
-    ctx.fillStyle = `rgba(255,255,255,${veil})`
     ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
@@ -646,39 +624,58 @@ export function drawBranding(ctx: CanvasRenderingContext2D, h: number, y: number
 
 // ─── Scène ───────────────────────────────────────────────────────────────────
 
-/** Page d'ouverture complète, par-dessus l'image de la carte déjà dessinée : étalonnage, ruban fixe, lieux, titre,
- * chiffres, logo. `t` : temps de l'ouverture (s). */
+/** Page d'ouverture complète, par-dessus l'image de la carte déjà dessinée : étalonnage, ruban, lieux, titre, chiffres,
+ * logo ; le tout apparaît d'un seul fondu depuis le blanc. `t` : temps de l'ouverture (s). */
 export function drawOpeningScene(
   ctx: CanvasRenderingContext2D, w: number, h: number, t: number, ev: OpeningEvent, frame: OpeningFrame,
 ): void {
   if (t >= OPENING_S) return
   drawOpeningMapGrade(ctx, w, h, t)
-  drawRouteRibbon(ctx, w, h, ribbonUpTo(frame.ribbon, openingRibbonHead(t)), openingRibbonAlpha(t))
+  drawRouteRibbon(ctx, w, h, smoothRibbon(frame.ribbon, h / 1080), openingRibbonAlpha(t))
   const a = titleAlpha(t)
   drawWaterLabels(ctx, w, h, frame.waters ?? [], a)
   drawPoiLabels(ctx, w, h, frame.pois, a)
-  if (a <= 0) return
-  ctx.save()
-  ctx.globalAlpha = a
-  const k = h / 1080
-  const y = drawEventStats(ctx, h, ev, drawEventTitle(ctx, w, h, ev) + 30 * k)
-  drawBranding(ctx, h, y + 56 * k)
-  ctx.restore()
+  if (a > 0) {
+    ctx.save()
+    ctx.globalAlpha = a
+    const k = h / 1080
+    const y = drawEventStats(ctx, h, ev, drawEventTitle(ctx, w, h, ev) + 30 * k)
+    drawBranding(ctx, h, y + 56 * k)
+    ctx.restore()
+  }
+  // Fondu d'ouverture de toute l'image, depuis le blanc.
+  const veil = 1 - smooth(t / OPENING.fadeInS)
+  if (veil > 0) {
+    ctx.save()
+    ctx.fillStyle = `rgba(255,255,255,${veil})`
+    ctx.fillRect(0, 0, w, h)
+    ctx.restore()
+  }
 }
 
-/** Parcours jusqu'à la part `head` (dernier point interpolé) : le tracé qui se dessine. */
-function ribbonUpTo(pts: OpeningPt[], head: number): OpeningPt[] {
-  if (head >= 1) return pts
-  const out: OpeningPt[] = []
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i]
-    if (p.f <= head) { out.push(p); continue }
-    const q = pts[i - 1]
-    if (q && p.f > q.f) {
-      const u = (head - q.f) / (p.f - q.f)
-      out.push({ x: q.x + (p.x - q.x) * u, y: q.y + (p.y - q.y) * u, f: head, ok: p.ok !== false && q.ok !== false })
-    }
-    break
+let smoothCache: { src: OpeningPt[]; k: number; out: OpeningPt[] } | null = null
+/** Ruban souple : points trop proches fusionnés (les crochets du GPS disparaissent), puis coins arrondis par
+ * découpage de Chaikin (3 passes). La part du parcours `f` suit. Mis en cache : même parcours à chaque image. */
+function smoothRibbon(pts: OpeningPt[], k: number): OpeningPt[] {
+  if (smoothCache && smoothCache.src === pts && smoothCache.k === k) return smoothCache.out
+  const minGap = 9 * k
+  let out: OpeningPt[] = []
+  for (const p of pts) {
+    const last = out[out.length - 1]
+    if (!last || p.ok === false || last.ok === false || Math.hypot(p.x - last.x, p.y - last.y) >= minGap) out.push(p)
   }
+  if (pts.length && out[out.length - 1] !== pts[pts.length - 1]) out.push(pts[pts.length - 1])
+  for (let pass = 0; pass < 3; pass++) {
+    const next: OpeningPt[] = [out[0]]
+    for (let i = 0; i < out.length - 1; i++) {
+      const a = out[i], b = out[i + 1]
+      if (a.ok === false || b.ok === false) { next.push(b); continue }
+      const lerp = (u: number): OpeningPt => ({ x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u, f: a.f + (b.f - a.f) * u })
+      next.push(lerp(0.25), lerp(0.75))
+    }
+    next.push(out[out.length - 1])
+    out = next
+  }
+  smoothCache = { src: pts, k, out }
   return out
 }

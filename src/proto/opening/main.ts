@@ -1,7 +1,6 @@
-// Banc d'essai de l'ouverture, sans rendre de film : image fixe (t = 4 s), ou animation du début de l'ouverture (le
-// tracé se dessine sur fond blanc pendant que la carte, puis le titre apparaissent), en boucle.
+// Banc d'essai de l'ouverture, sans rendre de film : l'image fixe de l'ouverture (t = 4 s) avec les données saisies.
 // Tracé : le GPX choisi, sinon public/demo/_essai-semi-lille.gpx ; lieux préremplis pour ce tracé (données d'essai).
-import { buildOpeningEvent, drawOpeningScene, loadOpeningFont, OPENING, type OpeningEvent } from '../../lib/filmOpening'
+import { buildOpeningEvent, drawOpeningScene, loadOpeningFont, type OpeningEvent } from '../../lib/filmOpening'
 import { captureOpeningView, cumulativeDistances, type OpeningShot } from '../../lib/openingMap'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -9,7 +8,6 @@ const canvas = $<HTMLCanvasElement>('out')
 const ctx = canvas.getContext('2d')!
 const msg = $<HTMLElement>('msg')
 let current: { shot: OpeningShot; ev: OpeningEvent } | null = null
-let anim = 0
 
 /** Image de l'ouverture à l'instant t. */
 function frame(t: number) {
@@ -21,7 +19,6 @@ function frame(t: number) {
 }
 
 async function render() {
-  cancelAnimationFrame(anim)
   msg.textContent = 'Rendu…'
   const t0 = performance.now()
   const file = $<HTMLInputElement>('gpx').files?.[0]
@@ -43,22 +40,7 @@ async function render() {
   msg.textContent = `Rendu en ${((performance.now() - t0) / 1000).toFixed(1)} s`
 }
 
-/** Joue le début de l'ouverture (jusqu'au début du passage à la première scène), en boucle. */
-async function animate() {
-  if (!current) await render()
-  cancelAnimationFrame(anim)
-  const start = performance.now()
-  const loop = () => {
-    const t = ((performance.now() - start) / 1000) % (OPENING.diveFromS + 0.8)
-    frame(t)
-    msg.textContent = `t = ${t.toFixed(1)} s`
-    anim = requestAnimationFrame(loop)
-  }
-  loop()
-}
-
 $<HTMLButtonElement>('go').addEventListener('click', () => { render().catch(e => { msg.textContent = `Échec : ${e}` }) })
-$<HTMLButtonElement>('play').addEventListener('click', () => { animate().catch(e => { msg.textContent = `Échec : ${e}` }) })
 $<HTMLButtonElement>('png').addEventListener('click', () => {
   const a = document.createElement('a')
   a.download = 'ouverture.png'
