@@ -220,7 +220,15 @@ export function drawElevOverlay(
   ctx.textBaseline = 'alphabetic'
 
   // ── Fond ──
-  ctx.beginPath(); ctx.roundRect(0, 0, PW, PH, 18)
+  // Décrochage : bandeau des chiffres sur toute la largeur, bloc du profil plus étroit dessous (marche à droite).
+  const J = STAT_H + 4, W2 = Math.round(PW * 0.89), R = 18
+  ctx.beginPath()
+  ctx.moveTo(R, 0); ctx.lineTo(PW - R, 0); ctx.arcTo(PW, 0, PW, R, R)
+  ctx.lineTo(PW, J - R); ctx.arcTo(PW, J, PW - R, J, R)
+  ctx.lineTo(W2 + R, J); ctx.arcTo(W2, J, W2, J + R, R)
+  ctx.lineTo(W2, PH - R); ctx.arcTo(W2, PH, W2 - R, PH, R)
+  ctx.lineTo(R, PH); ctx.arcTo(0, PH, 0, PH - R, R)
+  ctx.lineTo(0, R); ctx.arcTo(0, 0, R, 0, R); ctx.closePath()
   ctx.fillStyle = PANEL_BG; ctx.fill()
   ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1.5; ctx.stroke()
 
@@ -266,10 +274,10 @@ export function drawElevOverlay(
     ctx.letterSpacing = '0px'
   })
   ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5
-  ctx.beginPath(); ctx.moveTo(0, STAT_H + 4); ctx.lineTo(PW, STAT_H + 4); ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(0, J); ctx.lineTo(W2, J); ctx.stroke()
 
   // ── Profil ──
-  const gX = PADX + 10, gW = PW - PADX * 2 - 20
+  const gX = PADX + 10, gW = W2 - PADX * 2 - 20
   const gY = STAT_H + 38, gH = 36
   const eles = sampled.map(s => s.ele)
   const minEle = Math.min(...eles), maxEle = Math.max(...eles)
