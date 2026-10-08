@@ -204,6 +204,8 @@ const MAJOR = /^(BD|AV|RTE|PL|QU|CRS|PONT)\s/
 /** Nom affiché et rang d'une rue au format IGN (« BD VICTOR HUGO », « R DES POSTES ») : voies majeures (ou d'importance
  * IGN 1 à 3) en capitales ; rues en casse normale, type de voie écrit en entier (« Rue des Postes »). */
 export function streetLabel(name: string, importance?: number): StreetLabel {
+  const place = placeLines(name)
+  if (place) return { text: name, major: true, place }
   const major = MAJOR.test(name) || (importance ?? 6) <= 3
   if (major) return { text: name, major }
   const words = name.split(' ')
@@ -216,6 +218,21 @@ export function streetLabel(name: string, importance?: number): StreetLabel {
   return { text: out.join(' '), major }
 }
 const cap = (w: string) => (w ? w[0] + w.slice(1).toLowerCase() : w)
+
+/** Accents des mots courants des noms de place, absents des noms IGN (« GENERAL » -> « GÉNÉRAL »). */
+const ACCENTS: Record<string, string> = {
+  GENERAL: 'GÉNÉRAL', REPUBLIQUE: 'RÉPUBLIQUE', EGLISE: 'ÉGLISE', HOTEL: 'HÔTEL', THEATRE: 'THÉÂTRE',
+  MARECHAL: 'MARÉCHAL', LIBERATION: 'LIBÉRATION', MAIRIE: 'MAIRIE', ETOILE: 'ÉTOILE', OPERA: 'OPÉRA',
+}
+/** Nom d'une place IGN réparti sur deux arcs : « PL DE LA GARE » -> PLACE DE / LA GARE ; « PL DU GENERAL DE GAULLE »
+ * -> PLACE / DU GÉNÉRAL DE GAULLE ; « PL RIHOUR » -> PLACE / RIHOUR. null si ce n'est pas une place. */
+export function placeLines(name: string): { top: string; bottom: string } | null {
+  const m = /^PL\s+(.+)$/.exec(name.trim())
+  if (!m) return null
+  const words = m[1].split(/\s+/).map(w => ACCENTS[w] ?? w)
+  if (words[0] === 'DE' && words.length > 1) return { top: 'PLACE DE', bottom: words.slice(1).join(' ') }
+  return { top: 'PLACE', bottom: words.join(' ') }
+}
 
 /** Opacité d'un nom de rue selon la distance parcourue `m` : apparaît à l'approche (LEAD_M), reste affiché la rue
  * durant puis au moins `holdM` après son début, s'efface sur `fadeM`. */
@@ -232,6 +249,8 @@ export function streetLabelAlpha(m: number, startM: number, endM: number, holdM:
 export interface StreetLabel {
   text: string
   major: boolean
+  /** Place (« PL ... ») : nom écrit en cercle, `top` en arc sur le haut, `bottom` en arc sur le bas. */
+  place?: { top: string; bottom: string }
   /** Place figée à la première image où le nom tient : centre du nom (indice fractionnaire dans `pts`, donc un point
    *  fixe de la rue), taille des lettres, sens de lecture (vers les indices décroissants si `flip`), teinte (`dark` :
    *  lettres noires sur fond clair ; mesurée à la première image où le fond est lisible). */
@@ -253,7 +272,8 @@ export function drawStreetAlongPath(
   alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
   bg?: { src: CanvasImageSource; scale: number } | null,
 ) {
-  if (alpha <= 0 || pts.length < 2) return
+  if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return
+  if (label.place) { drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg); return }
   const chars = [...label.text]
   const fontAt = (size: number) => `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
   const spacingAt = (size: number) => (label.major ? 0.1 : 0.03) * size
@@ -400,4 +420,87 @@ function backgroundLuma(bg: { src: CanvasImageSource; scale: number }, glyphs: {
   } catch {
     return null
   }
+}
+
+/** Nom de place en cercle, centré sur la place (point du parcours, fixe sur la carte comme les noms de rue) : `top` en
+ * arc sur le haut, `bottom` en arc sur le bas, lettres droites, lues de gauche à droite ; fin anneau entre les deux.
+ * Même teinte adaptative que les rues (blanc sur fond sombre, noir sur fond clair). */
+function drawPlaceCircle(
+  ctx: CanvasRenderingContext2D, label: StreetLabel, place: { top: string; bottom: string }, pts: (Pt | null)[],
+  alpha: number, k: number, view: { w: number; h: number } | undefined, bg: { src: CanvasImageSource; scale: number } | null | undefined,
+) {
+  if (!label.fix) {
+    // Centre : milieu de la plus longue partie de la place visible à l'écran (assez loin des bords pour le cercle).
+    const M = 90 * k
+    const inView = (p: Pt | null): p is Pt => !!p && (!view || (p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M))
+    let best: [number, number] = [0, -1], cur = -1
+    for (let i = 0; i <= pts.length; i++) {
+      if (i < pts.length && inView(pts[i])) { if (cur < 0) cur = i }
+      else if (cur >= 0) { if (i - 1 - cur > best[1] - best[0]) best = [cur, i - 1]; cur = -1 }
+    }
+    if (best[1] < best[0]) return
+    label.fix = { at: (best[0] + best[1]) / 2, size: 13.5 * k, flip: false }
+  }
+  const { at, size } = label.fix
+  const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
+  const a = pts[ia], b = pts[ib] ?? a
+  if (!a || !b) return
+  const f = at - ia
+  const cx = a.x + (b.x - a.x) * f, cy = a.y + (b.y - a.y) * f
+  ctx.save()
+  ctx.font = `700 ${size}px ${LABEL_FONT}`
+  const sp = 0.14 * size
+  const widthsOf = (t: string) => [...t].map(ch => ctx.measureText(ch).width + sp)
+  const topW = widthsOf(place.top), botW = widthsOf(place.bottom)
+  const sum = (w: number[]) => w.reduce((x, y) => x + y, 0) - sp
+  // Rayon : le plus long des deux textes tient sur ~70 % de son demi-cercle.
+  const r = Math.max(3.2 * size, Math.max(sum(topW), sum(botW)) / (Math.PI * 0.7))
+  const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
+  // Haut : de gauche à droite dans le sens horaire, centré sur -90° ; lettres tournées vers l'extérieur.
+  {
+    let s = -sum(topW) / 2
+    ;[...place.top].forEach((ch, i) => {
+      const th = -Math.PI / 2 + (s + (topW[i] - sp) / 2) / r
+      glyphs.push({ ch, x: cx + r * Math.cos(th), y: cy + r * Math.sin(th), ang: th + Math.PI / 2 })
+      s += topW[i]
+    })
+  }
+  // Bas : de gauche à droite dans le sens antihoraire, centré sur +90° ; lettres droites (pied vers l'extérieur).
+  {
+    let s = -sum(botW) / 2
+    ;[...place.bottom].forEach((ch, i) => {
+      const th = Math.PI / 2 - (s + (botW[i] - sp) / 2) / r
+      glyphs.push({ ch, x: cx + r * Math.cos(th), y: cy + r * Math.sin(th), ang: th - Math.PI / 2 })
+      s += botW[i]
+    })
+  }
+  if (label.fix.dark === undefined && bg !== null) {
+    const l = backgroundLuma(bg ?? { src: ctx.canvas, scale: 1 }, glyphs, size)
+    if (l != null) label.fix.dark = l > LIGHT_BG_LUMA
+  }
+  const dark = label.fix.dark === true
+  const ink = dark ? '#111111' : '#ffffff', halo = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'
+  ctx.globalAlpha = alpha * 0.97
+  // Fin anneau intérieur, discret : le cercle se lit comme un tampon posé sur la place.
+  const rr = r - size * 0.95
+  ctx.lineWidth = 3.2 * k; ctx.strokeStyle = halo
+  ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke()
+  ctx.lineWidth = 1.3 * k; ctx.strokeStyle = ink
+  ctx.globalAlpha = alpha * 0.7
+  ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke()
+  ctx.globalAlpha = alpha * 0.97
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
+  for (const g of glyphs) {
+    ctx.save()
+    ctx.translate(g.x, g.y)
+    ctx.rotate(g.ang)
+    ctx.shadowColor = halo; ctx.shadowBlur = 3 * k
+    ctx.strokeStyle = halo; ctx.lineWidth = 2.6 * k
+    ctx.strokeText(g.ch, 0, 0)
+    ctx.shadowColor = 'transparent'
+    ctx.fillStyle = ink
+    ctx.fillText(g.ch, 0, 0)
+    ctx.restore()
+  }
+  ctx.restore()
 }
