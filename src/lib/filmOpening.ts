@@ -76,7 +76,7 @@ const CREAM: [number, number, number] = [0xf6, 0xef, 0xe2]
  * jusqu'à `orangeTo`, puis orange → crème jusqu'à l'arrivée. Une seule fois sur tout le parcours. */
 export const RIBBON_STOPS = { orangeFrom: 0.45, orangeTo: 0.7 }
 /** Ruban : largeur du trait, largeur et opacité du léger halo (en px pour une image de 1080 px de haut). */
-export const RIBBON_STYLE = { width: 13, glowWidth: 18, glowBlur: 5, glowAlpha: 0.14 }
+export const RIBBON_STYLE = { width: 17, glowWidth: 24, glowBlur: 6, glowAlpha: 0.16 }
 
 /** Durées de l'ouverture (s) : la carte apparaît avec le ruban déjà en place, le titre entre d'un seul fondu, plan
  * tenu (lent rapprochement), puis passage à la première scène (« plongée ») ; titre, lieux et ruban s'effacent. */
@@ -258,8 +258,8 @@ export function drawRouteRibbon(ctx: CanvasRenderingContext2D, w: number, h: num
   ctx.globalAlpha = alpha * RIBBON_STYLE.glowAlpha
   ctx.drawImage(glowCanvas, 0, 0, w, h)
   ctx.globalAlpha = alpha
-  ctx.strokeStyle = 'rgba(176,64,24,0.6)'
-  strokePlain((RIBBON_STYLE.width + 3) * k)
+  ctx.strokeStyle = 'rgba(150,50,20,0.7)'
+  strokePlain((RIBBON_STYLE.width + 4) * k)
   strokeRibbon(ctx, RIBBON_STYLE.width * k)
   ctx.globalAlpha = alpha * 0.18
   ctx.strokeStyle = '#fffaf0'
@@ -319,9 +319,9 @@ function drawPoiIcon(ctx: CanvasRenderingContext2D, icon: string | undefined, cx
 }
 
 /**
- * Lieux sur la carte. Points d'intérêt (`type` 'poi' ou absent, au plus 5) : rond blanc cerclé de noir sur le lieu, tige fine,
+ * Lieux sur la carte, repères secondaires (le parcours domine). Points d'intérêt (`type` 'poi' ou absent, au plus 4) : rond blanc cerclé de noir sur le lieu, tige fine,
  * étiquette sombre arrondie avec pictogramme (`icon`) et nom en blanc, relevée si elle chevauche une autre. Quartiers et
- * communes (`type` 'district', au plus 6) : capitales gris foncé espacées, auréolées de clair. Hors champ et zone du
+ * communes (`type` 'district', au plus 4) : capitales gris foncé espacées, auréolées de clair. Hors champ et zone du
  * titre écartés. Pas de noms de rues sur l'ouverture.
  */
 export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: number, pois: OpeningPoi[], alpha: number): void {
@@ -335,7 +335,7 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.font = `600 ${Math.round(24 * k)}px ${FONT}`
   ctx.letterSpacing = `${4 * k}px`
   ctx.textBaseline = 'middle'
-  for (const p of pois.filter(q => q.type === 'district' && inView(q)).slice(0, 6)) {
+  for (const p of pois.filter(q => q.type === 'district' && inView(q)).slice(0, 4)) {
     const t = p.name.toLocaleUpperCase('fr-FR')
     ctx.shadowColor = 'rgba(250,246,238,0.95)'; ctx.shadowBlur = 14 * k
     ctx.fillStyle = 'rgba(250,246,238,0.6)'
@@ -346,7 +346,7 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
   ctx.letterSpacing = '0px'
   // Points d'intérêt.
-  const size = Math.round(18 * k)
+  const size = Math.round(16 * k)
   ctx.font = `700 ${size}px ${FONT}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
@@ -359,8 +359,8 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   const overlap = (a: Box, b: Box) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0
   const crosses = (s: Stem, b: Box) => s.x > b.x0 - 3 * k && s.x < b.x1 + 3 * k && s.y0 < b.y1 && s.y1 > b.y0
   const layout: { p: OpeningPoi; lines: string[]; box: Box; stem: Stem }[] = []
-  const padX = 11 * k, padY = 7 * k, lineH = size * 1.1, iconS = 27 * k, gap = 9 * k
-  const shown = pois.filter(q => q.type !== 'district' && inView(q)).slice(0, 5)
+  const padX = 9 * k, padY = 6 * k, lineH = size * 1.1, iconS = 22 * k, gap = 7 * k
+  const shown = pois.filter(q => q.type !== 'district' && inView(q)).slice(0, 4)
   const coversPoint = (b: Box, self: OpeningPoi) =>
     shown.some(q => q !== self && q.x > b.x0 - 10 * k && q.x < b.x1 + 10 * k && q.y > b.y0 - 10 * k && q.y < b.y1 + 10 * k)
   for (const p of shown) {
@@ -392,7 +392,7 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   for (const { stem } of layout) { ctx.beginPath(); ctx.moveTo(stem.x, stem.y1); ctx.lineTo(stem.x, stem.y0); ctx.stroke() }
   for (const { p, lines, box: r } of layout) {
     ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10 * k; ctx.shadowOffsetY = 3 * k
-    ctx.fillStyle = 'rgba(29,38,44,0.94)'
+    ctx.fillStyle = 'rgba(29,38,44,0.84)'
     ctx.beginPath(); ctx.roundRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 9 * k); ctx.fill()
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
     ctx.strokeStyle = 'rgba(255,255,255,0.55)'

@@ -17,12 +17,12 @@ const PLAN_IGN_TILES = 'https://data.geopf.fr/tms/1.0.0/PLAN.IGN/{z}/{x}/{y}.pbf
 export const OPENING_VIEW = {
   /** Zone de l'image (en part de la largeur / hauteur) où doit tenir le parcours : à droite ; la gauche reste au
    * titre. */
-  box: { x0: 0.5, x1: 0.93, y0: 0.12, y1: 0.93 },
+  box: { x0: 0.46, x1: 0.97, y0: 0.05, y1: 0.96 },
   /** Orientations essayées (cap de la caméra, degrés) : on garde celle où le parcours couvre le plus de surface. Nord
    * en haut seulement : une carte vue du dessus se lit nord en haut. */
   bearings: [0],
   /** Étalonnage de l'image (filtre canvas) : couleurs plus vives. */
-  grade: 'saturate(1.3) brightness(1.08) contrast(1.06)',
+  grade: 'saturate(1.3) brightness(1.04) contrast(1.2)',
   /** Plan IGN vectoriel posé sur la photo (aspect de carte illustrée). */
   style: { vegetation: '#6fb24f', building: '#ead8bd', buildingEdge: '#b49a7a', road: '#fffaf0' },
   /** Eau (surfaces et cours d'eau de la BD TOPO) repeinte en bleu doux : sur la photo aérienne, l'eau est sombre. */
