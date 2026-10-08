@@ -1,6 +1,7 @@
 // Fond de la page d'ouverture (films 2D et 3D) : la ville de l'épreuve vue du dessus, façon plan clair et lumineux.
 //   - fond : les vues aériennes IGN du projet (makeStyle, comme l'aperçu et le film 2D), ici sans l'assombrissement
-//     du film, puis éclaircies, adoucies et légèrement réchauffées (OPENING_VIEW.grade), l'eau repeinte en bleu (BD TOPO) ;
+//     du film, avivées (OPENING_VIEW.grade), avec par-dessus le Plan IGN vectoriel (végétation, bâtiments, routes)
+//     pour un aspect de carte illustrée, et l'eau repeinte en bleu (BD TOPO) ;
 //   - cadrage calculé sur l'emprise du parcours (calculateOpeningCamera) : rien n'est propre à une ville.
 // La vue est rendue UNE fois (carte hors écran, à la taille du film), puis la carte est détruite ; les calques
 // (ruban, lieux, titre) sont posés par-dessus par filmOpening.ts.
@@ -8,6 +9,9 @@
 import maplibregl from 'maplibre-gl'
 import { makeStyle } from './mapStyle'
 import type { OpeningPoi, OpeningPt, OpeningWater } from './filmOpening'
+
+/** Plan IGN vectoriel (Géoplateforme, licence Etalab : « © IGN » déjà affiché sur les films). */
+const PLAN_IGN_TILES = 'https://data.geopf.fr/tms/1.0.0/PLAN.IGN/{z}/{x}/{y}.pbf'
 
 /** Réglages de la vue d'ouverture. */
 export const OPENING_VIEW = {
@@ -17,8 +21,10 @@ export const OPENING_VIEW = {
   /** Orientations essayées (cap de la caméra, degrés) : on garde celle où le parcours couvre le plus de surface. Nord
    * en haut seulement : une carte vue du dessus se lit nord en haut. */
   bearings: [0],
-  /** Étalonnage de la photo aérienne : plus claire, moins saturée, un peu réchauffée (filtre canvas). */
-  grade: 'saturate(0.88) brightness(1.16) contrast(0.9) sepia(0.08)',
+  /** Étalonnage de l'image (filtre canvas) : couleurs plus vives. */
+  grade: 'saturate(1.3) brightness(1.08) contrast(1.06)',
+  /** Plan IGN vectoriel posé sur la photo (aspect de carte illustrée). */
+  style: { vegetation: '#6fb24f', building: '#ead8bd', buildingEdge: '#b49a7a', road: '#fffaf0' },
   /** Eau (surfaces et cours d'eau de la BD TOPO) repeinte en bleu doux : sur la photo aérienne, l'eau est sombre. */
   water: '#84aecb',
 } as const
@@ -203,6 +209,25 @@ export async function captureOpeningView(inp: OpeningMapInput): Promise<OpeningS
     map.setPaintProperty('bg-ign', 'raster-contrast', 0)
     map.setPaintProperty('bg-ign', 'raster-saturation', 0)
     map.setPaintProperty('bg-ign', 'raster-hue-rotate', 0)
+    // Plan IGN vectoriel par-dessus la photo, façon carte illustrée : végétation d'un vert franc, bâtiments beige chaud
+    // cernés d'un trait plus soutenu, routes blanc crème (grands axes plus larges).
+    map.addSource('opening-plan', { type: 'vector', tiles: [PLAN_IGN_TILES], minzoom: 0, maxzoom: 18 })
+    const before = 'track-full-line'
+    const width = (min: number, max: number): maplibregl.ExpressionSpecification =>
+      ['interpolate', ['exponential', 1.6], ['zoom'], 11, min, 16, max]
+    const MAJOR = ['AUTOROU', 'BRET_AUTO', 'PRINCIPALE', 'REGIONALE', 'BRET_PRINCIPALE', 'BRET_REGIONALE']
+    const isMajor: maplibregl.ExpressionSpecification =
+      ['any', ...MAJOR.map(m => ['==', ['slice', ['coalesce', ['get', 'symbo'], ''], 0, m.length], m] as maplibregl.ExpressionSpecification)]
+    map.addLayer({ id: 'opening-veg', type: 'fill', source: 'opening-plan', 'source-layer': 'ocs_vegetation_surf',
+      paint: { 'fill-color': OPENING_VIEW.style.vegetation, 'fill-opacity': 0.4 } }, before)
+    map.addLayer({ id: 'opening-bati', type: 'fill', source: 'opening-plan', 'source-layer': 'bati_surf', minzoom: 12,
+      paint: { 'fill-color': OPENING_VIEW.style.building, 'fill-opacity': 0.5, 'fill-outline-color': OPENING_VIEW.style.buildingEdge } }, before)
+    map.addLayer({ id: 'opening-roads', type: 'line', source: 'opening-plan', 'source-layer': 'routier_route', filter: ['!', isMajor],
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': OPENING_VIEW.style.road, 'line-opacity': 0.8, 'line-width': width(0.5, 5) } }, before)
+    map.addLayer({ id: 'opening-roads-major', type: 'line', source: 'opening-plan', 'source-layer': 'routier_route', filter: isMajor,
+      layout: { 'line-cap': 'round', 'line-join': 'round' },
+      paint: { 'line-color': OPENING_VIEW.style.road, 'line-opacity': 0.92, 'line-width': width(1.4, 10) } }, before)
 
     calculateOpeningCamera(map, inp.route, w, h)
     // Trois passages « tout chargé » d'affilée : les tuiles appelées par les premiers dessins sont arrivées.
