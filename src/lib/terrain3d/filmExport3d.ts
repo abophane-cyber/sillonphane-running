@@ -1571,7 +1571,7 @@ async function exportFilm3dImpl(
   const PHASE3_END = PHASE2_END + END_PAUSE        // fin de la pause d'arrivée
   const TOTAL_CYCLE = PHASE3_END + OVERVIEW_RISE_S + OVERVIEW_HOLD_S
   const WATERMARK_LEAD = 5 // adresse de fin sur les 5 dernières secondes (vue d'ensemble), comme le film 2D
-  const END_CARD_LEAD = 8 // carton du bas : 8 s avant la fin (pendant la montée vers la vue d'ensemble)
+  const END_CARD_LEAD = 8.5 // carton du bas : en fondu de 8,5 à 8 s avant la fin (pendant la montée vers la vue d'ensemble)
   // Essai : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes du survol (vitesse normale).
   // Fin seule : les FIN_FILM_S dernières secondes, ce qui précède simulé sans image (cf. RENDER_FROM plus bas).
   const RENDER_FROM = opts.fin ? Math.max(0, TOTAL_CYCLE - FIN_FILM_S) : 0
@@ -1739,6 +1739,8 @@ async function exportFilm3dImpl(
     overviewCamPos(bestAz, hi, out, box.pitch)
   }
   let overviewCaptured = false
+  /** Noms au sol redressés pendant la montée vers la vue d'ensemble : cap de départ et rotation à faire. */
+  const ovLabelYaw: { lab: THREE.Object3D; y0: number; dy: number }[] = []
   const _ovStartLook = new THREE.Vector3()
   const _ovDir0 = new THREE.Vector3()
   const _ovDir1 = new THREE.Vector3()
@@ -1892,11 +1894,21 @@ async function exportFilm3dImpl(
           const m = sprite.material as THREE.Material
           m.alphaTest = 0; m.needsUpdate = true // sinon le fondu « coupe » net à 0,4
         }
+        // Noms au sol (orientés dans le sens de la course) : redressés pendant la montée face à la caméra de la vue
+        // d'ensemble (sinon tête en bas selon le côté d'où on regarde), par le plus court chemin.
+        const yawTo = Math.atan2(_ovDir1.x, _ovDir1.z)
+        ovLabelYaw.length = 0
+        for (const lab of [...panelSprites.map(p => p.sprite), departurePanel, arrivalPanel]) {
+          if (!(lab instanceof THREE.Mesh)) continue
+          const y0 = lab.rotation.y
+          ovLabelYaw.push({ lab, y0, dy: Math.atan2(Math.sin(yawTo - y0), Math.cos(yawTo - y0)) })
+        }
         overviewCaptured = true
       }
       const u = Math.min(1, (elapsed - PHASE3_END) / OVERVIEW_RISE_S)
       const e = u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
       overviewK = e
+      for (const { lab, y0, dy } of ovLabelYaw) lab.rotation.y = y0 + dy * e
       targetLookAt.lerpVectors(_ovStartLook, ovCenter, e)
       _camOff.lerpVectors(_ovDir0, _ovDir1, e).normalize()
       targetCamPos.copy(targetLookAt).addScaledVector(_camOff, ovD0 * Math.pow(ovD1 / ovD0, e))
