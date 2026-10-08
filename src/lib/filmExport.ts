@@ -19,7 +19,7 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
-import { drawOpening, openingDiveK, openingHudAlpha, openingText, OPENING, OPENING_S, type OpeningPoi, type OpeningPt } from './filmOpening'
+import { drawOpening, loadOpeningFont, openingDiveK, openingHudAlpha, openingText, OPENING, OPENING_S, type OpeningPoi, type OpeningPt } from './filmOpening'
 import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
@@ -990,6 +990,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // Sur smartphone, vue rapprochée : altitude divisée par 2 (+1 niveau de zoom)
   const zoom = IS_MOBILE ? zoomRaw + 1 : zoomRaw
   if (points.length < 2) return new Blob()
+  await loadOpeningFont() // police des étiquettes de POI (mapLabels.ts), avant leur pré-rendu
   // Tracé lissé (bruit GPS) pour le ruban dessiné et la position du randonneur — mêmes distances
   // cumulées que les points réels (voir smoothTrackPoints), pour ne pas décaler la
   // progression/l'altimétrie.

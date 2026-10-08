@@ -1,8 +1,8 @@
 // Écritures cartographiques communes à l'aperçu (TrackMap), au film 2D (filmExport) et au film 3D (filmExport3d).
 // Quatre familles, quatre traitements distincts :
 // - VILLE (localité, lieu-dit) = label territorial : vert de la signature du ruban, gras, petit point de position ;
-// - POI = label flottant : blanc pur, gras, plus grand, pictogramme dans un cercle, petite bulle sombre et trait
-//   vertical qui pointe vers le lieu ; toujours horizontal à l'écran ;
+// - POI = label flottant, style de l'ouverture « image 2D clair » : étiquette à fond sombre très transparent et contour
+//   clair, pictogramme au trait, nom blanc ; tige fine jusqu'au repère posé sur le lieu ; toujours horizontal à l'écran ;
 // - RUE = label cartographique : petit, léger, gris clair, légèrement transparent, sans icône ni bulle, imprimé le
 //   long de la rue ;
 // - PARCOURS = ruban signature (ribbon.ts), au-dessus de tout.
@@ -20,76 +20,41 @@ const RIBBON_GREEN = '#2f5c45'
 const GROUND: Record<GroundLabelStyle, { weight: string; italic: boolean; size: number; fill: string; caps: boolean; spacing: number }> = {
   standard: { weight: '800', italic: false, size: 19, fill: CITY_GREEN, caps: true,  spacing: 0.08 },
   lieudit:  { weight: '700', italic: true,  size: 16, fill: CITY_GREEN, caps: false, spacing: 0.02 },
-  poi:      { weight: '800', italic: false, size: 21, fill: '#ffffff',  caps: true,  spacing: 0.04 },
+  poi:      { weight: '700', italic: false, size: 16, fill: '#ffffff',  caps: false, spacing: 0 }, // cf. renderPoiLabel
 }
-const POI_ICON = 26
-const POI_GAP = 8
-/** Bulle du POI : marge intérieure, rayon ; trait vertical sous la bulle jusqu'au lieu. */
-const POI_PAD_X = 6, POI_PAD_Y = 5, POI_STEM = 22
 /** Point de position des villes, à gauche du nom. */
 const CITY_DOT = 7, CITY_DOT_GAP = 7
 
-/** Pictogramme des points d'intérêt : disque sombre cerclé de blanc, petit monument blanc (fronton, colonnes). */
-export function drawPoiPictogram(ctx: CanvasRenderingContext2D, cx: number, cy: number, d: number) {
-  const r = d / 2, u = d / 26
-  ctx.save()
-  ctx.fillStyle = 'rgba(18,22,20,0.9)'
-  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill()
-  ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6 * u; ctx.stroke()
-  ctx.fillStyle = '#fff'
-  ctx.beginPath(); ctx.moveTo(cx - 7 * u, cy - 3 * u); ctx.lineTo(cx, cy - 8 * u); ctx.lineTo(cx + 7 * u, cy - 3 * u); ctx.closePath(); ctx.fill()
-  for (const dx of [-5, -1.5, 2]) ctx.fillRect(cx + dx * u, cy - 2 * u, 3 * u, 7 * u)
-  ctx.fillRect(cx - 7 * u, cy + 5.5 * u, 14 * u, 2 * u)
-  ctx.restore()
-}
-
-/** Texte des noms de lieux selon le style (villes et POI en capitales). */
+/** Texte des noms de lieux selon le style (villes en capitales). */
 export function groundLabelText(name: string, style: GroundLabelStyle): string {
   return GROUND[style].caps ? name.toLocaleUpperCase('fr-FR') : name
 }
 
 /** Nom de lieu, dans un canvas à la résolution `res` (px de canvas par px logique). Taille logique `w` × `h` ;
- * ancre (`ax`, `ay`, px logiques) = le point du lieu : centre du nom (villes), bas du trait vertical (POI). */
+ * ancre (`ax`, `ay`, px logiques) = le point du lieu : centre du nom (villes), repère sous l'étiquette (POI). */
 export function renderGroundLabel(name: string, style: GroundLabelStyle, res: number): { canvas: HTMLCanvasElement; w: number; h: number; ax: number; ay: number } {
+  if (style === 'poi') return renderPoiLabel(name, res)
   const g = GROUND[style]
   const text = groundLabelText(name, style)
   const font = `${g.italic ? 'italic ' : ''}${g.weight} ${g.size}px ${LABEL_FONT}`
   const spacing = g.spacing * g.size
   const HALO = 3, MARGIN = 7
-  const isPoi = style === 'poi'
   const isCity = style === 'standard'
   const m = document.createElement('canvas').getContext('2d')!
   m.font = font
   const chars = [...text]
   const textW = chars.reduce((a, ch) => a + m.measureText(ch).width + spacing, 0) - spacing
-  const lead = isPoi ? POI_ICON + POI_GAP : isCity ? CITY_DOT + CITY_DOT_GAP : 0
-  const bubbleW = lead + textW + (isPoi ? POI_PAD_X * 2 : 0)
-  const bubbleH = Math.max(g.size * 1.3, isPoi ? POI_ICON : 0) + (isPoi ? POI_PAD_Y * 2 : 0)
-  const w = Math.ceil(bubbleW + (HALO + MARGIN) * 2)
-  const h = Math.ceil(bubbleH + (HALO + MARGIN) * 2 + (isPoi ? POI_STEM : 0))
+  const lead = isCity ? CITY_DOT + CITY_DOT_GAP : 0
+  const w = Math.ceil(lead + textW + (HALO + MARGIN) * 2)
+  const h = Math.ceil(g.size * 1.3 + (HALO + MARGIN) * 2)
   const canvas = document.createElement('canvas')
   canvas.width = Math.ceil(w * res); canvas.height = Math.ceil(h * res)
   const ctx = canvas.getContext('2d')!
   ctx.scale(res, res)
-  const bx = HALO + MARGIN, by = HALO + MARGIN
-  const cy = by + bubbleH / 2
+  const bx = HALO + MARGIN
+  const cy = h / 2
   let tx = bx
-  if (isPoi) {
-    // Trait vertical de la bulle jusqu'au lieu, terminé par un petit point.
-    const sx = w / 2, sy0 = by + bubbleH, sy1 = sy0 + POI_STEM
-    ctx.save()
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 3
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.6
-    ctx.beginPath(); ctx.moveTo(sx, sy0); ctx.lineTo(sx, sy1 - 2); ctx.stroke()
-    ctx.fillStyle = '#fff'
-    ctx.beginPath(); ctx.arc(sx, sy1 - 2, 2.4, 0, Math.PI * 2); ctx.fill()
-    // Bulle sombre, discrète : le POI est un objet graphique posé au-dessus de la carte.
-    ctx.fillStyle = 'rgba(14,17,15,0.62)'
-    ctx.beginPath(); ctx.roundRect(bx, by, bubbleW, bubbleH, bubbleH / 2); ctx.fill()
-    ctx.restore()
-    drawPoiPictogram(ctx, bx + POI_PAD_X + POI_ICON / 2 - 2, cy, POI_ICON)
-    tx = bx + POI_PAD_X + POI_ICON + POI_GAP - 2
-  } else if (isCity) {
+  if (isCity) {
     // Point de position : vert du ruban cerclé de vert clair, léger halo.
     const dx = bx + CITY_DOT / 2
     ctx.save()
@@ -108,16 +73,122 @@ export function renderGroundLabel(name: string, style: GroundLabelStyle, res: nu
     let x = tx
     for (const ch of chars) { fn(ch, x); x += ctx.measureText(ch).width + spacing }
   }
-  if (!isPoi) {
-    // Villes : halo sombre (le POI a sa bulle).
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4
-    ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = HALO
-    each((ch, x) => ctx.strokeText(ch, x, cy))
-    ctx.shadowColor = 'transparent'
-  }
+  // Halo sombre.
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4
+  ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = HALO
+  each((ch, x) => ctx.strokeText(ch, x, cy))
+  ctx.shadowColor = 'transparent'
   ctx.fillStyle = g.fill
   each((ch, x) => ctx.fillText(ch, x, cy))
-  return { canvas, w, h, ax: w / 2, ay: isPoi ? by + bubbleH + POI_STEM - 2 : cy }
+  return { canvas, w, h, ax: w / 2, ay: cy }
+}
+
+// ── Points d'intérêt : étiquette de l'ouverture « image 2D clair » ───────────────────────────────────────────────
+
+/** Police du site (chargée par loadOpeningFont, filmOpening.ts ; @font-face d'index.html pour l'aperçu). */
+export const POI_FONT = '"Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif'
+
+export type PoiIcon = 'fort' | 'arena' | 'gate' | 'park' | 'monument'
+
+/** Pictogramme d'un point d'intérêt d'après son nom : citadelle, fort (étoile) ; stade, arena (dôme) ; porte, arc ;
+ * parc, jardin, bois (arbre) ; sinon monument (fronton à colonnes). */
+export function poiIconFor(name: string): PoiIcon {
+  const n = ` ${name.toLocaleLowerCase('fr-FR')} `
+  if (/[\s'](citadelle|fort|bastion)\s/.test(n)) return 'fort'
+  if (/[\s'](stade|arena|aréna|zénith|zenith|vélodrome|hippodrome)\s/.test(n)) return 'arena'
+  if (/[\s'](porte|arc)\s/.test(n)) return 'gate'
+  if (/[\s'](parc|jardin|jardins|bois|square|forêt)\s/.test(n)) return 'park'
+  return 'monument'
+}
+
+/** Pictogramme blanc au trait, dans un carré de `s` px centré en (cx, cy) : `fort` (étoile de citadelle), `arena`
+ * (dôme), `gate` (porte, arc), `park` (arbre), sinon `monument` (fronton à colonnes). */
+export function drawPoiIcon(ctx: CanvasRenderingContext2D, icon: PoiIcon, cx: number, cy: number, s: number) {
+  ctx.save()
+  ctx.translate(cx - s / 2, cy - s / 2)
+  ctx.scale(s / 24, s / 24)
+  ctx.strokeStyle = '#ffffff'; ctx.fillStyle = '#ffffff'
+  ctx.lineWidth = 1.8; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  ctx.beginPath()
+  if (icon === 'fort') {
+    for (let i = 0; i < 10; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 5, r = i % 2 ? 4.6 : 10.5
+      if (i) ctx.lineTo(12 + Math.cos(a) * r, 12.5 + Math.sin(a) * r); else ctx.moveTo(12 + Math.cos(a) * r, 12.5 + Math.sin(a) * r)
+    }
+    ctx.closePath(); ctx.stroke()
+  } else if (icon === 'arena') {
+    ctx.moveTo(3, 19); ctx.lineTo(21, 19); ctx.moveTo(4.5, 19); ctx.lineTo(4.5, 15); ctx.lineTo(19.5, 15); ctx.lineTo(19.5, 19)
+    ctx.moveTo(5, 15); ctx.arc(12, 15, 7, Math.PI, 0); ctx.moveTo(12, 8); ctx.lineTo(12, 5)
+    for (const x of [8, 12, 16]) { ctx.moveTo(x, 15); ctx.lineTo(x, 19) }
+    ctx.stroke()
+  } else if (icon === 'gate') {
+    ctx.moveTo(3, 20); ctx.lineTo(3, 7); ctx.lineTo(21, 7); ctx.lineTo(21, 20)
+    ctx.moveTo(2, 4.5); ctx.lineTo(22, 4.5)
+    ctx.moveTo(8.5, 20); ctx.lineTo(8.5, 14); ctx.arc(12, 14, 3.5, Math.PI, 0); ctx.lineTo(15.5, 20)
+    ctx.stroke()
+  } else if (icon === 'park') {
+    ctx.arc(12, 9.5, 6.5, 0, Math.PI * 2); ctx.moveTo(12, 16); ctx.lineTo(12, 21); ctx.stroke()
+  } else {
+    ctx.moveTo(2.5, 8); ctx.lineTo(12, 3); ctx.lineTo(21.5, 8); ctx.closePath()
+    ctx.moveTo(3, 20.5); ctx.lineTo(21, 20.5); ctx.moveTo(4, 18); ctx.lineTo(20, 18)
+    for (const x of [5.5, 9.5, 14.5, 18.5]) { ctx.moveTo(x, 10); ctx.lineTo(x, 17) }
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+/** Coupe un nom en deux lignes équilibrées au-delà de 14 caractères (« Citadelle / de Lille »). */
+export function poiLines(name: string): string[] {
+  if (name.length <= 14 || !name.includes(' ')) return [name]
+  const words = name.split(' ')
+  let best = [name], bestD = Infinity
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ')
+    const d = Math.abs(a.length - b.length)
+    if (d < bestD) { bestD = d; best = [a, b] }
+  }
+  return best
+}
+
+/** Étiquette de POI, comme l'ouverture « image 2D clair » : fond sombre très transparent (la carte transparaît),
+ * contour clair arrondi, pictogramme au trait et nom blanc (deux lignes si long) ; tige fine à demi transparente
+ * jusqu'au repère, rond blanc cerclé de noir posé sur le lieu. Ancre = centre du repère. */
+function renderPoiLabel(name: string, res: number): { canvas: HTMLCanvasElement; w: number; h: number; ax: number; ay: number } {
+  const size = 16, padX = 9, padY = 6, lineH = size * 1.1, iconS = 22, gap = 7, stem = 24, dotR = 6.5, M = 8
+  const font = `700 ${size}px ${POI_FONT}`
+  const lines = poiLines(name)
+  const m = document.createElement('canvas').getContext('2d')!
+  m.font = font
+  const textW = Math.max(...lines.map(l => m.measureText(l).width))
+  const bw = padX + iconS + gap + textW + padX, bh = Math.max(iconS, lines.length * lineH) + padY * 2
+  const w = Math.ceil(bw + M * 2), h = Math.ceil(M + bh + stem + dotR + M)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.ceil(w * res); canvas.height = Math.ceil(h * res)
+  const ctx = canvas.getContext('2d')!
+  ctx.scale(res, res)
+  const x0 = (w - bw) / 2, y0 = M, ax = w / 2, ay = y0 + bh + stem
+  // Tige discrète.
+  ctx.strokeStyle = 'rgba(29,38,44,0.5)'; ctx.lineWidth = 1.2
+  ctx.beginPath(); ctx.moveTo(ax, y0 + bh); ctx.lineTo(ax, ay); ctx.stroke()
+  // Étiquette ; contour, pictogramme et nom portent une ombre sombre pour rester lisibles.
+  ctx.fillStyle = 'rgba(29,38,44,0.38)'
+  ctx.beginPath(); ctx.roundRect(x0, y0, bw, bh, 9); ctx.fill()
+  ctx.shadowColor = 'rgba(10,16,20,0.75)'; ctx.shadowBlur = 5
+  ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = 1.8
+  ctx.stroke()
+  drawPoiIcon(ctx, poiIconFor(name), x0 + padX + iconS / 2, y0 + bh / 2, iconS)
+  ctx.font = font
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  ctx.fillStyle = '#ffffff'
+  const ty = y0 + bh / 2 - ((lines.length - 1) * lineH) / 2 + size * 0.36
+  lines.forEach((l, i) => ctx.fillText(l, x0 + padX + iconS + gap, ty + i * lineH))
+  ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
+  // Repère sur le lieu.
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath(); ctx.arc(ax, ay, dotR, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = '#1d262c'; ctx.lineWidth = 2.5
+  ctx.stroke()
+  return { canvas, w, h, ax, ay }
 }
 
 // ── Noms de rue le long du parcours ──────────────────────────────────────────────────────────────────────────────

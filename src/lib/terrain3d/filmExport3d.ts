@@ -385,6 +385,7 @@ async function exportFilm3dImpl(
   setEtaGetter: (g: () => number | undefined) => void,
 ): Promise<Blob> {
   const { trail, fps = 30, signal, onProgress } = opts
+  await loadOpeningFont() // police de l'ouverture et des étiquettes de POI (mapLabels.ts), avant leur pré-rendu
   const report = (phase: 'prepare' | 'render', ratio: number, label: string, next?: number) => {
     if (phase === 'prepare') { setLabel(label); creep.set(ratio, next); return }
     creep.stop()
@@ -2141,7 +2142,6 @@ async function exportFilm3dImpl(
   // image complète à cet instant précis.
   const GOP = 48
   const motionStartFrame = Math.round((PHASE1_END - RENDER_FROM) * fps)
-  await loadOpeningFont()
   const openingTxt = openingText({
     title: opts.eventCartouche?.title ?? opts.title, place: opts.eventCartouche?.place,
     date: opts.trailDate, distanceM: SHOWN_M, elevGainM,

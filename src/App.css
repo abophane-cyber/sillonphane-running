@@ -738,24 +738,45 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   border-radius: 50%; background: #2f5c45; box-shadow: 0 0 0 1.6px #7fcf9c, 0 0 4px rgba(0,0,0,0.7);
 }
 .loc-sign--lieudit .loc-sign__board { font-size: 16px !important; font-style: italic !important; letter-spacing: 0.02em !important; text-transform: none !important; }
-/* Point d'intérêt : blanc pur, gras, capitales, dans une bulle sombre avec pictogramme ; trait vertical (le poteau)
-   jusqu'au lieu, dont le bas est posé sur le point. */
-.loc-sign.loc-sign--poi { transform: scale(var(--ground-scale, 1)); transform-origin: bottom center; }
+/* Point d'intérêt, comme l'ouverture « image 2D clair » (renderPoiLabel, mapLabels.ts) : étiquette à fond sombre très
+   transparent et contour clair arrondi, pictogramme au trait (selon le lieu : poiIconFor) et nom blanc ; tige fine
+   (le poteau) jusqu'au repère, rond blanc cerclé de noir posé sur le lieu. */
+.loc-sign.loc-sign--poi {
+  filter: none !important;
+  transform: scale(var(--ground-scale, 1)); transform-origin: bottom center; /* bas du poteau = centre du repère */
+}
 .loc-sign--poi .loc-sign__board {
-  color: #fff !important; font-size: 21px !important; letter-spacing: 0.04em !important;
-  position: relative; padding: 5px 12px 5px 40px !important; border-radius: 999px !important;
-  background: rgba(14,17,15,0.62) !important; -webkit-text-stroke: 0 !important; text-shadow: none !important;
+  color: #fff !important; font-family: "Plus Jakarta Sans", "Segoe UI", system-ui, sans-serif !important;
+  font-size: 16px !important; font-weight: 700 !important; letter-spacing: 0 !important; text-transform: none !important;
+  line-height: 1.1; text-align: left;
+  position: relative; padding: 6px 9px 6px 38px !important; min-height: 22px; border-radius: 9px !important;
+  background: rgba(29,38,44,0.38) !important; border: 1.8px solid rgba(255,255,255,0.92) !important;
+  box-shadow: 0 0 5px rgba(10,16,20,0.75) !important;
+  -webkit-text-stroke: 0 !important; text-shadow: 0 0 5px rgba(10,16,20,0.75) !important;
 }
 .loc-sign--poi .loc-sign__pole {
-  display: block !important; position: relative; width: 1.6px; height: 20px; background: #fff; border-radius: 0;
-  box-shadow: 0 0 3px rgba(0,0,0,0.6);
+  display: block !important; position: relative; width: 1.2px; height: 24px; background: rgba(29,38,44,0.5); border-radius: 0;
 }
 .loc-sign--poi .loc-sign__pole::after {
-  content: ''; position: absolute; left: -1.7px; bottom: -2.5px; width: 5px; height: 5px; border-radius: 50%; background: #fff;
+  content: ''; position: absolute; left: -6.4px; bottom: -6.5px; width: 9px; height: 9px; border-radius: 50%;
+  background: #fff; border: 2.5px solid #1d262c;
 }
 .loc-sign--poi .loc-sign__board::before {
-  content: ''; position: absolute; left: 4px; top: 50%; width: 26px; height: 26px; margin-top: -13px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Ccircle cx='13' cy='13' r='12' fill='%23121614' fill-opacity='.82' stroke='%23fff' stroke-width='1.6'/%3E%3Cpath d='M6 10 13 5 20 10Z' fill='%23fff'/%3E%3Cpath d='M8 11h3v7H8zM11.5 11h3v7h-3zM15 11h3v7h-3zM6 18.5h14v2H6z' fill='%23fff'/%3E%3C/svg%3E") center / contain no-repeat;
+  content: ''; position: absolute; left: 9px; top: 50%; width: 22px; height: 22px; margin-top: -11px;
+  filter: drop-shadow(0 0 2.5px rgba(10,16,20,0.75));
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M2.5 8 12 3 21.5 8Z M3 20.5H21 M4 18H20 M5.5 10V17 M9.5 10V17 M14.5 10V17 M18.5 10V17'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.loc-sign--poi-fort .loc-sign__board::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linejoin='round'%3E%3Cpath d='M12 2 14.7 8.8 22 9.3 16.4 13.9 18.2 21 12 17.1 5.8 21 7.6 13.9 2 9.3 9.3 8.8Z'/%3E%3C/svg%3E");
+}
+.loc-sign--poi-arena .loc-sign__board::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M3 19H21 M4.5 19V15H19.5V19 M5 15A7 7 0 0 1 19 15 M12 8V5 M8 15V19 M12 15V19 M16 15V19'/%3E%3C/svg%3E");
+}
+.loc-sign--poi-gate .loc-sign__board::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linejoin='round' stroke-linecap='round'%3E%3Cpath d='M3 20V7H21V20 M2 4.5H22 M8.5 20V14A3.5 3.5 0 0 1 15.5 14V20'/%3E%3C/svg%3E");
+}
+.loc-sign--poi-park .loc-sign__board::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='9.5' r='6.5'/%3E%3Cpath d='M12 16V21'/%3E%3C/svg%3E");
 }
 /* Ravitaillement : pastille bleue à goutte, nom blanc cerné de bleu. */
 /* Ravitaillement : la goutte (13 px à gauche du texte) se pose sur le point exact, le texte part à droite. */

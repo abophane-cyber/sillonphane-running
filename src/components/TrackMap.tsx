@@ -18,7 +18,7 @@ import {
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
 import { CAPTION_HOLD_S, type StreetRun } from '../lib/routeStreets'
-import { drawStreetAlongPath, streetLabel, streetLabelAlpha } from '../lib/mapLabels'
+import { drawStreetAlongPath, poiIconFor, poiLines, streetLabel, streetLabelAlpha } from '../lib/mapLabels'
 import { ANIM_SETTINGS } from '../hooks/useAnimationSettings'
 import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 import { makeStyle, EMPTY_FC } from '../lib/mapStyle'
@@ -130,14 +130,15 @@ function signBoardHtml(loc: LocalityInfo, withClose: boolean): string {
       `${loc.ele ? `<span class="loc-sign__col-ele">Alt. ${loc.ele} m</span>` : ''}` +
       `</div><div class="loc-sign__pole"></div>`
   }
-  const nameStr = loc.name // casse d'origine : nom écrit à même la carte (cf. .loc-sign dans App.css)
+  // Casse d'origine : nom écrit à même la carte (cf. .loc-sign dans App.css) ; POI sur deux lignes si long, comme les films.
+  const nameStr = loc.placeType === 'poi' ? poiLines(loc.name).join('<br>') : loc.name
   return `<div class="loc-sign__board">${close}${nameStr}</div><div class="loc-sign__pole"></div>`
 }
 
 /** Classe du <div> extérieur d'un panneau selon son type. */
 function signOuterClass(loc: LocalityInfo): string {
   if (loc.type === 'col') return 'loc-sign loc-sign--col'
-  if (loc.placeType === 'poi') return 'loc-sign loc-sign--poi'
+  if (loc.placeType === 'poi') return `loc-sign loc-sign--poi loc-sign--poi-${poiIconFor(loc.name)}`
   if (loc.placeType === 'ravito') return 'loc-sign loc-sign--ravito'
   const isLieuDit = loc.placeType === 'hamlet' || loc.placeType === 'locality'
   return isLieuDit ? 'loc-sign loc-sign--lieudit' : 'loc-sign'
