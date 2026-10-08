@@ -10,7 +10,7 @@ import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 import type { EventCartouche } from '../lib/filmExport'
-import { ESSAI_FILM_S, essaiPortion, isEssaiFilm } from '../lib/filmEssai'
+import { isEssaiFilm } from '../lib/filmEssai'
 import { captionStreets } from '../lib/routeStreets'
 
 export interface CreateFilm3dContext {
@@ -100,25 +100,12 @@ export function useFilm3dExport() {
     const s = ANIM_SETTINGS.randonneur
     const base = Math.min(s.max, Math.max(s.min, (ctx.activeTrack.distance / 1000) * s.secondsPerKm))
     const fullDurationS = base * FILM3D_DURATION_FACTOR
-    // Film d'essai (?essai, cf. filmEssai.ts) : le survol seul de la portion du tracé couverte en ESSAI_FILM_S à
-    // vitesse normale. Seule cette portion est préparée (terrain plus petit) ; bornes, ravitaillements, rues et
-    // panneaux au-delà sont écartés, pas de panneau d'arrivée.
+    // Film d'essai (?essai, cf. filmEssai.ts) : l'ouverture puis les ESSAI_FILM_S premières secondes du survol, à
+    // vitesse normale. Tout le tracé est préparé : l'ouverture le montre en entier.
     const essai = isEssaiFilm()
-    const cut = essai ? essaiPortion(ctx.activeTrack.points, fullDurationS) : null
-    const durationS = cut ? ESSAI_FILM_S : fullDurationS
-    const points = cut ? ctx.activeTrack.points.slice(0, cut.count) : ctx.activeTrack.points
-    const trackM = cut ? cut.portionM : ctx.activeTrack.distance
-    const inCut = (m: number) => !cut || m <= cut.portionM
-    /** Distance depuis le départ du point du tracé le plus proche d'un lieu. */
-    const alongM = (lon: number, lat: number) => {
-      if (!cut) return 0
-      let best = Infinity, at = 0
-      ctx.activeTrack.points.forEach((p, i) => {
-        const d = (p.lon - lon) ** 2 + ((p.lat - lat) * 1.6) ** 2
-        if (d < best) { best = d; at = cut.dist[i] }
-      })
-      return at
-    }
+    const durationS = fullDurationS
+    const points = ctx.activeTrack.points
+    const trackM = ctx.activeTrack.distance
 
     try {
       const { exportFilm3d } = await import('../lib/terrain3d/filmExport3d')
@@ -138,7 +125,7 @@ export function useFilm3dExport() {
         departureName: ctx.startName ?? ctx.rawStartName ?? ctx.previewLocalities[0]?.name ?? 'Départ',
         arrivalName: ctx.endName ?? ctx.rawEndName ?? ctx.previewLocalities[ctx.previewLocalities.length - 1]?.name ?? 'Arrivée',
         showDeparturePanel: !depSuppressed,
-        showArrivalPanel: !arrSuppressed && !cut,
+        showArrivalPanel: !arrSuppressed,
         departureColEle: ctx.startColEle,
         arrivalColEle: ctx.endColEle,
         departureLieudit: ctx.startLieudit,
@@ -146,7 +133,7 @@ export function useFilm3dExport() {
         elevGainM: ctx.activeTrack.elevGain,
         panels: localitiesToPanels3d(
           ctx.previewLocalities, ctx.customLocalities, ctx.suppressedNames, ctx.startName, ctx.endName,
-        ).filter(pnl => inCut(alongM(pnl.lon, pnl.lat))),
+        ),
         weather: weatherToScenario(ctx.weather, ctx.departureTime, ctx.arrivalTime),
         weatherCard: ctx.weather,
         startTime: ctx.departureTime || undefined,
@@ -154,19 +141,19 @@ export function useFilm3dExport() {
         trackStart: ctx.activeTrack.startTime,
         characters: ctx.characters,
         bibNumber: ctx.bibNumber,
-        bornes: ctx.bornes?.filter(b => inCut(b.km * 1000)),
-        ravitos: ctx.ravitos?.filter(r => inCut(r.km * 1000)),
+        bornes: ctx.bornes,
+        ravitos: ctx.ravitos,
         endCard: ctx.endCard,
         profilePoints: points,
         raceTiming: ctx.raceTiming,
         eventCartouche: ctx.eventCartouche,
         trackDistanceM: trackM,
         // « 21,1 km » du carton final -> 21 100 m (illisible : distance du tracé).
-        shownDistanceM: cut ? undefined : (() => {
+        shownDistanceM: (() => {
           const km = parseFloat((ctx.endCard?.distance ?? '').replace(',', '.'))
           return km > 0 ? km * 1000 : undefined
         })(),
-        streets: captionStreets(ctx.streets).filter(s => inCut(s.startM))
+        streets: captionStreets(ctx.streets)
           .map(s => ({ name: s.name, from: s.startM / trackM, to: Math.min(1, s.endM / trackM), importance: s.importance })),
         durationS,
         essai,

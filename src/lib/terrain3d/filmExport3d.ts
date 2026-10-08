@@ -49,6 +49,7 @@ import type { StreetSpan } from '../streetCaption'
 import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
+import { ESSAI_FILM_S } from '../filmEssai'
 import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
 
 /** Adresse du site, signée en fin de film (comme le film 2D). */
@@ -168,8 +169,8 @@ export interface FilmExport3dOptions {
   startTimePlanned?: boolean
   /** Durée du survol lui-même (hors pauses intro/outro), en s. Défaut 35. */
   durationS?:     number
-  /** Film d'essai (?essai dans l'URL) : le survol seul, en `durationS` exactement, sans écran-titre, pause de
-   *  départ ni plans de fin. */
+  /** Film d'essai (?essai dans l'URL) : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes
+   *  du survol, sans plans de fin. */
   essai?:         boolean
   /** Banc d'essai : seule l'ouverture est rendue (jusqu'à l'arrivée de la caméra sur le départ, plus 1 s). */
   openingOnly?:   boolean
@@ -1503,7 +1504,7 @@ async function exportFilm3dImpl(
   const CRUISE_COMP = 1 / (1 - Math.min(0.5, STARTUP_RAMP_S / askedDuration) / 2)
   const effStretch = Math.min(2.0, cruiseStretch)
   const cruiseCapDuration = (TOTAL_DISTANCE_M / 1000) * effStretch * CRUISE_COMP * CRUISE_MIN_SPKM
-  const DURATION = opts.essai ? askedDuration : Math.max(askedDuration, Math.min(MAX_FLIGHT_S, cruiseCapDuration))
+  const DURATION = Math.max(askedDuration, Math.min(MAX_FLIGHT_S, cruiseCapDuration))
   // Vitesse PERÇUE = vitesse au sol / distance caméra. Quand la croisière dépasse CAM_REF_SPEED
   // (m/s, ≈ celle d'une rando de 30-40 km), on éloigne la caméra d'autant : le défilement à l'écran
   // reste celui d'une rando ordinaire. camK = 1 sur les tracés courts (rien ne change).
@@ -1546,9 +1547,9 @@ async function exportFilm3dImpl(
   const PHASE3_END = PHASE2_END + END_PAUSE        // fin de la pause d'arrivée
   const TOTAL_CYCLE = PHASE3_END + OVERVIEW_RISE_S + OVERVIEW_HOLD_S
   const WATERMARK_LEAD = 5 // adresse de fin sur les 5 dernières secondes (vue d'ensemble), comme le film 2D
-  // Essai : seul le survol est rendu (de PHASE1_END à PHASE2_END) ; ce qui précède est simulé sans image.
-  const RENDER_FROM = opts.essai ? PHASE1_END : 0
-  const FILM_S = (opts.openingOnly ? PHASE0_END + 1 : opts.essai ? PHASE2_END : TOTAL_CYCLE) - RENDER_FROM
+  // Essai : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes du survol (vitesse normale).
+  const RENDER_FROM = 0
+  const FILM_S = opts.openingOnly ? PHASE0_END + 1 : opts.essai ? Math.min(PHASE2_END, PHASE1_END + ESSAI_FILM_S) : TOTAL_CYCLE
 
   const _oa = new THREE.Vector3()
   const _ob = new THREE.Vector3()
