@@ -2237,10 +2237,11 @@ async function exportFilm3dImpl(
       for (const st of streetLabels3d) {
         const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, CAPTION_HOLD_S * mps, 0.6 * mps)
         if (a <= 0) continue
-        const pts: { x: number; y: number }[] = []
+        // 41 points fixes de la rue (null derrière la caméra) : le nom y reste accroché (cf. drawStreetAlongPath).
+        const pts: ({ x: number; y: number } | null)[] = []
         for (let i = 0; i <= 40; i++) {
           const p = ribbonScreenAt((st.from + (st.to - st.from) * i / 40) * RIBBON_SEGMENTS)
-          if (p.z < 1) pts.push(p)
+          pts.push(p.z < 1 ? { x: p.x, y: p.y } : null)
         }
         drawStreetAlongPath(ctx2d, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H })
       }

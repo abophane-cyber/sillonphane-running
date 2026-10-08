@@ -203,7 +203,7 @@ const MAJOR = /^(BD|AV|RTE|PL|QU|CRS|PONT)\s/
 
 /** Nom affiché et rang d'une rue au format IGN (« BD VICTOR HUGO », « R DES POSTES ») : voies majeures (ou d'importance
  * IGN 1 à 3) en capitales ; rues en casse normale, type de voie écrit en entier (« Rue des Postes »). */
-export function streetLabel(name: string, importance?: number): { text: string; major: boolean } {
+export function streetLabel(name: string, importance?: number): StreetLabel {
   const major = MAJOR.test(name) || (importance ?? 6) <= 3
   if (major) return { text: name, major }
   const words = name.split(' ')
@@ -227,74 +227,119 @@ export function streetLabelAlpha(m: number, startM: number, endM: number, holdM:
   return Math.min(inA, outA)
 }
 
-/** Écrit `text` le long de la ligne `pts` (px écran), décalé de `offset` px sur le côté gauche du sens de lecture,
- * lettre par lettre en suivant la courbe ; lu de gauche à droite (la ligne est retournée si besoin). `k` : échelle ;
- * `view` : taille de l'image (seule la partie visible de la rue est utilisée). */
+/** Nom de rue à inscrire, avec sa place sur la rue une fois choisie (`fix`) : le même objet doit être repassé à chaque
+ * image (cf. drawStreetAlongPath). */
+export interface StreetLabel {
+  text: string
+  major: boolean
+  /** Place figée à la première image où le nom tient : centre du nom (indice fractionnaire dans `pts`, donc un point
+   *  fixe de la rue), taille des lettres, sens de lecture (vers les indices décroissants si `flip`). */
+  fix?: { at: number; size: number; flip: boolean }
+}
+
+type Pt = { x: number; y: number }
+const STEP = 4
+
+/** Écrit le nom le long de la rue `pts` (px écran ; `null` = point hors champ ou derrière la caméra), décalé de `offset`
+ * px sur le côté gauche du sens de lecture, lettre par lettre en suivant la courbe. Le nom est FIXE sur la carte : à la
+ * première image où il tient sur la partie visible de la rue (`view`, taille de l'image), son centre, sa taille et son
+ * sens de lecture sont figés (`label.fix`) ; ensuite il suit ce point de la rue, sans glisser avec la caméra. `pts` doit
+ * donc décrire la même rue, dans le même ordre, à chaque image. `k` : échelle. */
 export function drawStreetAlongPath(
-  ctx: CanvasRenderingContext2D, label: { text: string; major: boolean }, pts: { x: number; y: number }[],
+  ctx: CanvasRenderingContext2D, label: StreetLabel, pts: (Pt | null)[],
   alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
 ) {
   if (alpha <= 0 || pts.length < 2) return
-  // Seule la partie de la rue visible à l'écran (`view`) compte : le nom y est centré, entier.
-  let line = pts
-  if (view) {
-    const M = 30 * k
-    const inView = (p: { x: number; y: number }) => p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M
-    let best: { x: number; y: number }[] = [], cur: { x: number; y: number }[] = []
-    for (const p of pts) {
-      if (inView(p)) cur.push(p)
-      else { if (cur.length > best.length) best = cur; cur = [] }
-    }
-    line = cur.length > best.length ? cur : best
-    if (line.length < 2) return
-  }
-  if (line[line.length - 1].x < line[0].x) line = [...line].reverse()
-  // Rééchantillonnage tous les 4 px puis lissage : pas de lettres qui sautent sur les zigzags du GPS.
-  const res: { x: number; y: number }[] = [line[0]]
-  for (let i = 1; i < line.length; i++) {
-    const a = res[res.length - 1], b = line[i]
-    const d = Math.hypot(b.x - a.x, b.y - a.y)
-    const n = Math.floor(d / 4)
-    for (let j = 1; j <= n; j++) res.push({ x: a.x + (b.x - a.x) * (j * 4 / d), y: a.y + (b.y - a.y) * (j * 4 / d) })
-  }
-  if (res.length < 3) return
-  const R = 6
-  const sm = res.map((_, i) => {
-    let x = 0, y = 0, c = 0
-    for (let j = Math.max(0, i - R); j <= Math.min(res.length - 1, i + R); j++) { x += res[j].x; y += res[j].y; c++ }
-    return { x: x / c, y: y / c }
-  })
-  const cum = [0]
-  for (let i = 1; i < sm.length; i++) cum.push(cum[i - 1] + Math.hypot(sm[i].x - sm[i - 1].x, sm[i].y - sm[i - 1].y))
-  const total = cum[cum.length - 1]
-  const at = (s: number) => {
-    const c = Math.max(0, Math.min(total, s))
-    let i = 1
-    while (i < cum.length - 1 && cum[i] < c) i++
-    const f = (c - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1])
-    return { x: sm[i - 1].x + (sm[i].x - sm[i - 1].x) * f, y: sm[i - 1].y + (sm[i].y - sm[i - 1].y) * f }
-  }
-  // Le nom doit tenir sur la portion de rue visible (sinon ses lettres s'empilaient aux extrémités) : taille réduite
-  // jusqu'à 70 %, au-delà on ne l'écrit pas.
   const chars = [...label.text]
-  // Rue = écriture cartographique : petite, légère, gris clair, légèrement transparente, sans icône ni bulle.
-  const base = 12.5 * k
-  let size = base, spacing = 0, widths: number[] = [], textW = 0
-  ctx.save()
-  for (; size >= base * 0.7; size -= 0.5 * k) {
-    spacing = (label.major ? 0.1 : 0.03) * size
-    ctx.font = `${label.major ? 600 : 500} ${size}px ${LABEL_FONT}`
-    widths = chars.map(ch => ctx.measureText(ch).width + spacing)
-    textW = widths.reduce((a, b) => a + b, 0) - spacing
-    if (textW <= total * 0.92) break
+  const fontAt = (size: number) => `${label.major ? 600 : 500} ${size}px ${LABEL_FONT}`
+  const spacingAt = (size: number) => (label.major ? 0.1 : 0.03) * size
+  const measure = (size: number) => {
+    ctx.font = fontAt(size)
+    const sp = spacingAt(size)
+    const widths = chars.map(ch => ctx.measureText(ch).width + sp)
+    return { widths, textW: widths.reduce((a, b) => a + b, 0) - sp, sp }
   }
-  if (textW > total * 0.92) { ctx.restore(); return }
+  ctx.save()
+  if (!label.fix) {
+    // Placement : milieu de la plus longue partie de la rue visible à l'écran ; le nom doit y tenir (taille réduite
+    // jusqu'à 70 %), sinon on réessaie à l'image suivante.
+    const M = 30 * k
+    const inView = (p: Pt | null): p is Pt => !!p && (!view || (p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M))
+    let best: [number, number] = [0, -1], cur = -1
+    for (let i = 0; i <= pts.length; i++) {
+      if (i < pts.length && inView(pts[i])) { if (cur < 0) cur = i }
+      else if (cur >= 0) { if (i - 1 - cur > best[1] - best[0]) best = [cur, i - 1]; cur = -1 }
+    }
+    const [i0, i1] = best
+    if (i1 - i0 < 1) { ctx.restore(); return }
+    const cum = [0]
+    for (let i = i0 + 1; i <= i1; i++) cum.push(cum[cum.length - 1] + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y))
+    const total = cum[cum.length - 1]
+    const base = 12.5 * k
+    let size = base
+    for (; size >= base * 0.7; size -= 0.5 * k) if (measure(size).textW <= total * 0.85) break
+    if (measure(size).textW > total * 0.85) { ctx.restore(); return }
+    let j = 1
+    while (j < cum.length - 1 && cum[j] < total / 2) j++
+    const at = i0 + j - 1 + (total / 2 - cum[j - 1]) / Math.max(1e-6, cum[j] - cum[j - 1])
+    label.fix = { at, size, flip: pts[i1]!.x < pts[i0]!.x }
+  }
+  const { at, size } = label.fix
+  // Partie continue (sans point manquant) de la rue autour du centre du nom.
+  const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
+  if (!pts[ia] || !pts[ib]) { ctx.restore(); return }
+  let lo = ia, hi = ib
+  while (lo > 0 && pts[lo - 1]) lo--
+  while (hi < pts.length - 1 && pts[hi + 1]) hi++
+  const P = (i: number) => pts[i]!
+  const f = at - ia
+  const c = { x: P(ia).x + (P(ib).x - P(ia).x) * f, y: P(ia).y + (P(ib).y - P(ia).y) * f }
+  // Rééchantillonnage tous les STEP px à partir du centre, de part et d'autre (pas de calage qui varie d'une image à
+  // l'autre), puis lissage : pas de lettres qui sautent sur les zigzags du GPS.
+  const walk = (from: Pt, idx: number[]): Pt[] => {
+    const out: Pt[] = []
+    let a = from
+    for (const i of idx) {
+      const b = P(i)
+      let d = Math.hypot(b.x - a.x, b.y - a.y)
+      while (d >= STEP) {
+        a = { x: a.x + (b.x - a.x) * (STEP / d), y: a.y + (b.y - a.y) * (STEP / d) }
+        out.push(a)
+        d -= STEP
+      }
+    }
+    return out
+  }
+  const fwd = walk(c, Array.from({ length: hi - ib + 1 }, (_, n) => ib + n))
+  const back = walk(c, Array.from({ length: ia - lo + 1 }, (_, n) => ia - n))
+  const res = [...back.reverse(), c, ...fwd]
+  if (res.length < 3) { ctx.restore(); return }
+  const R = 6
+  let sm = res.map((_, i) => {
+    let x = 0, y = 0, n = 0
+    for (let j = Math.max(0, i - R); j <= Math.min(res.length - 1, i + R); j++) { x += res[j].x; y += res[j].y; n++ }
+    return { x: x / n, y: y / n }
+  })
+  let s0 = back.length * STEP // abscisse du centre du nom
+  // Sens de lecture figé ; retourné seulement si le nom finit nettement à l'envers (caméra qui a beaucoup tourné).
+  const ci = back.length, dA = sm[Math.max(0, ci - 3)], dB = sm[Math.min(sm.length - 1, ci + 3)]
+  const readX = (dB.x - dA.x) * (label.fix.flip ? -1 : 1), len = Math.hypot(dB.x - dA.x, dB.y - dA.y)
+  if (len > 0 && readX < -0.5 * len) label.fix.flip = !label.fix.flip
+  const total = (sm.length - 1) * STEP
+  if (label.fix.flip) { sm = sm.reverse(); s0 = total - s0 }
+  /** Point à l'abscisse s ; au-delà des extrémités, prolongé en ligne droite (lettres jamais empilées). */
+  const at2 = (s: number): Pt => {
+    const i = Math.min(sm.length - 2, Math.max(0, Math.floor(s / STEP)))
+    const u = s / STEP - i
+    return { x: sm[i].x + (sm[i + 1].x - sm[i].x) * u, y: sm[i].y + (sm[i + 1].y - sm[i].y) * u }
+  }
+  const { widths, textW, sp } = measure(size)
   ctx.globalAlpha = alpha * (label.major ? 0.8 : 0.66)
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
-  let s = (total - textW) / 2
+  let s = s0 - textW / 2
   for (let i = 0; i < chars.length; i++) {
-    const mid = s + widths[i] / 2 - spacing / 2
-    const p0 = at(mid - widths[i] / 2), p1 = at(mid + widths[i] / 2), p = at(mid)
+    const mid = s + widths[i] / 2 - sp / 2
+    const p0 = at2(mid - widths[i] / 2), p1 = at2(mid + widths[i] / 2), p = at2(mid)
     const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x)
     const nx = Math.sin(ang), ny = -Math.cos(ang) // normale à gauche du sens de lecture (vers le haut)
     ctx.save()
