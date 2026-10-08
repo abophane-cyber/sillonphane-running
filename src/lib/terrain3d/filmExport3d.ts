@@ -1397,57 +1397,77 @@ async function exportFilm3dImpl(
   }
   /** Taille monde d'un px « logique » des noms au sol : lettres à taille constante, quelle que soit la longueur du nom. */
   const GROUND_LABEL_WORLD_PER_PX = 1.7
-  /** Nom de lieu comme en 2D : écrit au sol (centré sur le point, sans poteau) ; les cols gardent leur pancarte. */
-  function makeLocSprite(name: string, style: 'lieudit' | 'col' | 'standard' | 'poi', anchor: THREE.Vector3, ele?: number, colWidth = 340): THREE.Sprite {
+  /** Nom de lieu comme en 2D : écrit À PLAT sur la carte (plan couché, centré sur le point), orienté une fois pour toutes
+   * dans le sens de la course (`t` : position sur le tracé), à taille fixe pendant le survol — il ne pivote ni ne
+   * change de taille avec la caméra (sinon flou et mal des transports). Les cols gardent leur pancarte debout. */
+  type Label = THREE.Sprite | THREE.Mesh<THREE.PlaneGeometry, THREE.MeshBasicMaterial>
+  const _labTan = new THREE.Vector3()
+  function makeLocSprite(name: string, style: 'lieudit' | 'col' | 'standard' | 'poi', anchor: THREE.Vector3, t: number, ele?: number, colWidth = 340): Label {
     const isCol = style === 'col'
     const tex = isCol ? panelTexture(name, style, ele) : groundLabelTexture(name, style)
     renderer.initTexture(tex)
-    const sprite = makePanelSprite(tex)
+    let label: Label
     if (isCol) {
+      const sprite = makePanelSprite(tex)
       sizeSpriteFromTexture(sprite, tex, colWidth)
       sprite.center.set(0.5, 0)
+      label = sprite
     } else {
       const img = tex.image as HTMLCanvasElement
       const k = GROUND_LABEL_WORLD_PER_PX / GROUND_LABEL_RES
-      sprite.scale.set(img.width * k, img.height * k, 1)
-      sprite.center.set(0.5, 0.5)
+      const geom = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2) // couché, haut du texte vers le nord (-z)
+      const mesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, alphaTest: 0.4 }))
+      mesh.renderOrder = 10
+      mesh.scale.set(img.width * k, 1, img.height * k)
+      curve.getTangentAt(Math.max(0, Math.min(1, t)), _labTan)
+      mesh.rotation.y = Math.atan2(-_labTan.x, -_labTan.z) // haut du texte dans le sens de la course
+      label = mesh
     }
-    sprite.position.set(anchor.x, anchor.y, anchor.z)
-    sprite.visible = false
-    sprite.layers.set(NO_REFLECT_LAYER)
-    scene.add(sprite)
-    return sprite
+    label.position.set(anchor.x, anchor.y + 2, anchor.z)
+    label.visible = false
+    label.layers.set(NO_REFLECT_LAYER)
+    scene.add(label)
+    return label
   }
-  const panelSprites: { sprite: THREE.Sprite; t: number; isCol: boolean }[] = scenePanels.map((pnl, idx) => {
+  const panelSprites: { sprite: Label; t: number; isCol: boolean }[] = scenePanels.map((pnl, idx) => {
     const panelT = panelCurveParams[idx]
     const anchor = trailPts[Math.round(panelT * RESAMPLE_COUNT)]
-    const sprite = makeLocSprite(pnl.name, pnl.style, anchor, pnl.ele)
+    const sprite = makeLocSprite(pnl.name, pnl.style, anchor, panelT, pnl.ele)
     return { sprite, t: panelT, isCol: pnl.style === 'col' }
   })
-  function makeEndpointPanel(name: string, anchor: THREE.Vector3, colEle?: number, lieudit?: boolean): THREE.Sprite {
+  function makeEndpointPanel(name: string, anchor: THREE.Vector3, t: number, colEle?: number, lieudit?: boolean): Label {
     const isCol = colEle != null
-    return makeLocSprite(name, isCol ? 'col' : lieudit ? 'lieudit' : 'standard', anchor, colEle)
+    return makeLocSprite(name, isCol ? 'col' : lieudit ? 'lieudit' : 'standard', anchor, t, colEle)
   }
   const departurePanel = opts.showDeparturePanel === false
-    ? null : makeEndpointPanel(opts.departureName, trailPts[0], opts.departureColEle, opts.departureLieudit)
+    ? null : makeEndpointPanel(opts.departureName, trailPts[0], 0, opts.departureColEle, opts.departureLieudit)
   const arrivalPanel = opts.showArrivalPanel === false
-    ? null : makeEndpointPanel(opts.arrivalName, trailPts[trailPts.length - 1], opts.arrivalColEle, opts.arrivalLieudit)
-  // Taille apparente minimale des panneaux : au-delà de ~1,5 km, la largeur monde fixe tombe
-  // sous ~150 px et le texte devient illisible. On agrandit alors le sprite proportionnellement
-  // à la distance caméra (largeur ≥ PANEL_MIN_ANGULAR · distance, ≈ 170 px à 1080p, FOV 55°).
-  // Noms au sol : minimum sur la HAUTEUR (lettres ≥ ~24 px à 1080p, comme l'ancien panneau), la largeur suivant
-  // la longueur du nom.
+    ? null : makeEndpointPanel(opts.arrivalName, trailPts[trailPts.length - 1], 1, opts.arrivalColEle, opts.arrivalLieudit)
+  // Taille apparente minimale : pancartes (cols) agrandies avec la distance caméra (largeur ≥ PANEL_MIN_ANGULAR ·
+  // distance). Noms au sol : taille calculée UNE fois, quand le nom apparaît (lettres ≥ LABEL_MIN_ANGULAR_H ·
+  // distance, majorée de l'écrasement de la vue plongeante), puis figée ; elle ne suit la caméra que sur la vue
+  // d'ensemble finale.
   const PANEL_MIN_ANGULAR = 0.165
   const LABEL_MIN_ANGULAR_H = 0.055
+  const LABEL_TILT_K = 1.5
   const panelBaseScales = [
     ...panelSprites.map(p => p.sprite),
-    ...[departurePanel, arrivalPanel].filter((s): s is THREE.Sprite => s != null),
-  ].map(sprite => ({ sprite, w: sprite.scale.x, h: sprite.scale.y, isLabel: sprite.center.y === 0.5 }))
-  function enforcePanelMinSize(camPos: THREE.Vector3): void {
-    for (const { sprite, w, h, isLabel } of panelBaseScales) {
+    ...[departurePanel, arrivalPanel].filter((s): s is Label => s != null),
+  ].map(sprite => {
+    const isLabel = sprite instanceof THREE.Mesh
+    return { sprite, w: sprite.scale.x, h: isLabel ? sprite.scale.z : sprite.scale.y, isLabel, fixedK: 0 }
+  })
+  function enforcePanelMinSize(camPos: THREE.Vector3, overview: boolean): void {
+    for (const rec of panelBaseScales) {
+      const { sprite, w, h, isLabel } = rec
       if (!sprite.visible) continue
       const d = sprite.position.distanceTo(camPos)
-      const k = Math.max(1, isLabel ? (d * LABEL_MIN_ANGULAR_H) / h : (d * PANEL_MIN_ANGULAR) / w)
+      if (isLabel) {
+        if (!rec.fixedK || overview) rec.fixedK = Math.max(rec.fixedK || 1, (d * LABEL_MIN_ANGULAR_H * LABEL_TILT_K) / h)
+        sprite.scale.set(w * rec.fixedK, 1, h * rec.fixedK)
+        continue
+      }
+      const k = Math.max(1, (d * PANEL_MIN_ANGULAR) / w)
       sprite.scale.set(w * k, h * k, 1)
     }
   }
@@ -1836,7 +1856,7 @@ async function exportFilm3dImpl(
         _ovDir1.subVectors(_ovEndPos, ovCenter)
         ovD1 = Math.max(ovD0, _ovDir1.length()); _ovDir1.normalize()
         for (const { sprite } of panelSprites) {
-          const m = sprite.material as THREE.SpriteMaterial
+          const m = sprite.material as THREE.Material
           m.alphaTest = 0; m.needsUpdate = true // sinon le fondu « coupe » net à 0,4
         }
         overviewCaptured = true
@@ -1855,7 +1875,7 @@ async function exportFilm3dImpl(
       // avec le départ et l'arrivée.
       const panelA = 1 - Math.min(1, u / 0.35)
       for (const { sprite, isCol } of panelSprites) {
-        ;(sprite.material as THREE.SpriteMaterial).opacity = isCol ? 1 : panelA
+        ;(sprite.material as THREE.Material).opacity = isCol ? 1 : panelA
         sprite.visible = isCol || panelA > 0
       }
       if (departurePanel) departurePanel.visible = true
@@ -2144,7 +2164,7 @@ async function exportFilm3dImpl(
     coreMat.depthTest = camDist < 6000
     camera.position.copy(currentCamPos)
     camera.lookAt(currentLookAt)
-    enforcePanelMinSize(currentCamPos)
+    enforcePanelMinSize(currentCamPos, simElapsed >= PHASE3_END)
     renderer.render(scene, camera)
 
     // Composition : image GL + overlays 2D
