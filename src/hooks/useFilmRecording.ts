@@ -12,6 +12,7 @@ import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 import type { StreetRun } from '../lib/routeStreets'
+import { ESSAI_FILM_S, isEssaiFilm } from '../lib/filmEssai'
 
 export interface CreateFilmContext {
   activeTrack: GpxTrack
@@ -102,7 +103,9 @@ export function useFilmRecording() {
     const releaseKeepAlive = beginExportKeepAlive()
 
     const distKm = ctx.activeTrack.distance / 1000
-    const durationS = animDurationS(distKm)
+    // Film d'essai (?essai) : la marche seule, ESSAI_FILM_S au total (cf. filmEssai.ts).
+    const essai = isEssaiFilm()
+    const durationS = essai ? ESSAI_FILM_S : animDurationS(distKm)
     const eta = makeExportEta('2d', durationS, PREFETCH_PROGRESS_BUDGET)
 
     // Debug local (?filmdebug dans l'URL) : ne rend que les premières secondes de marche, à la
@@ -157,6 +160,7 @@ export function useFilmRecording() {
         signal: abort.signal,
         debugSkipCharacter: filmDebug,
         debugMaxFrames,
+        essai,
       })
 
       if (!abort.signal.aborted && blob.size > 0) {

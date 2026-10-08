@@ -9,6 +9,7 @@ import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
+import { ESSAI_FILM_S, isEssaiFilm } from '../lib/filmEssai'
 
 export interface CreateFilm3dContext {
   activeTrack: GpxTrack
@@ -93,7 +94,9 @@ export function useFilm3dExport() {
     const FILM3D_DURATION_FACTOR = 1.6
     const s = ANIM_SETTINGS.randonneur
     const base = Math.min(s.max, Math.max(s.min, (ctx.activeTrack.distance / 1000) * s.secondsPerKm))
-    const durationS = base * FILM3D_DURATION_FACTOR
+    // Film d'essai (?essai) : le survol seul, ESSAI_FILM_S au total (cf. filmEssai.ts).
+    const essai = isEssaiFilm()
+    const durationS = essai ? ESSAI_FILM_S : base * FILM3D_DURATION_FACTOR
 
     try {
       const { exportFilm3d } = await import('../lib/terrain3d/filmExport3d')
@@ -140,6 +143,7 @@ export function useFilm3dExport() {
         })(),
         streets: ctx.streets?.map(s => ({ name: s.name, from: s.startM / ctx.activeTrack.distance, to: s.endM / ctx.activeTrack.distance })),
         durationS,
+        essai,
         fps: 30,
         onProgress: p => {
           setFilm3dProgress(Math.max(0, p.ratio)); setFilm3dPhase(p.phase)

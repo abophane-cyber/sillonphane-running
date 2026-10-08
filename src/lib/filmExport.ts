@@ -86,6 +86,8 @@ export interface FilmExportOptions {
    *  tremblement caméra moins visible), ça donne un extrait fidèle au rendu normal. Le
    *  préchargement de tuiles est aussi limité à la portion du tracé concernée. */
   debugMaxFrames?: number
+  /** Film d'essai (?essai dans l'URL) : la marche seule, sans écran-titre, dézoom de départ ni plans de fin. */
+  essai?: boolean
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -1050,7 +1052,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // le plan d'ensemble allait alors chercher ses tuiles en direct, très lentement (surtout sans le
   // cache HTTP local déjà chaud d'une session de dev — invisible en local, très visible en prod).
   const totalFramesEstimate = Math.ceil(durationS * fps)
-  const overviewWillRun = !opts.debugMaxFrames || opts.debugMaxFrames >= totalFramesEstimate
+  const overviewWillRun = !opts.essai && (!opts.debugMaxFrames || opts.debugMaxFrames >= totalFramesEstimate)
   // « Ruban seul » (aucun personnage choisi), ou appareil sans WebGL2 : aucun randonneur dans le film.
   const noCharacter = !!opts.debugSkipCharacter || opts.characters.length === 0
   const want3d = !noCharacter && HIKER3D_ENABLED
@@ -1153,6 +1155,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const pacing = hikers3d ? getTrackPacing(visualPoints, distances) : null
   const nominalMps = totalDistance / durationS
   pacing?.setNominalSpeed(nominalMps)
+  // Essai : vitesse relevée pour que la marche, ralentie dans les virages, dure bien durationS.
+  if (opts.essai && pacing) pacing.setNominalSpeed(nominalMps * pacing.timeWarp().totalS / durationS)
   const walkWarp = pacing ? pacing.timeWarp() : null
   const walkS = walkWarp ? walkWarp.totalS : durationS
   const H3_END_HOLD_S = HIKER3D_END_HOLD_MS / 1000
@@ -1306,7 +1310,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const INTRO_FRAMES = hikers3d
     ? Math.round((TITLE_IN_S + SCENE_REVEAL_S + H3_START_HOLD_S) * fps)
     : Math.round((TITLE_IN_S + SCENE_REVEAL_S + (hasStartClock ? START_CLOCK_HOLD_S : -RIBBON_EARLY_S)) * fps)
-  const START_DEZOOM_FRAMES = hikers3d && !opts.debugMaxFrames ? Math.round((HIKER3D_START_DEZOOM_MS / 1000) * fps) : 0
+  const START_DEZOOM_FRAMES = hikers3d && !opts.debugMaxFrames && !opts.essai ? Math.round((HIKER3D_START_DEZOOM_MS / 1000) * fps) : 0
   // Durées des plans de fin (vue d'ensemble) : comptées ici aussi pour que la barre de
   // progression continue d'avancer pendant ces phases au lieu de rester bloquée à 100% ("Presque
   // prêt…" figé plusieurs secondes, impression d'export planté).
@@ -1517,7 +1521,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
   // debugMaxFrames : écran-titre sauté (on veut voir la carte/les panneaux tout de suite, pas le
   // voile noir), et les timestamps de la boucle de marche ne tiennent plus compte de sa durée.
-  const introFrames = opts.debugMaxFrames ? 0 : INTRO_FRAMES
+  const introFrames = opts.debugMaxFrames || opts.essai ? 0 : INTRO_FRAMES
   // Images avant la marche : écran-titre + dézoom de départ des randonneurs 3D.
   const preWalkFrames = introFrames + START_DEZOOM_FRAMES
   // Progression remontée à l'appelant, pondérée par coût réel par image et non par nombre brut
@@ -1707,7 +1711,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
     // 4. Randonneurs 3D : jusqu'au bout du tracé (le salut se fait au panneau d'arrivée, comme l'aperçu).
     if (hikers3d) {
-      if (f === 0) hikers.forEach(h => h.setPlaying(true))
+      if (f === 0) hikers.forEach(h => { if (opts.essai) h.skipToWalk(); h.setPlaying(true) }) // essai : pas d'écran-titre où se lever
       const [lngPos, latPos] = lngLatAtProgress(visualPoints, distances, totalDistance, progress)
       const mk = project(lngPos, latPos)
       steerHikers3d(project, progress * totalDistance, mk, latPos)
@@ -1726,7 +1730,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // Fin de la levée du voile noir de l'ouverture : elle déborde de RIBBON_EARLY_S sur le
     // début de la marche (le ruban part avant que le noir ait fini de se lever). Sautée en
     // debugMaxFrames (introFrames = 0 -> le voile est déjà entièrement levé dès la 1ère image).
-    if (!opts.debugMaxFrames) drawOpening((introFrames + f) / fps)
+    if (!opts.debugMaxFrames && !opts.essai) drawOpening((introFrames + f) / fps)
 
     drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
     if (useWC && encoder) {
@@ -1754,7 +1758,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const t = smoothEase(Math.min(1, (f + 1) / Math.max(1, END_ZOOM_FRAMES)))
     return { lng: endCamLng + (endLng - endCamLng) * t, lat: endCamLat + (endLat - endCamLat) * t, z: zoom + HIKER3D_CLOSE_ZOOM * t }
   }
-  if (!signal?.aborted && renderFrames === totalFrames) {
+  if (!signal?.aborted && renderFrames === totalFrames && !opts.essai) {
     exportMap.jumpTo({ center: [camLng, camLat], zoom })
     await waitForMapIdle(exportMap, signal)
     if (hikers3d) {
@@ -1812,7 +1816,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   }
 
   // ── Vue finale (Overview) ──────────────────────────────────────────────────
-  if (!signal?.aborted && renderFrames === totalFrames) {
+  if (!signal?.aborted && renderFrames === totalFrames && !opts.essai) {
     let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity
     for (const pt of points) {
       if (pt.lon < minLng) minLng = pt.lon

@@ -163,6 +163,9 @@ export interface FilmExport3dOptions {
   startTimePlanned?: boolean
   /** Durée du survol lui-même (hors pauses intro/outro), en s. Défaut 35. */
   durationS?:     number
+  /** Film d'essai (?essai dans l'URL) : le survol seul, en `durationS` exactement, sans écran-titre, pause de
+   *  départ ni plans de fin. */
+  essai?:         boolean
   fps?:           number
   /** Plafond de débit vidéo (Mb/s) au-dessus de la qualité constante. Défaut 16 (voir QP_CAP_BPS). */
   videoMaxMbps?:  number
@@ -1602,7 +1605,7 @@ async function exportFilm3dImpl(
   const CRUISE_COMP = 1 / (1 - Math.min(0.5, STARTUP_RAMP_S / askedDuration) / 2)
   const effStretch = Math.min(2.0, cruiseStretch)
   const cruiseCapDuration = (TOTAL_DISTANCE_M / 1000) * effStretch * CRUISE_COMP * CRUISE_MIN_SPKM
-  const DURATION = Math.max(askedDuration, Math.min(MAX_FLIGHT_S, cruiseCapDuration))
+  const DURATION = opts.essai ? askedDuration : Math.max(askedDuration, Math.min(MAX_FLIGHT_S, cruiseCapDuration))
   // Vitesse PERÇUE = vitesse au sol / distance caméra. Quand la croisière dépasse CAM_REF_SPEED
   // (m/s, ≈ celle d'une rando de 30-40 km), on éloigne la caméra d'autant : le défilement à l'écran
   // reste celui d'une rando ordinaire. camK = 1 sur les tracés courts (rien ne change).
@@ -1651,6 +1654,9 @@ async function exportFilm3dImpl(
   const PHASE3_END = PHASE2_END + END_PAUSE        // fin de la pause d'arrivée
   const TOTAL_CYCLE = PHASE3_END + OVERVIEW_RISE_S + OVERVIEW_HOLD_S
   const WATERMARK_LEAD = 5 // adresse de fin sur les 5 dernières secondes (vue d'ensemble), comme le film 2D
+  // Essai : seul le survol est rendu (de PHASE1_END à PHASE2_END) ; ce qui précède est simulé sans image.
+  const RENDER_FROM = opts.essai ? PHASE1_END : 0
+  const FILM_S = (opts.essai ? PHASE2_END : TOTAL_CYCLE) - RENDER_FROM
 
   const _oa = new THREE.Vector3()
   const _ob = new THREE.Vector3()
@@ -2099,7 +2105,7 @@ async function exportFilm3dImpl(
   let audioBuffer: AudioBuffer | null = null
   if (hasWC && hasFilmAudio(opts.audio) && filmAudioSupported()) {
     try {
-      audioBuffer = await buildFilmAudioTrack(opts.audio, TOTAL_CYCLE, signal)
+      audioBuffer = await buildFilmAudioTrack(opts.audio, FILM_S, signal)
     } catch (e) {
       if ((e as Error)?.name === 'AbortError') throw e
       console.warn('[film3d] bande-son ignorée :', e)
@@ -2148,7 +2154,7 @@ async function exportFilm3dImpl(
 
   // ── BOUCLE DE RENDU : pas de temps fixe, une image tous les (SIM_HZ/fps) ticks 60 Hz ────
   const ticksPerFrame = Math.max(1, Math.round(SIM_HZ / fps))
-  const totalFrames = Math.ceil(TOTAL_CYCLE * fps)
+  const totalFrames = Math.ceil(FILM_S * fps)
   etaTotalFrames = totalFrames; etaStage = 'render'; renderStart = performance.now()
   const msPerFrame = 1000 / fps
   // GOP ~1,6 s (48 images) : moins d'images-clés = moins de pics de débit/décodage sur les
@@ -2156,9 +2162,10 @@ async function exportFilm3dImpl(
   // le plus dur : fin de la partie quasi-fixe -> survol) pour que le décodeur reparte d'une
   // image complète à cet instant précis.
   const GOP = 48
-  const motionStartFrame = Math.round(PHASE1_END * fps)
+  const motionStartFrame = Math.round((PHASE1_END - RENDER_FROM) * fps)
   let simElapsed = 0
   let lastOverlay: Overlay = { distanceM: 0, profileT: 0 }
+  while (simElapsed < RENDER_FROM) { simElapsed += SIM_DT; lastOverlay = simStep(simElapsed) }
   // Journal (diag.ts, copy(__sillonDiag()) dans la console) : début du rendu, puis un point toutes les
   // 10 s — de quoi voir à distance si et où le rendu s'arrête (image atteinte, file de l'encodeur, onglet).
   diag('film 3D : début du rendu', {
