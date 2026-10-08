@@ -1995,7 +1995,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // logo Sillon qui se dessine (comme dans l'en-tête de l'appli) juste avant le texte.
     // Couvre tout le plan d'ensemble final (HOLD_OV) pour rester affiché le plus longtemps
     // possible, plutôt que de n'apparaître que sur les 5 dernières secondes.
-    const WATERMARK_FRAMES = HOLD_OV - Math.round(OVERVIEW_CLEAN_S * fps) // après la vue d'ensemble sans infos
+    // Carton du bas : END_CARD_LEAD_S avant la fin du film (pendant le dézoom), au plus tôt au début de la vue d'ensemble.
+    const END_CARD_LEAD_S = 9
+    const WATERMARK_FRAMES = Math.min(EASE_OV + HOLD_OV, Math.round(END_CARD_LEAD_S * fps))
     const WATERMARK_FADE_FRAMES = Math.round(0.5 * fps)
 
     for (let f = 0; f < EASE_OV + HOLD_OV; f++) {

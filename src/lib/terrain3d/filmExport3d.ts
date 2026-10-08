@@ -1571,6 +1571,7 @@ async function exportFilm3dImpl(
   const PHASE3_END = PHASE2_END + END_PAUSE        // fin de la pause d'arrivée
   const TOTAL_CYCLE = PHASE3_END + OVERVIEW_RISE_S + OVERVIEW_HOLD_S
   const WATERMARK_LEAD = 5 // adresse de fin sur les 5 dernières secondes (vue d'ensemble), comme le film 2D
+  const END_CARD_LEAD = 8 // carton du bas : 8 s avant la fin (pendant la montée vers la vue d'ensemble)
   // Essai : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes du survol (vitesse normale).
   // Fin seule : les FIN_FILM_S dernières secondes, ce qui précède simulé sans image (cf. RENDER_FROM plus bas).
   const RENDER_FROM = opts.fin ? Math.max(0, TOTAL_CYCLE - FIN_FILM_S) : 0
@@ -2257,6 +2258,7 @@ async function exportFilm3dImpl(
       }
     }
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
+    const intoEndCard = simElapsed - (TOTAL_CYCLE - END_CARD_LEAD)
     // Habillage (encart du haut, météo, flèche du nord, départ) : absent de l'ouverture, arrive en fin de plongée.
     const hudAlpha = openingHudAlpha(simElapsed)
     // Cartouche d'épreuve (bas gauche) pendant le survol et la pause d'arrivée, comme le film 2D.
@@ -2280,15 +2282,16 @@ async function exportFilm3dImpl(
     {
       const fx = currentLookAt.x - currentCamPos.x, fz = currentLookAt.z - currentCamPos.z
       const k = Math.min(OUT_W / 1920, OUT_H / 1080)
-      drawNorthArrow(ctx2d, OUT_W - 60 * k, OUT_H - 70 * k, k, Math.atan2(-fx, -fz), hudAlpha * (1 - Math.max(0, Math.min(1, intoWatermark / 0.5))))
+      drawNorthArrow(ctx2d, OUT_W - 60 * k, OUT_H - 70 * k, k, Math.atan2(-fx, -fz), hudAlpha * (1 - Math.max(0, Math.min(1, (opts.endCard ? intoEndCard : intoWatermark) / 0.5))))
     }
     // Nom du départ et heure de départ, en haut de l'écran sous le titre. L'heure s'efface sur START_CLOCK_FADE_S à
     // la fin de la pause sur le départ ; le nom reste jusqu'à la première seconde du survol, puis s'efface sur 0,6 s.
     const startA = hudAlpha * Math.max(0, Math.min(1, (PHASE1_END + 1.6 - simElapsed) / 0.6))
     const clockA = Math.max(0, Math.min(1, (PHASE1_END - simElapsed) / START_CLOCK_FADE_S))
     if (startA > 0) drawStartHeader(ctx2d, departurePanel ? opts.departureName : null, opts.departureLieudit, startTimeText, startA, clockA)
-    // Carton final (comme le film 2D) : sur la vue d'ensemble, après OVERVIEW_CLEAN_S sans infos, en fondu sur 0,5 s.
-    if (opts.endCard && intoWatermark > 0) drawEndCard(ctx2d, OUT_W, OUT_H, opts.endCard, Math.min(1, intoWatermark / 0.5))
+    // Carton final (comme le film 2D) : END_CARD_LEAD avant la fin, en fondu sur 0,5 s ; la flèche du nord (bas droite)
+    // s'efface en même temps.
+    if (opts.endCard && intoEndCard > 0) drawEndCard(ctx2d, OUT_W, OUT_H, opts.endCard, Math.min(1, intoEndCard / 0.5))
 
     // Ouverture (filmOpening.ts) : lumière du matin, ruban d'ouverture projeté depuis le ruban 3D, titre à gauche.
     if (simElapsed < PHASE0_END) {
