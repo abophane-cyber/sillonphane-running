@@ -176,11 +176,9 @@ export function drawOpeningLight(ctx: CanvasRenderingContext2D, w: number, h: nu
 /** Point du parcours à l'écran ; `f` = part du parcours (0 départ, 1 arrivée) ; `ok` faux = hors champ (derrière). */
 export interface OpeningPt { x: number; y: number; f: number; ok?: boolean }
 
-let glowCanvas: HTMLCanvasElement | null = null
-
 /**
- * Ruban d'ouverture, FIXE : tout le parcours, dégradé vert → orange → crème, épais, avec un halo diffus qui le garde
- * élément le plus lumineux de la carte sans l'écraser.
+ * Ruban d'ouverture, FIXE : tout le parcours, dégradé vert → orange → crème, épais et mat (ni halo ni reflet),
+ * cerné d'un liseré sombre qui le détache de la carte.
  */
 export function drawOpeningRibbon(ctx: CanvasRenderingContext2D, w: number, h: number, path: OpeningPt[], alpha: number): void {
   if (alpha <= 0 || path.length < 2) return
@@ -211,32 +209,13 @@ export function drawOpeningRibbon(ctx: CanvasRenderingContext2D, w: number, h: n
     ctx.stroke()
   }
 
-  // Halo : ruban épais dessiné à demi-résolution, flouté, ajouté en mode « screen » (lumière).
-  const gw = Math.round(w / 2), gh = Math.round(h / 2)
-  if (!glowCanvas) glowCanvas = document.createElement('canvas')
-  if (glowCanvas.width !== gw || glowCanvas.height !== gh) { glowCanvas.width = gw; glowCanvas.height = gh }
-  const g = glowCanvas.getContext('2d')!
-  g.clearRect(0, 0, gw, gh)
-  g.filter = `blur(${Math.round(10 * k)}px)`
-  strokeRibbon(g, 20 * k, 0.5)
-  g.filter = 'none'
-
   ctx.save()
   ctx.globalAlpha = alpha
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-  // Liseré sombre léger : détache le ruban des toits clairs.
-  ctx.strokeStyle = 'rgba(8,12,10,0.4)'
-  strokePlain(13 * k)
-  ctx.globalCompositeOperation = 'screen'
-  ctx.globalAlpha = alpha * 0.85
-  ctx.drawImage(glowCanvas, 0, 0, w, h)
-  ctx.globalAlpha = alpha
-  ctx.globalCompositeOperation = 'source-over'
-  strokeRibbon(ctx, 8 * k)
-  // Filet clair au cœur du ruban : brillance.
-  ctx.globalAlpha = alpha * 0.5
-  ctx.strokeStyle = '#fffaf0'
-  strokePlain(2 * k)
+  // Liseré sombre : détache le ruban des toits clairs. Ruban mat, sans halo ni reflet.
+  ctx.strokeStyle = 'rgba(8,12,10,0.45)'
+  strokePlain(15 * k)
+  strokeRibbon(ctx, 10 * k)
   ctx.restore()
 }
 
