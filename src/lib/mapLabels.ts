@@ -439,7 +439,7 @@ function drawPlaceCircle(
       else if (cur >= 0) { if (i - 1 - cur > best[1] - best[0]) best = [cur, i - 1]; cur = -1 }
     }
     if (best[1] < best[0]) return
-    label.fix = { at: (best[0] + best[1]) / 2, size: 13.5 * k, flip: false }
+    label.fix = { at: (best[0] + best[1]) / 2, size: 11.5 * k, flip: false }
   }
   const { at, size } = label.fix
   const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
@@ -449,12 +449,13 @@ function drawPlaceCircle(
   const cx = a.x + (b.x - a.x) * f, cy = a.y + (b.y - a.y) * f
   ctx.save()
   ctx.font = `700 ${size}px ${LABEL_FONT}`
-  const sp = 0.14 * size
+  const sp = 0.07 * size
   const widthsOf = (t: string) => [...t].map(ch => ctx.measureText(ch).width + sp)
   const topW = widthsOf(place.top), botW = widthsOf(place.bottom)
   const sum = (w: number[]) => w.reduce((x, y) => x + y, 0) - sp
-  // Rayon : le plus long des deux textes tient sur ~70 % de son demi-cercle.
-  const r = Math.max(3.2 * size, Math.max(sum(topW), sum(botW)) / (Math.PI * 0.7))
+  // Rayon : le plus long des deux textes couvre ~90 % de son demi-cercle (cercle le plus serré possible, à l'échelle
+  // d'une place).
+  const r = Math.max(2.6 * size, Math.max(sum(topW), sum(botW)) / (Math.PI * 0.9))
   const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
   // Haut : de gauche à droite dans le sens horaire, centré sur -90° ; lettres tournées vers l'extérieur.
   {
@@ -482,7 +483,7 @@ function drawPlaceCircle(
   const ink = dark ? '#111111' : '#ffffff', halo = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'
   ctx.globalAlpha = alpha * 0.97
   // Fin anneau intérieur, discret : le cercle se lit comme un tampon posé sur la place.
-  const rr = r - size * 0.95
+  const rr = r - size * 0.9
   ctx.lineWidth = 3.2 * k; ctx.strokeStyle = halo
   ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke()
   ctx.lineWidth = 1.3 * k; ctx.strokeStyle = ink
