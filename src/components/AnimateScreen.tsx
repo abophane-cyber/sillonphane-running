@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { TrackMap } from './TrackMap'
 import { AnimationControls } from './AnimationControls'
-import { ElevationMiniMap } from './ElevationMiniMap'
+import { FilmOverlayPreview } from './FilmOverlayPreview'
 import { PanelWizard } from './PanelWizard'
 import { GuidedTour } from './GuidedTour'
 import type { GpxTrack } from '../types'
@@ -13,6 +13,8 @@ import { formatEta } from '../lib/exportEta'
 import { ESSAI_FILM_S, isEssaiFilm } from '../lib/filmEssai'
 import type { Borne, Ravito, RaceSettings } from '../lib/raceSplits'
 import type { BannerText } from '../lib/raceSplits'
+import type { RaceClock } from '../lib/raceSplits'
+import type { EventCartouche } from '../lib/filmExport'
 import type { useAnimation } from '../hooks/useAnimation'
 import type { useLocalityPanels } from '../hooks/useLocalityPanels'
 import type { useLocality, useColMarkers } from '../hooks/useLocality'
@@ -70,6 +72,9 @@ interface Props {
   ravitos: Ravito[]
   /** Inscription par défaut de l'épreuve (exemples des champs du widget). */
   bannerDefaults: BannerText
+  /** Chrono et cartouche d'épreuve des incrustations (comme dans les films). */
+  clock: RaceClock
+  eventCartouche: EventCartouche
   /** Titre du film, modifiable dans le widget (rubrique Épreuve). */
   onCustomTitleChange: (v: string) => void
   departureTime: string
@@ -124,7 +129,7 @@ export function AnimateScreen({
   locality, colMarkers, panels, endDelayMsRef, startDelayMsRef,
   startName, endName, onStartNameChange, onEndNameChange,
   effectiveStartName, effectiveEndName, startColEle, endColEle, startLieudit, endLieudit, onStartKindChange, onEndKindChange, onMapCanvasReady,
-  race, onRaceChange, realTimes, bornes, ravitos, bannerDefaults, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, bornes, ravitos, bannerDefaults, clock, eventCartouche, departureTime, onDepartureTimeChange,
   countdown, waitingMap, weather, filmProgress, handleCreateFilm, lastFilmUrl,
   filmEtaS, film3dProgress, film3dPhase, film3dEtaS, handleCreateFilm3d, onFilm3dIntent, lastFilm3dUrl,
   trackHasSavedFilm, onViewFilm,
@@ -250,7 +255,6 @@ export function AnimateScreen({
             points={activeTrack.points}
             distances={distances}
             bannerDefaults={bannerDefaults}
-            filmTitle={customTitle}
             onFilmTitleChange={onCustomTitleChange}
             departureTime={departureTime}
             onDepartureTimeChange={onDepartureTimeChange}
@@ -270,35 +274,20 @@ export function AnimateScreen({
             }
           </div>
         )}
-        {weather && (() => {
-          const snap = state.progress < 0.5 ? weather.departure : weather.arrival
-          const icon = snap?.icon ?? null
-          const desc = snap?.description ?? null
-          const tempDep = weather.departure?.temp ?? weather.tempMin
-          const tempArr = weather.arrival?.temp ?? weather.tempMax
-          const temp = Math.round(tempDep + (tempArr - tempDep) * state.progress)
-          return icon ? (
-            <div className="weather-card">
-              <span className="weather-card__icon">{icon}</span>
-              <div className="weather-card__info">
-                <span className="weather-card__temp">{temp}°C</span>
-                {desc && <span className="weather-card__desc">{desc}</span>}
-              </div>
-            </div>
-          ) : null
-        })()}
-        <div className={`elev-minimap-overlay${!state.playing ? ' elev-minimap-overlay--hidden' : ''}`}>
-          <ElevationMiniMap
-            points={activeTrack.points}
-            distances={distances}
-            progress={state.progress}
-            totalDistance={activeTrack.distance}
-            elevGain={activeTrack.elevGain}
-            elevLoss={activeTrack.elevLoss}
-            distanceCovered={state.distanceCovered}
-            currentEle={state.currentEle}
-          />
-        </div>
+        {/* Incrustations des films (encart du haut, météo, cartouche d'épreuve), dessinées comme dans le film. */}
+        <FilmOverlayPreview
+          points={activeTrack.points}
+          distances={distances}
+          progress={state.progress}
+          distanceCovered={state.distanceCovered}
+          totalDistance={activeTrack.distance}
+          elevGain={activeTrack.elevGain}
+          elevLoss={activeTrack.elevLoss}
+          currentEle={state.currentEle}
+          clock={clock}
+          weather={weather}
+          cartouche={eventCartouche}
+        />
 
         {/* Modal de création du film (2D ou 3D — un seul actif à la fois) */}
         {(filmProgress !== null || film3dProgress !== null) && (() => {

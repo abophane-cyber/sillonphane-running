@@ -4803,3 +4803,8 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 }
 .print-offer__promo:hover { border-color: #fff; color: #fff; }
 .print-offer__promo strong { color: #fff; letter-spacing: 0.03em; }
+
+/* Incrustations des films par-dessus la carte de l'aperçu (FilmOverlayPreview). */
+.film-overlay-preview { position: absolute; inset: 0; z-index: 850; pointer-events: none; }
+/* Zoom et échelle remontés : le bas gauche est au cartouche d'épreuve, comme dans le film. */
+.viewer__map-wrap .maplibregl-ctrl-bottom-left { bottom: 30%; }

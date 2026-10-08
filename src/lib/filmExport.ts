@@ -865,7 +865,7 @@ export function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: nu
 export interface EventCartouche { place: string; title: string }
 export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch: number, c: EventCartouche, alpha: number) {
   if (alpha <= 0 || (!c.place && !c.title)) return
-  const k = ch / 1080
+  const k = Math.min(cw / 1920, ch / 1080)
   const x = Math.round(56 * k), base = ch - Math.round(64 * k)
   const placeSize = Math.round(76 * k), titleSize = Math.round(27 * k)
   const barW = Math.round(13 * k), barH = Math.round(118 * k), slant = Math.round(16 * k)

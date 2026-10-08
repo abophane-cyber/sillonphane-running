@@ -35,6 +35,27 @@ export interface BannerText {
   title: string
   date?: string
   distance?: string
+  /** Localité de l'épreuve (cartouche du film). */
+  place?: string
+}
+
+/** Titre et localité de l'épreuve tirés du nom du GPX : « Parcours Semi-marathon Lille 2026-24554019 » ->
+ * { title: « Semi-marathon 2026 », place: « Lille » } (localité reconnue = `placeHint`, le lieu de départ). Préfixe
+ * « Parcours » / « Tracé » et numéro final de l'outil de tracé retirés. */
+export function parseEventName(name: string | undefined, placeHint?: string): { title?: string; place?: string } {
+  let t = (name ?? '').trim()
+    .replace(/[\s_-]+\d{5,}$/, '')
+    .replace(/^(parcours|trac[ée]|trace|itin[ée]raire)\s+(du\s+|de\s+la\s+|de\s+l'|de\s+|d')?/i, '')
+    .trim()
+  if (!t) return {}
+  let place: string | undefined
+  const hint = placeHint?.trim()
+  if (hint) {
+    const esc = hint.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const re = new RegExp(`(\\s+(de|du|d')\\s*)?(^|\\s)${esc}(?=\\s|$)`, 'i')
+    if (re.test(t)) { place = hint; t = t.replace(re, ' ').replace(/\s+/g, ' ').trim() }
+  }
+  return { title: t ? t.charAt(0).toUpperCase() + t.slice(1) : undefined, place }
 }
 
 export const DEFAULT_RACE_SETTINGS: RaceSettings = { bornesOff: false, plannedTimes: false, speeds: [] }

@@ -30,7 +30,7 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, computeRavitos, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, DEFAULT_RACE_SETTINGS,
+  computeBornes, computeRavitos, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ANIM_ZOOM, animSpeed } from './hooks/useAnimationSettings'
@@ -109,11 +109,19 @@ export default function App() {
   const ravitos = useMemo(() => computeRavitos(points, distances, parseRavitoKms(race.ravitos)), [points, distances, race.ravitos])
   // Inscription de l'épreuve : nom, date, distance — saisis dans le widget des panneaux,
   // sinon titre du parcours, date de la sortie, distance du tracé.
+  // Titre et localité tirés du nom du GPX (« Parcours Semi-marathon Lille 2026-24554019 »), modifiables dans le widget.
+  const gpxEvent = useMemo(() => parseEventName(activeTrack?.name, startName), [activeTrack?.name, startName])
   const bannerDefaults = useMemo<BannerText>(() => ({
-    title: customTitle || activeTrack?.name || '',
+    // Titre resté au nom brut du GPX (recopié au chargement) : remplacé par le titre qui en est tiré.
+    title: (customTitle && customTitle !== activeTrack?.name ? customTitle : gpxEvent.title) || activeTrack?.name || '',
+    place: race.eventPlace ?? gpxEvent.place ?? startName,
     date: formatBannerDate(manualDate),
     distance: activeTrack ? formatBannerDistance(activeTrack.distance) : undefined,
-  }), [customTitle, activeTrack, manualDate])
+  }), [customTitle, activeTrack, manualDate, gpxEvent, race.eventPlace, startName])
+  // Cartouche d'épreuve (films et fenêtre d'animation) et chrono de l'encart du haut.
+  const eventCartouche = useMemo(() => ({ place: bannerDefaults.place?.trim() ?? '', title: bannerDefaults.title }), [bannerDefaults])
+  const raceTiming = useMemo(() => ({ useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds }), [realTimes, race.plannedTimes, race.speeds])
+  const clock = useMemo(() => raceClock(points, distances, raceTiming), [points, distances, raceTiming])
   // Carton de fin du film : intitulé, date, distance, dénivelé, temps mis (réel ou prévu) et moyenne.
   const endCard = useMemo<EndCard | undefined>(() => {
     if (!activeTrack) return undefined
@@ -443,7 +451,7 @@ export default function App() {
         elevGain: activeTrack.elevGain,
         elevLoss: activeTrack.elevLoss,
         currentEle: state.currentEle,
-        trackName: customTitle || activeTrack.name,
+        trackName: bannerDefaults.title,
       })
     })
   }
@@ -472,9 +480,9 @@ export default function App() {
       ravitos,
       streets: race.streets,
       endCard,
-      raceTiming: { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds },
-      eventCartouche: { place: race.eventPlace?.trim() || effectiveStartName || '', title: customTitle || activeTrack.name },
-      trackName: customTitle || activeTrack.name,
+      raceTiming,
+      eventCartouche,
+      trackName: bannerDefaults.title,
       activeSillonId,
       activeSillonTrackId,
       // Lire l'aperçu n'est pas nécessaire : le film prépare ses propres données.
@@ -509,7 +517,7 @@ export default function App() {
       bornes,
       ravitos,
       endCard,
-      trackName: customTitle || activeTrack.name,
+      trackName: bannerDefaults.title,
       activeSillonId,
       activeSillonTrackId,
       hasPlayedPreview: true,
@@ -579,7 +587,7 @@ export default function App() {
           track={activeTrack}
           gpxData={rawGpx}
           recordedLive={recordedLive}
-          trackName={customTitle || activeTrack.name}
+          trackName={bannerDefaults.title}
           manualDate={manualDate || undefined}
           departureTime={departureTime || undefined}
           arrivalTime={arrivalTime || undefined}
@@ -870,6 +878,8 @@ export default function App() {
             bornes={bornes}
             ravitos={ravitos}
             bannerDefaults={bannerDefaults}
+            clock={clock}
+            eventCartouche={eventCartouche}
             onCustomTitleChange={setCustomTitle}
             departureTime={departureTime}
             onDepartureTimeChange={setDepartureTime}

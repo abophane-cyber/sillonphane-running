@@ -54,7 +54,6 @@ interface Props {
   points: GpxPoint[]
   distances: number[]
   /** Titre du film (= nom de l'épreuve). */
-  filmTitle: string
   onFilmTitleChange: (v: string) => void
   departureTime: string
   onDepartureTimeChange: (v: string) => void
@@ -67,7 +66,7 @@ export function PanelWizard({
   excluded, customLocalities, onStartNameChange, onEndNameChange,
   startKind, endKind, startIsCol, endIsCol, onStartKindChange, onEndKindChange,
   onToggleLocality, onAddPanel, onRemoveCustomLocality, onComplete,
-  race, onRaceChange, realTimes, totalDistance, ravitoCount, bannerDefaults, points, distances, filmTitle, onFilmTitleChange, departureTime, onDepartureTimeChange,
+  race, onRaceChange, realTimes, totalDistance, ravitoCount, bannerDefaults, points, distances, onFilmTitleChange, departureTime, onDepartureTimeChange,
   showHint, onDismissHint,
 }: Props) {
   const depHidden = excluded.has(startName)
@@ -244,13 +243,13 @@ export function PanelWizard({
           {/* Nom de l'épreuve = titre du film (écran-titre, carton de fin, Mes sillons). */}
           <label className="pwiz-field-label" htmlFor="pwiz-film-title">Titre du film</label>
           <input
-            id="pwiz-film-title" className="pwiz-input" value={filmTitle} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
+            id="pwiz-film-title" className="pwiz-input" value={bannerDefaults.title} placeholder="Nom de l'épreuve"
             onChange={e => onFilmTitleChange(e.target.value)}
           />
           {/* Localité de l'épreuve : cartouche du film (« LILLE » au-dessus du titre). */}
           <label className="pwiz-field-label" htmlFor="pwiz-event-place">Localité de l'épreuve</label>
           <input
-            id="pwiz-event-place" className="pwiz-input" value={race.eventPlace ?? ''} placeholder={startName || 'Localité'}
+            id="pwiz-event-place" className="pwiz-input" value={bannerDefaults.place ?? ''} placeholder="Localité"
             onChange={e => onRaceChange({ ...race, eventPlace: e.target.value })}
           />
           <div className="pwiz-row">
