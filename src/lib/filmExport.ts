@@ -1155,8 +1155,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const pacing = hikers3d ? getTrackPacing(visualPoints, distances) : null
   const nominalMps = totalDistance / durationS
   pacing?.setNominalSpeed(nominalMps)
-  // Essai : vitesse relevée pour que la marche, ralentie dans les virages, dure bien durationS.
-  if (opts.essai && pacing) pacing.setNominalSpeed(nominalMps * pacing.timeWarp().totalS / durationS)
   const walkWarp = pacing ? pacing.timeWarp() : null
   const walkS = walkWarp ? walkWarp.totalS : durationS
   const H3_END_HOLD_S = HIKER3D_END_HOLD_MS / 1000

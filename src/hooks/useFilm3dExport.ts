@@ -9,7 +9,7 @@ import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
-import { ESSAI_FILM_S, isEssaiFilm } from '../lib/filmEssai'
+import { ESSAI_FILM_S, essaiPortion, isEssaiFilm } from '../lib/filmEssai'
 
 export interface CreateFilm3dContext {
   activeTrack: GpxTrack
@@ -94,9 +94,26 @@ export function useFilm3dExport() {
     const FILM3D_DURATION_FACTOR = 1.6
     const s = ANIM_SETTINGS.randonneur
     const base = Math.min(s.max, Math.max(s.min, (ctx.activeTrack.distance / 1000) * s.secondsPerKm))
-    // Film d'essai (?essai) : le survol seul, ESSAI_FILM_S au total (cf. filmEssai.ts).
+    const fullDurationS = base * FILM3D_DURATION_FACTOR
+    // Film d'essai (?essai, cf. filmEssai.ts) : le survol seul de la portion du tracé couverte en ESSAI_FILM_S à
+    // vitesse normale. Seule cette portion est préparée (terrain plus petit) ; bornes, ravitaillements, rues et
+    // panneaux au-delà sont écartés, pas de panneau d'arrivée.
     const essai = isEssaiFilm()
-    const durationS = essai ? ESSAI_FILM_S : base * FILM3D_DURATION_FACTOR
+    const cut = essai ? essaiPortion(ctx.activeTrack.points, fullDurationS) : null
+    const durationS = cut ? ESSAI_FILM_S : fullDurationS
+    const points = cut ? ctx.activeTrack.points.slice(0, cut.count) : ctx.activeTrack.points
+    const trackM = cut ? cut.portionM : ctx.activeTrack.distance
+    const inCut = (m: number) => !cut || m <= cut.portionM
+    /** Distance depuis le départ du point du tracé le plus proche d'un lieu. */
+    const alongM = (lon: number, lat: number) => {
+      if (!cut) return 0
+      let best = Infinity, at = 0
+      ctx.activeTrack.points.forEach((p, i) => {
+        const d = (p.lon - lon) ** 2 + ((p.lat - lat) * 1.6) ** 2
+        if (d < best) { best = d; at = cut.dist[i] }
+      })
+      return at
+    }
 
     try {
       const { exportFilm3d } = await import('../lib/terrain3d/filmExport3d')
@@ -110,13 +127,13 @@ export function useFilm3dExport() {
       const arrSuppressed = isLoop || (!!ctx.rawEndName && ctx.suppressedNames.has(ctx.rawEndName))
 
       const blob = await exportFilm3d({
-        trail: ctx.activeTrack.points.map(p => [p.lon, p.lat] as [number, number]),
+        trail: points.map(p => [p.lon, p.lat] as [number, number]),
         trailDate: formatTrailDate(ctx.manualDate ?? ctx.activeTrack.startTime),
         title: ctx.trackName,
         departureName: ctx.startName ?? ctx.rawStartName ?? ctx.previewLocalities[0]?.name ?? 'Départ',
         arrivalName: ctx.endName ?? ctx.rawEndName ?? ctx.previewLocalities[ctx.previewLocalities.length - 1]?.name ?? 'Arrivée',
         showDeparturePanel: !depSuppressed,
-        showArrivalPanel: !arrSuppressed,
+        showArrivalPanel: !arrSuppressed && !cut,
         departureColEle: ctx.startColEle,
         arrivalColEle: ctx.endColEle,
         departureLieudit: ctx.startLieudit,
@@ -124,7 +141,7 @@ export function useFilm3dExport() {
         elevGainM: ctx.activeTrack.elevGain,
         panels: localitiesToPanels3d(
           ctx.previewLocalities, ctx.customLocalities, ctx.suppressedNames, ctx.startName, ctx.endName,
-        ),
+        ).filter(pnl => inCut(alongM(pnl.lon, pnl.lat))),
         weather: weatherToScenario(ctx.weather, ctx.departureTime, ctx.arrivalTime),
         weatherCard: ctx.weather,
         startTime: ctx.departureTime || undefined,
@@ -132,16 +149,17 @@ export function useFilm3dExport() {
         trackStart: ctx.activeTrack.startTime,
         characters: ctx.characters,
         bibNumber: ctx.bibNumber,
-        bornes: ctx.bornes,
-        ravitos: ctx.ravitos,
+        bornes: ctx.bornes?.filter(b => inCut(b.km * 1000)),
+        ravitos: ctx.ravitos?.filter(r => inCut(r.km * 1000)),
         endCard: ctx.endCard,
-        trackDistanceM: ctx.activeTrack.distance,
+        trackDistanceM: trackM,
         // « 21,1 km » du carton final -> 21 100 m (illisible : distance du tracé).
-        shownDistanceM: (() => {
+        shownDistanceM: cut ? undefined : (() => {
           const km = parseFloat((ctx.endCard?.distance ?? '').replace(',', '.'))
           return km > 0 ? km * 1000 : undefined
         })(),
-        streets: ctx.streets?.map(s => ({ name: s.name, from: s.startM / ctx.activeTrack.distance, to: s.endM / ctx.activeTrack.distance })),
+        streets: ctx.streets?.filter(s => inCut(s.startM))
+          .map(s => ({ name: s.name, from: s.startM / trackM, to: Math.min(1, s.endM / trackM) })),
         durationS,
         essai,
         fps: 30,

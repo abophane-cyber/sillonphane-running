@@ -103,9 +103,7 @@ export function useFilmRecording() {
     const releaseKeepAlive = beginExportKeepAlive()
 
     const distKm = ctx.activeTrack.distance / 1000
-    // Film d'essai (?essai) : la marche seule, ESSAI_FILM_S au total (cf. filmEssai.ts).
-    const essai = isEssaiFilm()
-    const durationS = essai ? ESSAI_FILM_S : animDurationS(distKm)
+    const durationS = animDurationS(distKm)
     const eta = makeExportEta('2d', durationS, PREFETCH_PROGRESS_BUDGET)
 
     // Debug local (?filmdebug dans l'URL) : ne rend que les premières secondes de marche, à la
@@ -115,7 +113,10 @@ export function useFilmRecording() {
     // c'est uniquement le nombre d'images à produire qui est réduit.
     const filmDebug = new URLSearchParams(window.location.search).has('filmdebug')
     const FPS = 30
-    const debugMaxFrames = filmDebug ? Math.round(8 * FPS) : undefined
+    // Film d'essai (?essai, cf. filmEssai.ts) : même mécanisme, sur ESSAI_FILM_S, personnage gardé et film rangé dans
+    // Mes sillons ; seule cette portion du tracé est préchargée, d'où une création bien plus rapide.
+    const essai = !filmDebug && isEssaiFilm()
+    const debugMaxFrames = filmDebug ? Math.round(8 * FPS) : essai ? Math.round(ESSAI_FILM_S * FPS) : undefined
     if (filmDebug) console.log('[filmdebug]', { durationS, debugMaxFrames, fps: FPS, search: window.location.search })
 
     try {
@@ -186,7 +187,7 @@ export function useFilmRecording() {
             const meta = {
               name: `${filmName}_2D.${ext}`,
               trackId,
-              durationSec: durationS,
+              durationSec: essai ? ESSAI_FILM_S : durationS,
               sizeBytes: blob.size,
             }
             // Pas de repli sans blob en cas d'échec : une fiche de film sans vidéo jouable serait
