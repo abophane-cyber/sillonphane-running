@@ -320,14 +320,14 @@ function drawPoiIcon(ctx: CanvasRenderingContext2D, icon: string | undefined, cx
 
 /**
  * Lieux sur la carte, repères secondaires (le parcours domine). Points d'intérêt (`type` 'poi' ou absent, au plus 4) : rond blanc cerclé de noir sur le lieu, tige fine,
- * étiquette sombre arrondie avec pictogramme (`icon`) et nom en blanc, relevée si elle chevauche une autre. Quartiers et
+ * étiquette sans fond à contour clair arrondi, avec pictogramme (`icon`) et nom en blanc, relevée si elle chevauche une autre. Quartiers et
  * communes (`type` 'district', au plus 4) : capitales gris foncé espacées, auréolées de clair. Hors champ et zone du
  * titre écartés. Pas de noms de rues sur l'ouverture.
  */
 export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: number, pois: OpeningPoi[], alpha: number): void {
   if (alpha <= 0 || !pois.length) return
   const k = h / 1080
-  const inView = (p: OpeningPoi) => p.ok !== false && p.x > w * 0.45 && p.x < w - 90 * k && p.y > 70 * k && p.y < h - 50 * k
+  const inView = (p: OpeningPoi) => p.ok !== false && p.x > w * 0.42 && p.x < w - 20 * k && p.y > 20 * k && p.y < h - 20 * k
   ctx.save()
   ctx.globalAlpha = alpha
   ctx.textAlign = 'center'
@@ -368,15 +368,22 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
     const textW = Math.max(...lines.map(l => ctx.measureText(l).width))
     const bw = padX + iconS + gap + textW + padX, bh = Math.max(iconS, lines.length * lineH) + padY * 2
     let chosen: { box: Box; stem: Stem } | null = null
+    // Au-dessus du lieu d'abord, en dessous si la place manque (lieu près du haut de l'image) ; jamais hors de l'image
+    // ni sur le titre.
+    const fits = (b: Box) => b.x0 >= w * 0.44 && b.x1 <= w - 8 * k && b.y0 >= 8 * k && b.y1 <= h - 8 * k
     for (let i = 0; i < 5 && !chosen; i++) {
       const len = 24 * k + i * (bh + 6 * k)
-      for (const dx of [-bw / 2, -bw + 16 * k, -16 * k]) {
-        const box = { x0: p.x + dx, x1: p.x + dx + bw, y1: p.y - len, y0: p.y - len - bh }
-        const stem = { x: p.x, y0: box.y1, y1: p.y }
-        if (boxes.some(b => overlap(box, b)) || stems.some(s => crosses(s, box)) || boxes.some(b => crosses(stem, b)) ||
-          coversPoint(box, p)) continue
-        chosen = { box, stem }
-        break
+      for (const below of [false, true]) {
+        for (const dx of [-bw / 2, -bw + 16 * k, -16 * k]) {
+          const y0 = below ? p.y + len : p.y - len - bh
+          const box = { x0: p.x + dx, x1: p.x + dx + bw, y0, y1: y0 + bh }
+          const stem = below ? { x: p.x, y0: p.y, y1: box.y0 } : { x: p.x, y0: box.y1, y1: p.y }
+          if (!fits(box) || boxes.some(b => overlap(box, b)) || stems.some(s => crosses(s, box)) ||
+            boxes.some(b => crosses(stem, b)) || coversPoint(box, p)) continue
+          chosen = { box, stem }
+          break
+        }
+        if (chosen) break
       }
     }
     if (!chosen) {
@@ -391,17 +398,17 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.lineWidth = 1.2 * k
   for (const { stem } of layout) { ctx.beginPath(); ctx.moveTo(stem.x, stem.y1); ctx.lineTo(stem.x, stem.y0); ctx.stroke() }
   for (const { p, lines, box: r } of layout) {
-    ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10 * k; ctx.shadowOffsetY = 3 * k
-    ctx.fillStyle = 'rgba(29,38,44,0.84)'
-    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 9 * k); ctx.fill()
-    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
-    ctx.strokeStyle = 'rgba(255,255,255,0.55)'
-    ctx.lineWidth = 1.5 * k
-    ctx.stroke()
+    // Étiquette sans fond : contour clair seul ; contour, pictogramme et nom portent une ombre sombre pour rester
+    // lisibles sur la carte.
+    ctx.shadowColor = 'rgba(10,16,20,0.75)'; ctx.shadowBlur = 5 * k
+    ctx.strokeStyle = 'rgba(255,255,255,0.92)'
+    ctx.lineWidth = 1.8 * k
+    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 9 * k); ctx.stroke()
     drawPoiIcon(ctx, p.icon, r.x0 + padX + iconS / 2, (r.y0 + r.y1) / 2, iconS)
     ctx.fillStyle = '#ffffff'
     const ty = (r.y0 + r.y1) / 2 - ((lines.length - 1) * lineH) / 2 + size * 0.36
     lines.forEach((l, i) => ctx.fillText(l, r.x0 + padX + iconS + gap, ty + i * lineH))
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0
   }
   for (const { p } of layout) {
     ctx.fillStyle = '#ffffff'
