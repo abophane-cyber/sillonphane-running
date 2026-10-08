@@ -34,7 +34,7 @@ function sample(points: GpxPoint[], distances: number[], n: number): { x: number
   return result
 }
 
-export function ElevationProfile({ points, distances, totalDistance, progress, onSeek }: Props) {
+export function ElevationProfile({ points, distances, progress, onSeek }: Props) {
   const { pathD, fillD, minEle, maxEle } = useMemo(() => {
     if (points.length < 2) return { pathD: '', fillD: '', minEle: 0, maxEle: 0 }
 
@@ -54,7 +54,7 @@ export function ElevationProfile({ points, distances, totalDistance, progress, o
     const fillD = pathD + ` L${pts[pts.length - 1].x.toFixed(1)},${H} L${pts[0].x.toFixed(1)},${H} Z`
 
     return { pathD, fillD, minEle, maxEle }
-  }, [points, distances, totalDistance])
+  }, [points, distances])
 
   const cursorX = PAD_X + progress * (W - PAD_X * 2)
 

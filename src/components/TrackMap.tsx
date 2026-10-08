@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
-import { ensureVegetationProtocol, VEG_PROTOCOL } from '../lib/vegetation'
 import type { FeatureCollection } from 'geojson'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import type { GpxPoint } from '../types'
 import type { LocalityInfo, ColMarker } from '../hooks/useLocality'
 import { fetchLocalityInfo } from '../hooks/useLocality'
-import { BASEMAP_ADJUST, BASEMAP_BACKGROUND, BASEMAP_TILE_URL } from '../lib/tileSources'
 import { ANIM_ZOOM } from '../hooks/useAnimationSettings'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from '../lib/tilePrefetch'
 import { DEFAULT_CHARACTERS, type CharacterId } from '../lib/characters'
@@ -20,115 +18,14 @@ import {
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
 import type { StreetRun } from '../lib/routeStreets'
-import { RIBBON_FULL_GRADIENT, RIBBON_HEAD_COLOR, RIBBON_LAG_PX, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
+import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
+import { makeStyle, EMPTY_FC } from '../lib/mapStyle'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
 // Module 3D chargé à la demande (Three.js hors du bundle principal).
 const HIKER3D = HIKER3D_ENABLED
 /** Suivi caméra de l'aperçu : constante de temps de l'amorti (s), comme le film 2D (FOLLOW_K ≈ 0,038 par image à 30 i/s). */
 const CAMERA_FOLLOW_TAU_S = 0.8
-
-// ─── SVG markers ──────────────────────────────────────────────────────────────
-
-function hikerManSvg(c: string) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 44" width="28" height="44">
-  <circle cx="14" cy="4.5" r="3.8" fill="white" stroke="${c}" stroke-width="1.5"/>
-  <line x1="14" y1="8.3" x2="13" y2="20" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="13" y1="12" x2="8" y2="18" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="13" y1="12" x2="20" y2="16" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="13" y1="20" x2="7" y2="33" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
-  <line x1="13" y1="20" x2="18" y2="32" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
-  <line x1="20" y1="10" x2="24" y2="33" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
-  <rect x="14.5" y="9" width="4" height="6" rx="1.5" fill="${c}" opacity="0.35"/>
-  <ellipse cx="13" cy="41" rx="5" ry="1.8" fill="rgba(0,0,0,0.18)"/>
-</svg>`
-}
-
-function hikerWomanSvg(c: string) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 44" width="28" height="44">
-  <circle cx="14" cy="4.5" r="3.8" fill="white" stroke="${c}" stroke-width="1.5"/>
-  <path d="M17 3 Q20 2 18 6" fill="none" stroke="${c}" stroke-width="1.5" stroke-linecap="round"/>
-  <line x1="14" y1="8.3" x2="13" y2="20" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="13" y1="12" x2="8" y2="18" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="13" y1="12" x2="20" y2="16" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
-  <path d="M10 20 Q13 26 16 20" fill="${c}" opacity="0.25" stroke="${c}" stroke-width="1"/>
-  <line x1="13" y1="22" x2="7" y2="33" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
-  <line x1="13" y1="22" x2="18" y2="32" stroke="${c}" stroke-width="2" stroke-linecap="round"/>
-  <line x1="20" y1="10" x2="24" y2="33" stroke="${c}" stroke-width="1.8" stroke-linecap="round"/>
-  <ellipse cx="13" cy="41" rx="5" ry="1.8" fill="rgba(0,0,0,0.18)"/>
-</svg>`
-}
-
-const MARKER_COLOR = '#1a6b3c'
-
-export function markerSvg(_mode: 'randonneur', female: boolean): string {
-  return female ? hikerWomanSvg(MARKER_COLOR) : hikerManSvg(MARKER_COLOR)
-}
-
-const EMPTY_FC: FeatureCollection = { type: 'FeatureCollection', features: [] }
-
-export function makeStyle(): maplibregl.StyleSpecification {
-  ensureVegetationProtocol(maplibregl) // végétation recoloriée au chargement des tuiles (vegetation.ts)
-  return {
-    version: 8,
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    sources: {
-      'tiles-ign':  { type: 'raster', tiles: [BASEMAP_TILE_URL.replace('https://', `${VEG_PROTOCOL}://`)], tileSize: 256, maxzoom: 19, attribution: '© IGN' },
-      'track-full': { type: 'geojson', data: EMPTY_FC },
-      // lineMetrics: nécessaire pour line-gradient (dégradé le long du tracé parcouru)
-      'track-done': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
-      // Tête du ruban (derniers mètres parcourus), redessinée par-dessus : sur une boucle, le ruban repasse sur
-      // lui-même et sa tête disparaissait sous un passage antérieur.
-      'track-head': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
-    },
-    layers: [
-      { id: 'background', type: 'background', paint: { 'background-color': BASEMAP_BACKGROUND } },
-      // Vues aériennes assombries (BASEMAP_ADJUST, reproduit sur la mosaïque du film dans filmMapMosaic.ts).
-      { id: 'bg-ign', type: 'raster', source: 'tiles-ign', paint: {
-        'raster-fade-duration': 0, 'raster-contrast': BASEMAP_ADJUST.contrast, 'raster-saturation': BASEMAP_ADJUST.saturation,
-        'raster-brightness-max': BASEMAP_ADJUST.brightnessMax, 'raster-hue-rotate': BASEMAP_ADJUST.hueRotate,
-      } },
-      {
-        id: 'track-full-line', type: 'line', source: 'track-full',
-        paint: { 'line-color': '#ffffff', 'line-width': 3.5, 'line-opacity': 0.7, 'line-dasharray': [3, 3] }, // clair sur les vues aériennes assombries
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      },
-      {
-        // Liseré de contour très léger sous le ruban.
-        id: 'track-done-halo', type: 'line', source: 'track-done',
-        paint: { 'line-color': RIBBON_OUTLINE, 'line-width': 7.5 },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      },
-      {
-        id: 'track-done-line', type: 'line', source: 'track-done',
-        // Crème au coureur, puis orange et vert derrière lui (ribbonGradient, recalculé à chaque avancée).
-        paint: {
-          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, RIBBON_HEAD_COLOR, 1, RIBBON_HEAD_COLOR],
-          'line-width': 5.5, 'line-opacity': 0.97,
-        },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      },
-      {
-        // Liseré et tête apparaissent en fondu depuis leur début : un bout arrondi net y dessinait un petit trait
-        // sombre en travers du ruban, qui avançait avec lui.
-        id: 'track-head-halo', type: 'line', source: 'track-head',
-        paint: {
-          'line-width': 7.5,
-          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(20,30,20,0)', 0.35, RIBBON_OUTLINE],
-        },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      },
-      {
-        id: 'track-head-line', type: 'line', source: 'track-head',
-        paint: {
-          'line-width': 5.5,
-          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, RIBBON_HEAD_FADE, 0.35, RIBBON_HEAD_COLOR],
-        },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      },
-    ],
-  }
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -231,7 +128,6 @@ function signBoardHtml(loc: LocalityInfo, withClose: boolean): string {
       `${loc.ele ? `<span class="loc-sign__col-ele">Alt. ${loc.ele} m</span>` : ''}` +
       `</div><div class="loc-sign__pole"></div>`
   }
-  const isLieuDit = loc.placeType === 'hamlet' || loc.placeType === 'locality'
   const nameStr = loc.name // casse d'origine : nom écrit à même la carte (cf. .loc-sign dans App.css)
   return `<div class="loc-sign__board">${close}${nameStr}</div><div class="loc-sign__pole"></div>`
 }
@@ -450,7 +346,7 @@ export function TrackMap({
       map.remove()
       mapRef.current = null
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Préchargement des tuiles pendant le temps mort avant la lecture (wizard des panneaux,
   // relecture des réglages…) : évite le fond beige et les à-coups au lancement de l'aperçu.
@@ -524,7 +420,7 @@ export function TrackMap({
     } else {
       map.once('load', setTrack)
     }
-  }, [points])
+  }, [points]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Play start / seek ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -569,7 +465,7 @@ export function TrackMap({
       return
     }
     map.flyTo({ center: [points[0].lon, points[0].lat], zoom: map.getZoom(), duration: 1000 })
-  }, [zoomToStart, points])
+  }, [zoomToStart, points]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Dézoom fin d'animation ────────────────────────────────────────────────
   useEffect(() => {
@@ -766,7 +662,7 @@ export function TrackMap({
     } else {
       lastCameraUpdateRef.current = performance.now()
     }
-  }, [markerPosition, progress, followMarker, animating, points, distances, totalDistance])
+  }, [markerPosition, progress, followMarker, animating, points, distances, totalDistance]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Changement de personnages : randonneurs 3D recréés ──────────────────────
   useEffect(() => {
@@ -785,7 +681,7 @@ export function TrackMap({
     // pour charger les tuiles au bon niveau de zoom avant le début de l'animation.
     map.jumpTo({ center, zoom: targetZoom })
     flyingRef.current = false
-  }, [targetZoom, zoomResetSeq])
+  }, [targetZoom, zoomResetSeq]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Randonneur 3D : posé au départ, en attente, dès qu'un personnage est choisi (avant même la lecture) ──
   // Le marqueur n'est normalement créé qu'au premier pas de la lecture.
@@ -891,7 +787,7 @@ export function TrackMap({
     }
     requestAnimationFrame(frame)
   }
-  useEffect(() => () => removePresentation(), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => removePresentation(), [])
 
   // ── Randonneur 3D : la marche attend la fin du dézoom de départ ──
   useEffect(() => {
@@ -968,7 +864,7 @@ export function TrackMap({
     })
   }, [bornes, progress, distances])
   // Course commencée (lecture, barre de lecture) : plus de coureur présenté en grand.
-  useEffect(() => { if (progress >= 0.01 && presentRef.current) removePresentation() }, [progress]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (progress >= 0.01 && presentRef.current) removePresentation() }, [progress])
 
   // ── Randonneur 3D : sa taille suit le zoom de la carte (plans serrés de départ et d'arrivée) ──
   useEffect(() => {
@@ -1116,8 +1012,6 @@ export function TrackMap({
       movedLocalitiesRef.current.set(`custom:${loc.name}`, moved)
     })
     localityMarkersRef.current.push(marker)
-    let timerId: ReturnType<typeof setTimeout>
-
     function suppressMarker() {
       clearTimeout(timerId)
       suppressedLocalitiesRef.current.add(loc.name)
@@ -1139,7 +1033,7 @@ export function TrackMap({
     board?.addEventListener('click', e => { e.stopPropagation(); suppressMarker() })
     const closeBtn = el.querySelector('.loc-sign__close')
     closeBtn?.addEventListener('mousedown', e => e.stopPropagation())
-    timerId = setTimeout(() => {
+    const timerId = setTimeout(() => {
       marker.remove()
       localityMarkersRef.current = localityMarkersRef.current.filter(m => m !== marker)
       if (activeLocalityRef.current?.marker === marker) {
@@ -1291,7 +1185,7 @@ export function TrackMap({
 
     if (loadedRef.current) addMarker()
     else map.once('load', addMarker)
-  }, [locality, fetchedDepName, fetchedArrName, departureNameOverride, arrivalNameOverride, showLocality])
+  }, [locality, fetchedDepName, fetchedArrName, departureNameOverride, arrivalNameOverride, showLocality]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Catch-up : si previewLocalities arrive après que l'animation a déjà commencé,
   // affiche immédiatement les localités dont le point du tracé le plus proche est déjà dépassé.
@@ -1325,7 +1219,7 @@ export function TrackMap({
       }
       if (closestTrackDist <= covered) showLocality(loc)
     }
-  }, [previewLocalities, progress, points, distances, departureNameOverride, arrivalNameOverride, showLocality])
+  }, [previewLocalities, progress, points, distances, departureNameOverride, arrivalNameOverride, showLocality]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Effet previewLocalities → pilote l'animation directement depuis la liste validée
   // Garantit que toutes les localités sélectionnées s'affichent (sans dépendre du trigger 400m)
@@ -1403,7 +1297,7 @@ export function TrackMap({
       if (covered < triggerDist) continue
       showLocality(loc)
     }
-  }, [progress, previewLocalities, customLocalities, points, distances, departureNameOverride, arrivalNameOverride, fetchedDepName, fetchedArrName, showLocality])
+  }, [progress, previewLocalities, customLocalities, points, distances, departureNameOverride, arrivalNameOverride, fetchedDepName, fetchedArrName, showLocality]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Masque le randonneur dès que la lecture est terminée
   useEffect(() => {
@@ -1512,7 +1406,7 @@ export function TrackMap({
       // Stocker pour être appelé depuis le handler load de la carte
       pendingPreviewRef.current = place
     }
-  }, [previewLocalities, playing, progress, departureNameOverride, arrivalNameOverride, detectedDepartureName, detectedArrivalName, fetchedDepName, fetchedArrName, selectedLocalities, externalSuppressed])
+  }, [previewLocalities, playing, progress, departureNameOverride, arrivalNameOverride, detectedDepartureName, detectedArrivalName, fetchedDepName, fetchedArrName, selectedLocalities, externalSuppressed]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Panneaux custom (ajoutés manuellement) ───────────────────────────────
   const customMarkersRef = useRef<maplibregl.Marker[]>([])
@@ -1565,7 +1459,7 @@ export function TrackMap({
     } else {
       pendingCustomRef.current = place
     }
-  }, [customLocalities, playing, progress])
+  }, [customLocalities, playing, progress]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Marqueurs départ/arrivée ─────────────────────────────────────────────────
   // Coordonnées géocodées stockées en refs, placement piloté par les overrides
@@ -1646,9 +1540,6 @@ export function TrackMap({
     }
     if (loadedRef.current) place(); else mapRef.current.once('load', place)
   }, [arrivalNameOverride, arrivalColEle, arrivalLieudit, points])
-
-  const isPreview = progress < 0.01 && !playing
-  const hasIntermediates = (previewLocalities ?? []).length > 2
 
   // Dépôt d'un panneau ajouté glissé depuis la liste de l'assistant (panelDrag.ts) : posé au point du
   // tracé le plus proche du point de dépôt. La position « déplacée » interne est mise à jour aussi,

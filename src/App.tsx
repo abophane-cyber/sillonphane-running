@@ -53,7 +53,7 @@ type AppView = 'home' | 'how' | 'choice' | 'record' | 'upload' | 'title' | 'anim
 
 export default function App() {
   useBackupReminder()
-  const { gpx, setGpx, activeTrack, setActiveTrack, rawGpx, points, distances, loadTrack, clear: clearGpxSession } = useGpxSession()
+  const { gpx, activeTrack, rawGpx, points, distances, loadTrack } = useGpxSession()
   // Un enregistrement était en cours à la fermeture de l'appli (checkpoint survivant, voir
   // useGpsRecorder) : on rouvre directement l'écran d'enregistrement plutôt que l'accueil.
   // ?start : lien "Ouvrir l'appli" depuis la landing (déjà convaincue/expliquée) — entre
@@ -157,7 +157,7 @@ export default function App() {
   // tout en haut. Repasse à false dès qu'un des deux boutons est actionné.
   const [recordingPending, setRecordingPending] = useState(false)
   const {
-    filmProgress, filmEtaS, recState, cancelRec, mapCanvasRef,
+    filmProgress, filmEtaS, mapCanvasRef,
     updateDrawFrame, handleCreateFilm: filmRecordingCreateFilm,
     lastFilmUrl, setLastFilmUrl,
   } = useFilmRecording()
@@ -183,9 +183,6 @@ export default function App() {
   useEffect(() => notifyFilmDone('3d', lastFilm3dUrl), [lastFilm3dUrl]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (view === 'animate') setFilmDone(null) }, [view])
   useEffect(() => { diag('vue', { view, tracé: activeTrack?.name ?? null, points: points.length }) }, [view]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Tracé < 20km en V2 : plafonner le DF à 40% pour ne pas sauter les localités en début de tracé
-  const trackDist = activeTrack?.distance ?? Infinity
 
   // Durée (ms) de la séquence d'arrivée des randonneurs 3D (zoom, salut, vue d'ensemble — cf. TrackMap), avant
   // d'ouvrir la popup « Enregistrer le tracé ».
@@ -426,7 +423,7 @@ export default function App() {
   }, [activeSillonId, activeSillonTrackId, startName, endName, startKind, endKind, suppressedLocalities, customLocalities, wizardDone, race,
     customTitle, manualDate, departureTime, arrivalTime])
 
-  const { countdown, waitingMap, mapIdleRef, handleMapIdle, handlePlay, handlePause, handleReset, handleRestart } = usePlaybackCountdown(
+  const { countdown, waitingMap, handleMapIdle, handlePlay, handlePause, handleReset, handleRestart } = usePlaybackCountdown(
     state, play, pause, reset, setTargetZoom, () => setZoomResetSeq(s => s + 1),
     bumpZoomToStart, setHasPlayedPreview, () => setView('title'),
     startDelayMsRef,

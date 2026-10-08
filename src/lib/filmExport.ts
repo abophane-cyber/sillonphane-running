@@ -5,7 +5,7 @@
 
 import maplibregl from 'maplibre-gl'
 import type { GpxPoint } from '../types'
-import { makeStyle } from '../components/TrackMap'
+import { makeStyle } from './mapStyle'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { drawElevOverlay, elevOverlayRect } from './drawElevOverlay'
 import type { CharacterId } from './characters'
@@ -16,7 +16,7 @@ import { BASEMAP_BACKGROUND } from './tileSources'
 import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
-import { buildMapMosaic, projectToScreen, mosaicCropOrigin, type MapMosaic } from './filmMapMosaic'
+import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
 import { borneNumber, borneReached, borneTimeLine, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
@@ -207,7 +207,7 @@ function drawTrack(
       const path = new Path2D()
       for (let i = 0; i <= lo; i++) {
         const pt = project(points[i].lon, points[i].lat)
-        i === 0 ? path.moveTo(pt.x, pt.y) : path.lineTo(pt.x, pt.y)
+        if (i === 0) path.moveTo(pt.x, pt.y); else path.lineTo(pt.x, pt.y)
       }
       path.lineTo(tipPt.x, tipPt.y)
       return path

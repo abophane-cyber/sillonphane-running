@@ -18,5 +18,18 @@ export default defineConfig([
     languageOptions: {
       globals: globals.browser,
     },
+    rules: {
+      // Règles du React Compiler, que le projet n'utilise pas : l'animation lit et écrit volontairement des refs
+      // pendant le rendu et synchronise des états dans des effets.
+      'react-hooks/refs': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
+      'react-hooks/purity': 'off',
+      // Préfixe « _ » : paramètre ou valeur volontairement ignoré.
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
+      }],
+    },
   },
 ])

@@ -88,7 +88,7 @@ export function useAnimation({ points, totalDistance, totalElevGain, onProgress,
     if (stillPlaying) {
       rafRef.current = requestAnimationFrame(tick)
     }
-  }, [])
+  }, [speedFactorRef])
 
   useEffect(() => {
     if (state.playing) {

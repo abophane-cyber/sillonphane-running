@@ -10,7 +10,7 @@ interface Props {
   onIdle?: () => void
 }
 
-export function AlbumMap({ points, startLabel = 'Départ', endLabel = 'Arrivée', onIdle }: Props) {
+export function AlbumMap({ points, onIdle }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const onIdleRef = useRef(onIdle)

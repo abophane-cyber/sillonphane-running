@@ -621,6 +621,8 @@ function gradeTerrainColors(canvas: HTMLCanvasElement): void {
 // récupère la GÉOMÉTRIE réelle des surfaces en eau et des cours d'eau et on la colorie. La
 // teinte est semi-transparente -> la texture de l'eau (reflets, bancs de sable) reste visible.
 // Hors couverture France / échec réseau -> rien de peint, silencieux.
+// GeoJSON brut du WFS IGN, parcouru à la main ci-dessous.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 interface HydroFeatures { surfaces: any[]; lines: any[] }
 
 async function fetchHydroFeatures(
@@ -630,6 +632,7 @@ async function fetchHydroFeatures(
   const base = 'https://data.geopf.fr/wfs/ows?SERVICE=WFS&VERSION=2.0.0&REQUEST=GetFeature' +
     '&SRSNAME=CRS:84&OUTPUTFORMAT=application/json&COUNT=12000' +
     `&BBOX=${lonMin},${latMin},${lonMax},${latMax},CRS:84`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const get = (typename: string): Promise<any[]> =>
     fetch(`${base}&TYPENAMES=${typename}`)
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))

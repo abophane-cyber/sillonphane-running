@@ -24,7 +24,7 @@ function parseHour(time?: string): number | undefined {
   return isNaN(h) ? undefined : h
 }
 
-export function TitleScreen({ track, manualDate, departureTime, arrivalTime, customTitle, onTitleChange, startName: startNameProp, endName: endNameProp, onStartNameChange, onEndNameChange, onStart, onBack }: Props) {
+export function TitleScreen({ track, manualDate, departureTime, arrivalTime, customTitle, onTitleChange, startName: startNameProp, endName: endNameProp, onStartNameChange, onEndNameChange, onStart }: Props) {
   const effectiveDate = manualDate
     ? new Date(manualDate + 'T12:00:00')
     : track.startTime ?? null
@@ -69,7 +69,7 @@ export function TitleScreen({ track, manualDate, departureTime, arrivalTime, cus
         effectiveArrHour,
       ).then(w => setWeather(w))
     }
-  }, [track, manualDate, departureTime, arrivalTime])
+  }, [track, manualDate, departureTime, arrivalTime]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="title-page">

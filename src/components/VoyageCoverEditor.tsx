@@ -21,7 +21,7 @@ import { DECOR_RATIO } from './CoverDecor'
 import { addPhotoToVoyage } from '../lib/voyageDB'
 import { TEXT_FONTS, TEXT_ALIGNS } from '../lib/textStyles'
 import { AlbumCoverContent } from './AlbumCover'
-import { wrapCoverBoxCm } from './AlbumWrapCover'
+import { wrapCoverBoxCm } from '../lib/wrapCover'
 import { uuid } from '../lib/uuid'
 import { useBlockPageZoom } from '../hooks/useBlockPageZoom'
 

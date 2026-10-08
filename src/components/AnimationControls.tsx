@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import type { AnimationState, GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import { formatDistance, formatElevation } from '../lib/gpx'
-import { markerSvg } from './TrackMap'
-import { AddToVoyageButton } from './AddToVoyageButton'
 import { AnchoredBubble } from './AnchoredBubble'
 import { CHARACTER_ICON, CHARACTER_IDS, CHARACTER_LABEL, type CharacterId } from '../lib/characters'
 import { AlbumIcon } from './AlbumIcon'
@@ -75,19 +73,17 @@ interface Props {
 
 export function AnimationControls({
   state, totalDistance, totalElevGain: _teg, weather: _weather,
-  activityMode, onModeChange,
-  onPlay, onPause, onReset: _onReset, onRestart, onSeek, onAddPanel,
+  onPlay, onPause, onReset: _onReset, onRestart, onSeek,
   lookahead: _lookahead, onLookahead: _onLookahead,
   onRecord, recState = 'idle', lastFilmUrl,
   onRecord3d, onFilm3dIntent, rec3dState = 'idle', lastFilm3dUrl,
   onViewFilm,
   previewFinished = false, trackSaved = false,
   characters = ['coureuse1'], onToggleCharacter, ribbonOnly = false, onToggleRibbon,
-  voyageTrack, voyageGpxData, voyageTrackName, onVoyages, onSaveTrack, onAlbum,
+  onVoyages, onSaveTrack, onAlbum,
   wizardInProgress = false,
   showPreviewHint, onDismissPreviewHint, showExportHint, onDismissExportHint,
 }: Props) {
-  const [expanded, setExpanded] = useState<ActivityMode | null>(null)
   const [showSaveRequiredPopup, setShowSaveRequiredPopup] = useState(false)
   const [showWizardBlockedHint, setShowWizardBlockedHint] = useState(false)
   const [showCharacterBlockedHint, setShowCharacterBlockedHint] = useState(false)
@@ -149,15 +145,6 @@ export function AnimationControls({
   useEffect(() => {
     if (trackSaved) setShowSaveRequiredPopup(false)
   }, [trackSaved])
-
-  function handleModeClick(mode: ActivityMode) {
-    if (expanded === mode) {
-      setExpanded(null)
-    } else {
-      setExpanded(mode)
-      if (activityMode !== mode) onModeChange?.(mode)
-    }
-  }
 
   const pct = Math.round(state.progress * 100)
 

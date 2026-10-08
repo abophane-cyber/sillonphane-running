@@ -59,7 +59,7 @@ function shortCity(name: string, maxChars = 14): string {
 
 /** Contenu de la page résumé (carte, dénivelé, météo) — sans la barre de navigation, pour
  * pouvoir être intégré tel quel dans l'éditeur de composition, la visionneuse et l'impression. */
-export function AlbumSpreadContent({ track, voyageName, photos = [], pageNumber = 1, onMapIdle, onWeatherReady, className, text, onTextChange }: AlbumSpreadContentProps) {
+export function AlbumSpreadContent({ track, voyageName, pageNumber = 1, onMapIdle, onWeatherReady, className, text, onTextChange }: AlbumSpreadContentProps) {
   const [weather, setWeather] = useState<WeatherInfo | null>(null)
   const descRef = useRef<HTMLParagraphElement>(null)
 
@@ -70,12 +70,11 @@ export function AlbumSpreadContent({ track, voyageName, photos = [], pageNumber 
     } catch { return { points: [], distances: [] } }
   }, [track.gpxData])
 
-  const { prefix, start: startLabel, end: endLabel } = useMemo(() => parseTrackLabels(track.name), [track.name])
+  const { start: startLabel, end: endLabel } = useMemo(() => parseTrackLabels(track.name), [track.name])
 
   const totalDistance = track.distanceM ?? distances[distances.length - 1] ?? 0
   const elevGain = track.elevGainM ?? 0
   const elevLoss = track.elevLossM ?? 0
-  const currentEle = points[points.length - 1]?.ele ?? 0
 
   const dateStr = track.date
     ? new Date(track.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()

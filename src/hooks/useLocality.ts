@@ -58,13 +58,7 @@ const TYPE_SCORE: Record<string, number> = {
 }
 
 // Proximité max par type (mètres)
-// Distance max entre le centre du lieu et le tracé (pré-filtre), par mode
-const TRACK_DIST_VELO: Record<string, number> = {
-  city:    3000,
-  town:    2000,
-  village:  500,
-  hamlet:   200,
-}
+// Distance max entre le centre du lieu et le tracé (pré-filtre)
 const TRACK_DIST_RANDO: Record<string, number> = {
   city:     5000,
   town:     3000,
@@ -80,12 +74,6 @@ const TYPE_PROXIMITY_RANDO: Record<string, number> = {
   village:  800,
   hamlet:   400,
   locality: 300,
-}
-const TYPE_PROXIMITY_VELO: Record<string, number> = {
-  city:    3500,
-  town:    2500,
-  village:  600,
-  hamlet:   250,
 }
 
 interface OsmToponym {
@@ -104,7 +92,7 @@ function lsGetBbox(key: string): OsmToponym[] | null {
   try { const v = localStorage.getItem(LS_BBOX + key); return v ? JSON.parse(v) : null } catch { return null }
 }
 function lsSetBbox(key: string, val: OsmToponym[]) {
-  try { localStorage.setItem(LS_BBOX + key, JSON.stringify(val)) } catch {}
+  try { localStorage.setItem(LS_BBOX + key, JSON.stringify(val)) } catch { /* stockage local plein ou indisponible */ }
 }
 
 function bboxKey(points: GpxPoint[]): string {
@@ -329,7 +317,7 @@ function lsGet(key: string) {
   try { const v = localStorage.getItem(LS_PREFIX + key); return v ? JSON.parse(v) : null } catch { return null }
 }
 function lsSet(key: string, val: EndpointPlace) {
-  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(val)) } catch {}
+  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(val)) } catch { /* stockage local plein ou indisponible */ }
 }
 
 function cachedPhotonFetch(lon: number, lat: number): Promise<EndpointPlace | null> {
@@ -391,7 +379,7 @@ function findCols(points: GpxPoint[], distances: number[]): ColInfo[] {
 
 const LS_COL = 'sillon_col_'
 function lsGetCol(key: string) { try { const v = localStorage.getItem(LS_COL + key); return v ? JSON.parse(v) : null } catch { return null } }
-function lsSetCol(key: string, val: { name: string; lon: number; lat: number }) { try { localStorage.setItem(LS_COL + key, JSON.stringify(val)) } catch {} }
+function lsSetCol(key: string, val: { name: string; lon: number; lat: number }) { try { localStorage.setItem(LS_COL + key, JSON.stringify(val)) } catch { /* stockage local plein ou indisponible */ } }
 
 async function fetchColName(lon: number, lat: number): Promise<{ name: string; lon: number; lat: number }> {
   const cacheKey = `${lon.toFixed(4)},${lat.toFixed(4)}`
@@ -493,7 +481,7 @@ function snapToTrack(lon: number, lat: number, points: GpxPoint[]): { lon: numbe
 // Cols OSM au ras du tracé : un col en replat (sentier en balcon, montée qui continue après le col) n'est pas un
 // sommet du profil d'altitude et échappe à findCols — on le retrouve donc directement dans OSM.
 const PASS_MAX_TRACK_DIST = 150 // m entre le nœud OSM du col et le tracé
-const PASS_NAME_RE = /^(col|pas|port|collet|br[eè]che|passo)/i
+const PASS_NAME_RE = /^(col|pas|port|collet|br[eè]che|passo)\b/i
 const LS_PASSES = 'sillon_passes_'
 const passCache = new Map<string, Promise<ColMarker[]>>()
 
@@ -625,16 +613,15 @@ export interface LocalityResult {
   current: LocalityInfo | null
 }
 
-// Seuils de déclenchement selon mode (distance parcourue entre deux détections)
+// Seuil de déclenchement (distance parcourue entre deux détections)
 const TRIGGER_RANDO = 400   // m — vérification tous les 400m
-const TRIGGER_VELO  = 200   // m — vérification tous les 200m
 
 // ── Pré-calcul de toutes les localités du tracé ───────────────────────────────
 export async function computeAllLocalities(
   points: GpxPoint[],
   distances: number[],
   _mode: 'randonneur',
-  lookahead: number,
+  _lookahead: number,
 ): Promise<LocalityInfo[]> {
   if (points.length < 2) return []
 
@@ -724,7 +711,7 @@ export function useLocality(
   distances: number[],
   progress: number,
   mode: 'randonneur' = 'randonneur',
-  lookahead = 1000,
+  _lookahead = 1000,
   departureOverride?: string,
   arrivalOverride?: string,
 ): LocalityResult {

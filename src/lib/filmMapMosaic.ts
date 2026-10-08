@@ -156,7 +156,7 @@ export async function buildMapMosaic(
     console.warn(`[film2d] mosaïque : ${failed.length} tuile(s) en échec, ${failed.length - stillMissing.length} remplacée(s) par le zoom inférieur, ${stillMissing.length} laissée(s) au fond uni`)
   }
 
-  // Le Plan IGN brut est assez délavé : TrackMap.tsx (makeStyle) lui applique un retraitement
+  // Le Plan IGN brut est assez délavé : mapStyle.ts (makeStyle) lui applique un retraitement
   // visuel (contraste/saturation/teinte) via les paint properties raster-* de MapLibre. La
   // mosaïque contourne le pipeline de rendu MapLibre (c'est tout l'intérêt), donc ce retraitement
   // doit être reproduit ici à la main pour garder le même rendu que l'aperçu/le reste du film.

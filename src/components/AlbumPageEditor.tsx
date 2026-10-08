@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { VoyagePhoto, ComposedAlbumPage, AlbumBox, PhotoLayout, VoyageTrack } from '../types'
-import { PHOTOS_PER_LAYOUT, LAYOUT_LABELS } from './AlbumPhotoPage'
+import { PHOTOS_PER_LAYOUT, LAYOUT_LABELS } from '../lib/photoLayouts'
 import { uuid } from '../lib/uuid'
 import { createPageFromPreset, createSummaryPage, autoFillPages } from '../lib/albumPages'
 import { TEXT_FONTS, TEXT_ALIGNS } from '../lib/textStyles'
