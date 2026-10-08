@@ -19,7 +19,7 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
-import { borneNumber, borneReached, borneTimeLine, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
+import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -64,6 +64,8 @@ export interface FilmExportOptions {
   streets?:          StreetRun[]
   /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
   endCard?:          EndCard
+  /** Chrono de l'encart : heures réelles du GPX, ou vitesses prévues (cf. raceClock) ; absent = temps estimé. */
+  raceTiming?:       { useRealTimes: boolean; speedsKmh?: number[] }
   /** Distance annoncée de l'épreuve (m, celle du carton final : 21,1 km pour un semi) : fin du compteur et écran-titre ;
    * absent = distance mesurée sur le tracé. */
   shownDistanceM?:   number
@@ -1321,6 +1323,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const openingDate = opts.trailDate?.trim() ?? ''
   // Distance annoncée (carton final) : le compteur s'y arrête, l'écran-titre l'affiche (bornes : km mesuré).
   const shownM = opts.shownDistanceM ?? totalDistance
+  // Chrono de l'encart du haut : temps écoulé au point atteint (réel, prévu ou estimé).
+  const clock = raceClock(points, distances, opts.raceTiming ?? { useRealTimes: false })
+  const timeAt = (pr: number) => ({ elapsedS: clock.elapsedAtM(pr * totalDistance), timeLabel: clock.label })
   const openingKm = `${(shownM / 1000).toFixed(1).replace('.', ',')} km`
   const openingGain = `D+ ${Math.round(opts.elevGain / 10) * 10} m`
   function drawOpening(tSec: number): void {
@@ -1572,7 +1577,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance: shownM,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
-      currentEle: currentElevation(points, distances, 0), trackName: '',
+      currentEle: currentElevation(points, distances, 0), trackName: '', ...timeAt(0),
     })
     drawOpening(fi / fps)
     drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
@@ -1611,7 +1616,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     drawElevOverlay(ctx, OUT_W, OUT_H, {
       points, distances, progress: 0, distanceCovered: 0, totalDistance: shownM,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
-      currentEle: currentElevation(points, distances, 0), trackName: '',
+      currentEle: currentElevation(points, distances, 0), trackName: '', ...timeAt(0),
     })
     drawMapCredit(ctx, OUT_W, OUT_H)
     if (useWC && encoder) {
@@ -1715,7 +1720,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       distanceCovered: Math.min(progress * totalDistance, shownM), totalDistance: shownM,
       elevGain: opts.elevGain, elevLoss: opts.elevLoss,
       currentEle: currentElevation(points, distances, progress),
-      trackName: '',
+      trackName: '', ...timeAt(progress),
     })
 
     // Fin de la levée du voile noir de l'ouverture : elle déborde de RIBBON_EARLY_S sur le
@@ -1783,7 +1788,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         points, distances, progress: 1,
         distanceCovered: shownM, totalDistance: shownM,
         elevGain: opts.elevGain, elevLoss: opts.elevLoss,
-        currentEle: currentElevation(points, distances, 1), trackName: '',
+        currentEle: currentElevation(points, distances, 1), trackName: '', ...timeAt(1),
       })
 
       // Randonneurs 3D à l'arrivée : ils saluent, passent devant le panneau d'arrivée (comme l'aperçu).
@@ -1896,7 +1901,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         distanceCovered: shownM, totalDistance: shownM,
         elevGain: opts.elevGain, elevLoss: opts.elevLoss,
         currentEle: currentElevation(points, distances, 1),
-        trackName: '',
+        trackName: '', ...timeAt(1),
       })
 
       // Randonneurs 3D : ils rapetissent avec le dézoom et s'effacent en même temps (comme l'aperçu).

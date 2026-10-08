@@ -1,4 +1,5 @@
 import type { GpxPoint } from '../types'
+import { formatElapsed } from './raceSplits'
 
 interface OverlayState {
   points: GpxPoint[]
@@ -10,16 +11,23 @@ interface OverlayState {
   elevLoss: number
   currentEle: number
   trackName: string
+  /** Temps écoulé au point atteint (s) et son intitulé (« TEMPS », « TEMPS PRÉVU », « TEMPS ESTIMÉ », cf. raceClock) ;
+   * absent = l'altitude prend la quatrième case. */
+  elapsedS?: number
+  timeLabel?: string
   /** Échelle de la tablette (défaut ELEV_OVERLAY_SCALE) : plus grande pour qu'elle reste lisible sur un écran de téléphone. */
   scale?: number
 }
 
-/** Couleurs de la tablette transparente : claires, pour la vue aérienne assombrie. */
-const UP = '#7ee08f'
-const DOWN = '#ff8a80'
+/** Tablette sombre translucide : pictogrammes jaunes, chiffres blancs, profil vert lumineux. */
+const ICON = '#f5c518'
+const LINE = '#7be36f'
+const PANEL_BG = 'rgba(8,14,12,0.78)'
+const SANS = '"Segoe UI", system-ui, sans-serif'
 
-function fmt(m: number) {
-  return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m)} m`
+/** « 3,4 km », « 850 m ». */
+function fmtDist(m: number) {
+  return m >= 1000 ? `${(m / 1000).toFixed(1).replace('.', ',')} km` : `${Math.round(m)} m`
 }
 
 function smoothEle(points: GpxPoint[], idx: number): number {
@@ -29,12 +37,13 @@ function smoothEle(points: GpxPoint[], idx: number): number {
   return s / (hi - lo + 1)
 }
 
+/** Pente moyenne (%) sur SLOPE_WIN_M autour du point atteint. */
+const SLOPE_WIN_M = 200
 function currentSlope(points: GpxPoint[], distances: number[], progress: number): number {
   const total = distances[distances.length - 1]
   const posDist = progress * total
-  const WIN = 100
-  const dLo = Math.max(0, posDist - WIN / 2)
-  const dHi = Math.min(total, posDist + WIN / 2)
+  const dLo = Math.max(0, posDist - SLOPE_WIN_M / 2)
+  const dHi = Math.min(total, posDist + SLOPE_WIN_M / 2)
   let iLo = 0, iHi = points.length - 1
   for (let i = 0; i < points.length - 1; i++) {
     if (distances[i] <= dLo) iLo = i
@@ -42,7 +51,7 @@ function currentSlope(points: GpxPoint[], distances: number[], progress: number)
   }
   const dDist = distances[iHi] - distances[iLo]
   if (dDist < 20) return 0
-  return Math.round((smoothEle(points, iHi) - smoothEle(points, iLo)) / dDist * 100)
+  return (smoothEle(points, iHi) - smoothEle(points, iLo)) / dDist * 100
 }
 
 function sample(points: GpxPoint[], distances: number[], n: number) {
@@ -63,13 +72,27 @@ function sample(points: GpxPoint[], distances: number[], n: number) {
   return out
 }
 
-// Réduction de la tablette de profil (elle n'a plus besoin d'être aussi grande en haut-gauche
-// qu'elle ne l'était en bas, où elle devait rester lisible à côté du randonneur). Appliquée par
-// un ctx.scale() dans drawElevOverlay : le contenu est dessiné à sa taille "logique" d'origine
-// (ELEV_OVERLAY_W0 × ELEV_OVERLAY_H0) puis réduit d'un bloc, sans retoucher chaque police/marge.
+/** Profil échantillonné et montée cumulée (brute, sur le profil échantillonné), calculés une fois par tracé :
+ * l'encart est redessiné à chaque image du film. */
+const PROFILE_N = 240
+const profileCache = new WeakMap<GpxPoint[], { sampled: { x: number; ele: number }[]; cumGain: number[] }>()
+function profileOf(points: GpxPoint[], distances: number[]) {
+  let p = profileCache.get(points)
+  if (!p) {
+    const sampled = sample(points, distances, Math.min(points.length, PROFILE_N))
+    const cumGain = [0]
+    for (let i = 1; i < sampled.length; i++) cumGain.push(cumGain[i - 1] + Math.max(0, sampled[i].ele - sampled[i - 1].ele))
+    p = { sampled, cumGain }
+    profileCache.set(points, p)
+  }
+  return p
+}
+
+// Réduction de la tablette (haut gauche) : appliquée par un ctx.scale() dans drawElevOverlay ; le contenu est
+// dessiné à sa taille "logique" (ELEV_OVERLAY_W0 × ELEV_OVERLAY_H0) puis réduit d'un bloc.
 export const ELEV_OVERLAY_SCALE = 0.8
 const ELEV_OVERLAY_W0 = 680
-const ELEV_OVERLAY_H0 = 160
+const ELEV_OVERLAY_H0 = 186
 
 /** Rectangle écran du panneau élévation (haut gauche), pour que d'autres éléments (le
  *  randonneur) puissent l'éviter. Doit rester en phase avec les constantes utilisées dans
@@ -82,20 +105,93 @@ export function elevOverlayRect(cw: number, ch: number, scale = ELEV_OVERLAY_SCA
   return { x: PX, y: PY, w: PW, h: PH }
 }
 
+// ── Pictogrammes (traits jaunes, carré de 30 px dont (x, y) est le coin haut gauche) ──
+type IconFn = (ctx: CanvasRenderingContext2D, x: number, y: number) => void
+
+/** Distance : double flèche entre deux butées. */
+const iconDistance: IconFn = (ctx, x, y) => {
+  const m = y + 15
+  ctx.beginPath()
+  ctx.moveTo(x + 2, m - 9); ctx.lineTo(x + 2, m + 9)
+  ctx.moveTo(x + 28, m - 9); ctx.lineTo(x + 28, m + 9)
+  ctx.moveTo(x + 6, m); ctx.lineTo(x + 24, m)
+  ctx.moveTo(x + 11, m - 5); ctx.lineTo(x + 6, m); ctx.lineTo(x + 11, m + 5)
+  ctx.moveTo(x + 19, m - 5); ctx.lineTo(x + 24, m); ctx.lineTo(x + 19, m + 5)
+  ctx.stroke()
+}
+
+/** Dénivelé positif : relief et flèche montante. */
+const iconGain: IconFn = (ctx, x, y) => {
+  ctx.beginPath()
+  ctx.moveTo(x + 1, y + 27); ctx.lineTo(x + 11, y + 12); ctx.lineTo(x + 16, y + 19); ctx.lineTo(x + 21, y + 13); ctx.lineTo(x + 29, y + 27); ctx.closePath()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(x + 24, y + 10); ctx.lineTo(x + 24, y + 1)
+  ctx.moveTo(x + 20, y + 5); ctx.lineTo(x + 24, y + 1); ctx.lineTo(x + 28, y + 5)
+  ctx.stroke()
+}
+
+/** Pente : triangle rectangle et arc d'angle. */
+const iconSlope: IconFn = (ctx, x, y) => {
+  ctx.beginPath()
+  ctx.moveTo(x + 2, y + 26); ctx.lineTo(x + 28, y + 26); ctx.lineTo(x + 28, y + 6); ctx.closePath()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.arc(x + 2, y + 26, 11, -0.66, 0)
+  ctx.stroke()
+}
+
+/** Temps : chronomètre. */
+const iconTime: IconFn = (ctx, x, y) => {
+  ctx.beginPath(); ctx.arc(x + 15, y + 17, 11, 0, Math.PI * 2); ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(x + 11, y + 2); ctx.lineTo(x + 19, y + 2)
+  ctx.moveTo(x + 15, y + 2); ctx.lineTo(x + 15, y + 6)
+  ctx.moveTo(x + 15, y + 17); ctx.lineTo(x + 20, y + 11)
+  ctx.moveTo(x + 24, y + 7); ctx.lineTo(x + 26.5, y + 4.5)
+  ctx.stroke()
+}
+
+/** Altitude (quatrième case sans chrono) : sommet et repère. */
+const iconAltitude: IconFn = (ctx, x, y) => {
+  ctx.beginPath()
+  ctx.moveTo(x + 1, y + 27); ctx.lineTo(x + 15, y + 5); ctx.lineTo(x + 29, y + 27); ctx.closePath()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(x + 10, y + 13); ctx.lineTo(x + 15, y + 17); ctx.lineTo(x + 20, y + 13)
+  ctx.stroke()
+}
+
+/** Drapeau à damier de l'arrivée, dans un rond. */
+function drawFinishDot(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.save()
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.fillStyle = '#fff'; ctx.fill()
+  ctx.clip()
+  const n = 4, c = (2 * r) / n
+  ctx.fillStyle = '#111'
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) if ((i + j) % 2) ctx.fillRect(cx - r + i * c, cy - r + j * c, c, c)
+  ctx.restore()
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2)
+  ctx.strokeStyle = '#111'; ctx.lineWidth = 2; ctx.stroke()
+  ctx.beginPath(); ctx.arc(cx, cy, r + 2, 0, Math.PI * 2)
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke()
+}
+
 export function drawElevOverlay(
   ctx: CanvasRenderingContext2D,
   cw: number,
   ch: number,
   state: OverlayState,
 ) {
-  const { points, distances, progress, distanceCovered, totalDistance, elevGain, elevLoss, currentEle, trackName } = state
+  const { points, distances, progress, distanceCovered, elevGain, currentEle, trackName, elapsedS, timeLabel } = state
   const S = state.scale ?? ELEV_OVERLAY_SCALE
   if (points.length < 2) return
 
   // ── Titre du tracé (haut gauche) ──
   if (trackName) {
     ctx.save()
-    ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif'
+    ctx.font = `bold 20px ${SANS}`
     ctx.fillStyle = 'rgba(0,0,0,0.55)'
     const tw = ctx.measureText(trackName).width
     const pad = 12
@@ -107,139 +203,127 @@ export function drawElevOverlay(
     ctx.restore()
   }
 
-  // ── Panneau élévation (haut gauche) ─────────────────────────────────────────
-  // Dessiné à sa taille logique d'origine (ELEV_OVERLAY_W0/H0), puis réduit d'un bloc par un
-  // ctx.scale() (voir ELEV_OVERLAY_SCALE) : PX/PY valent donc 0 ici, pas la position écran réelle
-  // (16,16, appliquée par le translate ci-dessous) — elevOverlayRect() reste la source de vérité
-  // pour cette position/taille réelle, utilisée ailleurs pour éviter le panneau (le randonneur).
+  // Dessiné à sa taille logique (ELEV_OVERLAY_W0/H0), puis réduit d'un bloc par ctx.scale() ; elevOverlayRect()
+  // reste la source de vérité de la position/taille réelle, utilisée ailleurs pour éviter le panneau.
   const { x: realPX, y: realPY } = elevOverlayRect(cw, ch, S)
-  const PX = 0, PY = 0, PW = Math.min(cw - 32, ELEV_OVERLAY_W0), PH = ELEV_OVERLAY_H0
-  const PAD = { top: 14, right: 18, bottom: 14, left: 18 }
-  const STAT_H = 50
+  const PW = Math.min(cw - 32, ELEV_OVERLAY_W0), PH = ELEV_OVERLAY_H0
+  const PADX = 22
+  const STAT_H = 78
+  const { sampled, cumGain } = profileOf(points, distances)
+  const p = Math.max(0, Math.min(1, progress))
 
   ctx.save()
   ctx.translate(realPX, realPY)
   ctx.scale(S, S)
-  ctx.textAlign    = 'left'
   ctx.textBaseline = 'alphabetic'
 
-  // Pas de fond : la tablette est transparente, posée sur la carte. Textes clairs cernés d'un halo sombre pour
-  // rester lisibles sur la vue aérienne, claire ou foncée.
-  const haloText = (text: string, x: number, y: number) => {
+  // ── Fond ──
+  ctx.beginPath(); ctx.roundRect(0, 0, PW, PH, 18)
+  ctx.fillStyle = PANEL_BG; ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1.5; ctx.stroke()
+
+  // ── Chiffres : 4 cases, pictogramme jaune, valeur, intitulé ──
+  // Dénivelé positif cumulé jusqu'au point atteint : part de la montée brute du profil, rapportée au D+ du tracé
+  // (il vaut exactement le D+ annoncé à l'arrivée).
+  const k = Math.round(p * (sampled.length - 1))
+  const gainTotal = cumGain[cumGain.length - 1]
+  const gainNow = gainTotal > 0 ? elevGain * cumGain[k] / gainTotal : 0
+  const slope = currentSlope(points, distances, p)
+  const slopeStr = `${Math.abs(slope) < 0.05 ? '0' : slope.toFixed(1).replace('.', ',').replace('-', '−')} %`
+  const cells: { icon: IconFn; val: string; label: string }[] = [
+    { icon: iconDistance, val: fmtDist(distanceCovered), label: 'DISTANCE' },
+    { icon: iconGain, val: `+${Math.round(gainNow)} m`, label: 'D+' },
+    { icon: iconSlope, val: slopeStr, label: 'PENTE MOYENNE' },
+    elapsedS != null
+      ? { icon: iconTime, val: formatElapsed(elapsedS), label: timeLabel ?? 'TEMPS' }
+      : { icon: iconAltitude, val: `${Math.round(currentEle)} m`, label: 'ALTITUDE' },
+  ]
+  const cellW = (PW - PADX * 2) / cells.length
+  cells.forEach((c, i) => {
+    const x = PADX + i * cellW
+    if (i > 0) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1.5
+      ctx.beginPath(); ctx.moveTo(x - 8, 18); ctx.lineTo(x - 8, STAT_H - 14); ctx.stroke()
+    }
     ctx.save()
-    ctx.lineJoin = 'round'
-    ctx.strokeStyle = 'rgba(0,0,0,0.65)'; ctx.lineWidth = 4
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 6
-    ctx.strokeText(text, x, y)
+    ctx.strokeStyle = ICON; ctx.lineWidth = 2.6; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+    c.icon(ctx, x + 4, 18)
     ctx.restore()
-    ctx.fillText(text, x, y)
+    // Valeur : réduite si elle déborde de sa case (« 1 h 05'12" »).
+    const tx = x + 42, maxW = cellW - 58
+    let size = 30
+    do { ctx.font = `bold ${size}px ${SANS}`; size -= 1 } while (ctx.measureText(c.val).width > maxW && size > 18)
+    ctx.fillStyle = '#fff'; ctx.textAlign = 'left'
+    ctx.fillText(c.val, tx, 44)
+    // Intitulé : réduit, lui aussi, s'il déborde (« PENTE MOYENNE »).
+    ctx.letterSpacing = '1px'
+    let lsize = 12.5
+    do { ctx.font = `600 ${lsize}px ${SANS}`; lsize -= 0.5 } while (ctx.measureText(c.label).width > maxW + 6 && lsize > 9)
+    ctx.fillStyle = 'rgba(255,255,255,0.82)'
+    ctx.fillText(c.label, tx, 64)
+    ctx.letterSpacing = '0px'
+  })
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5
+  ctx.beginPath(); ctx.moveTo(0, STAT_H + 4); ctx.lineTo(PW, STAT_H + 4); ctx.stroke()
+
+  // ── Profil ──
+  const gX = PADX + 10, gW = PW - PADX * 2 - 20
+  const gY = STAT_H + 38, gH = 36
+  const eles = sampled.map(s => s.ele)
+  const minEle = Math.min(...eles), maxEle = Math.max(...eles)
+  const range = maxEle - minEle || 1
+  const toY = (ele: number) => gY + gH - ((ele - minEle) / range) * gH
+  const toX = (x: number) => gX + x * gW
+  const line = () => {
+    ctx.beginPath()
+    sampled.forEach((s, i) => (i ? ctx.lineTo(toX(s.x), toY(s.ele)) : ctx.moveTo(toX(s.x), toY(s.ele))))
+  }
+  const area = () => {
+    line()
+    ctx.lineTo(toX(1), gY + gH + 8); ctx.lineTo(toX(0), gY + gH + 8); ctx.closePath()
+  }
+  const fill = ctx.createLinearGradient(0, gY, 0, gY + gH + 8)
+  fill.addColorStop(0, 'rgba(123,227,111,0.38)'); fill.addColorStop(1, 'rgba(123,227,111,0)')
+
+  // Partie restant à courir, atténuée ; partie courue, lumineuse.
+  ctx.save()
+  ctx.globalAlpha = 0.4
+  area(); ctx.fillStyle = fill; ctx.fill()
+  line(); ctx.strokeStyle = LINE; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke()
+  ctx.restore()
+  ctx.save()
+  ctx.beginPath(); ctx.rect(0, gY - 20, toX(p), gH + 40); ctx.clip()
+  area(); ctx.fillStyle = fill; ctx.fill()
+  ctx.shadowColor = 'rgba(123,227,111,0.8)'; ctx.shadowBlur = 10
+  line(); ctx.strokeStyle = LINE; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.stroke()
+  ctx.restore()
+
+  // Altitudes du départ et de l'arrivée, au-dessus des extrémités.
+  const startEle = sampled[0].ele, endEle = sampled[sampled.length - 1].ele
+  ctx.font = `bold 17px ${SANS}`; ctx.fillStyle = '#fff'
+  ctx.textAlign = 'left'; ctx.fillText(`${Math.round(startEle)} m`, gX - 8, gY - 14)
+  ctx.textAlign = 'right'; ctx.fillText(`${Math.round(endEle)} m`, gX + gW + 8, gY - 14)
+
+  // Départ (rond vert) et arrivée (damier).
+  const sx = toX(0), sy = toY(startEle)
+  ctx.beginPath(); ctx.arc(sx, sy, 8, 0, Math.PI * 2)
+  ctx.fillStyle = '#3ad15a'; ctx.fill()
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke()
+  drawFinishDot(ctx, toX(1), toY(endEle), 8)
+
+  // Point atteint.
+  if (p > 0.004 && p < 0.996) {
+    const cx = toX(p), cy = toY(sampled[k]?.ele ?? minEle)
+    ctx.beginPath(); ctx.arc(cx, cy, 6.5, 0, Math.PI * 2)
+    ctx.fillStyle = '#fff'; ctx.fill()
+    ctx.strokeStyle = '#1f7a35'; ctx.lineWidth = 2.5; ctx.stroke()
   }
 
-  // ── Stats : 4 colonnes avec label au-dessus + valeur bold ──
-  const slope = currentSlope(points, distances, progress)
-  const slopeStr = `${slope > 0 ? '+' : ''}${slope}%`
-  const slopeColor = slope > 3 ? UP : slope < -3 ? DOWN : '#fff'
-
-  const innerW = PW - PAD.left - PAD.right
-  // Distance : 35%, les 4 autres : 16.25% chacun
-  const colWidths = [innerW * 0.35, innerW * 0.1625, innerW * 0.1625, innerW * 0.1625, innerW * 0.1625]
-  const cols = [
-    { icon: '↔', label: 'Distance',  val: `${fmt(distanceCovered)} / ${fmt(totalDistance)}`, color: '#fff' },
-    { icon: '↑', label: 'Montée',    val: `+ ${Math.round(elevGain)} m`,                      color: UP },
-    { icon: '↓', label: 'Descente',  val: `- ${Math.round(elevLoss)} m`,                      color: DOWN },
-    { icon: '⛰', label: 'Altitude', val: `${Math.round(currentEle)} m`,                      color: '#fff' },
-    { icon: '▲', label: 'Pente',     val: slopeStr,                                            color: slopeColor },
-  ]
-  const topY = PY + PAD.top
-  let colX = PX + PAD.left
-
-  cols.forEach((c, i) => {
-    // Séparateur vertical entre colonnes
-    if (i > 0) {
-      ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 1
-      ctx.beginPath(); ctx.moveTo(colX - 9, topY + 2); ctx.lineTo(colX - 9, topY + STAT_H - 6); ctx.stroke()
-    }
-
-    // Label blanc, fin
-    ctx.font = '14px "Segoe UI", system-ui, sans-serif'
-    ctx.fillStyle = 'rgba(255,255,255,0.9)'
-    haloText(c.label, colX, topY + 14)
-
-    // Icône + valeur bold colorée
-    ctx.font = 'bold 21px "Segoe UI", system-ui, sans-serif'
-    ctx.fillStyle = c.color
-    haloText(`${c.icon} ${c.val}`, colX, topY + 40)
-
-    colX += colWidths[i]
-  })
-
-  // Graphe
-  const gX = PX + PAD.left
-  const gY = PY + PAD.top + STAT_H
-  const gW = PW - PAD.left - PAD.right
-  const gH = PH - PAD.top - PAD.bottom - STAT_H
-  const sampled = sample(points, distances, Math.min(points.length, 200))
-  const eles = sampled.map(p => p.ele)
-  const minEle = Math.min(...eles)
-  const maxEle = Math.max(...eles)
-  const range = maxEle - minEle || 1
-
-  function toY(ele: number) { return gY + gH - ((ele - minEle) / range) * gH }
-  function toX(x: number)   { return gX + x * gW }
-
-  // Remplissage zone non parcourue (vert pâle)
-  ctx.beginPath()
-  ctx.moveTo(toX(sampled[0].x), toY(sampled[0].ele))
-  sampled.forEach(p => ctx.lineTo(toX(p.x), toY(p.ele)))
-  ctx.lineTo(toX(sampled[sampled.length - 1].x), gY + gH)
-  ctx.lineTo(toX(sampled[0].x), gY + gH)
-  ctx.closePath()
-  ctx.fillStyle = 'rgba(255,255,255,0.14)'
-  ctx.fill()
-
-  // Partie parcourue (vert plus soutenu)
-  ctx.save()
-  ctx.beginPath()
-  ctx.rect(gX, gY, progress * gW, gH + 4)
-  ctx.clip()
-  ctx.beginPath()
-  ctx.moveTo(toX(sampled[0].x), toY(sampled[0].ele))
-  sampled.forEach(p => ctx.lineTo(toX(p.x), toY(p.ele)))
-  ctx.lineTo(toX(sampled[sampled.length - 1].x), gY + gH)
-  ctx.lineTo(toX(sampled[0].x), gY + gH)
-  ctx.closePath()
-  ctx.fillStyle = 'rgba(124,227,139,0.42)'
-  ctx.fill()
-  ctx.restore()
-
-  // Ligne profil verte
-  ctx.beginPath()
-  ctx.moveTo(toX(sampled[0].x), toY(sampled[0].ele))
-  sampled.forEach(p => ctx.lineTo(toX(p.x), toY(p.ele)))
-  ctx.save()
-  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 4
-  ctx.strokeStyle = UP
-  ctx.lineWidth   = 2.5
-  ctx.stroke()
-  ctx.restore()
-
-  // Curseur
-  const dotX = gX + progress * gW
-  const idx   = Math.round(progress * (sampled.length - 1))
-  const dotY  = toY(sampled[Math.min(idx, sampled.length - 1)]?.ele ?? minEle)
-  ctx.beginPath()
-  ctx.arc(dotX, dotY, 6.5, 0, Math.PI * 2)
-  ctx.fillStyle   = '#2e9e44'
-  ctx.fill()
-  ctx.strokeStyle = '#fff'
-  ctx.lineWidth   = 2
-  ctx.stroke()
-
-  // Min/max alti
-  ctx.font      = 'bold 16px "Segoe UI", system-ui, sans-serif'
-  ctx.fillStyle = '#fff'
-  haloText(`${Math.round(maxEle)}m`, gX + 2, gY + 16)
-  haloText(`${Math.round(minEle)}m`, gX + 2, gY + gH)
+  ctx.font = `italic bold 15px ${SANS}`; ctx.fillStyle = '#fff'
+  ctx.letterSpacing = '1px'
+  ctx.textAlign = 'left'; ctx.fillText('DÉPART', gX - 8, PH - 12)
+  ctx.textAlign = 'right'; ctx.fillText('ARRIVÉE', gX + gW + 8, PH - 12)
+  ctx.letterSpacing = '0px'
 
   ctx.restore()
 }

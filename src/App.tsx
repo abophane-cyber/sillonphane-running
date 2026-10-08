@@ -472,6 +472,7 @@ export default function App() {
       ravitos,
       streets: race.streets,
       endCard,
+      raceTiming: { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds },
       trackName: customTitle || activeTrack.name,
       activeSillonId,
       activeSillonTrackId,

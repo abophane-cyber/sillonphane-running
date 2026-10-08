@@ -43,6 +43,8 @@ export interface CreateFilmContext {
   streets?: StreetRun[]
   /** Carton de fin du film (intitulé, date, distance, dénivelé, temps, moyenne). */
   endCard?: EndCard
+  /** Chrono de l'encart du haut : heures réelles du GPX ou vitesses prévues (cf. raceClock). */
+  raceTiming?: { useRealTimes: boolean; speedsKmh?: number[] }
   trackName: string
   activeSillonId: string | null
   /** Id du tracé déjà enregistré dans le sillon actif (posé à la sauvegarde / à l'ouverture
@@ -141,6 +143,7 @@ export function useFilmRecording() {
         ravitos: ctx.ravitos,
         streets: ctx.streets,
         endCard: ctx.endCard,
+        raceTiming: ctx.raceTiming,
         // « 21,1 km » du carton final -> 21 100 m (illisible : distance du tracé).
         shownDistanceM: (() => {
           const km = parseFloat((ctx.endCard?.distance ?? '').replace(',', '.'))

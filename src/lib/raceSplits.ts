@@ -228,6 +228,32 @@ export function raceDurationS(points: GpxPoint[], totalM: number, opts: { useRea
   return undefined
 }
 
+/** Chrono du film : temps écoulé à `m` mètres du départ, et son intitulé. Réel (heures du GPX) : « TEMPS » ; prévu
+ * (vitesses saisies) : « TEMPS PRÉVU » ; sinon estimé à DEFAULT_SPEED_KMH : « TEMPS ESTIMÉ ». */
+export interface RaceClock { label: string; elapsedAtM: (m: number) => number }
+export function raceClock(points: GpxPoint[], distances: number[], opts: { useRealTimes: boolean; speedsKmh?: number[] }): RaceClock {
+  const t0 = opts.useRealTimes ? points.find(p => p.time)?.time?.getTime() : undefined
+  if (t0 != null) {
+    return {
+      label: 'TEMPS',
+      elapsedAtM: m => {
+        let lo = 0, hi = distances.length - 1
+        while (lo < hi - 1) { const k = (lo + hi) >> 1; if (distances[k] < m) lo = k; else hi = k }
+        const a = points[lo].time?.getTime(), b = points[hi].time?.getTime()
+        if (a == null || b == null) return Math.max(0, ((a ?? b ?? t0) - t0) / 1000)
+        const span = distances[hi] - distances[lo]
+        const f = span > 0 ? Math.min(1, Math.max(0, (m - distances[lo]) / span)) : 0
+        return Math.max(0, (a + (b - a) * f - t0) / 1000)
+      },
+    }
+  }
+  const planned = hasPlannedSpeeds(opts.speedsKmh)
+  return {
+    label: planned ? 'TEMPS PRÉVU' : 'TEMPS ESTIMÉ',
+    elapsedAtM: m => plannedElapsedS(Math.max(0, m) / 1000, planned ? opts.speedsKmh! : []),
+  }
+}
+
 /** Ravitaillement placé sur le tracé à un kilomètre donné. */
 export interface Ravito { km: number; lat: number; lon: number; label: string }
 
