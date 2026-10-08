@@ -19,7 +19,7 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
-import { drawOpening, openingDiveK, openingHudAlpha, openingText, OPENING, OPENING_S, type OpeningPoi, type OpeningPt } from './filmOpening'
+import { buildOpeningEvent, drawOpeningScene, openingDiveK, openingHudAlpha, OPENING, OPENING_S, type OpeningPoi, type OpeningPt } from './filmOpening'
 import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
@@ -1068,6 +1068,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     attributionControl: false,
     fadeDuration: 0,
     maxTileCacheSize: 5000,
+    maxPitch: 80, // ouverture en vue oblique (OPENING_PITCH)
   })
 
   await new Promise<void>(resolve => exportMap.once('load', resolve))
@@ -1305,8 +1306,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // Chrono de l'encart du haut : temps écoulé au point atteint (réel, prévu ou estimé).
   const clock = raceClock(points, distances, opts.raceTiming ?? { useRealTimes: false })
   const timeAt = (pr: number) => ({ elapsedS: clock.elapsedAtM(pr * totalDistance), timeLabel: clock.label })
-  const openingTxt = openingText({
-    title: opts.eventCartouche?.title ?? opts.title, place: opts.eventCartouche?.place,
+  const openingEvent = buildOpeningEvent({
+    title: opts.eventCartouche?.title ?? opts.title, city: opts.eventCartouche?.place,
     date: opts.trailDate, distanceM: shownM, elevGainM: opts.elevGain,
   })
 
@@ -1513,115 +1514,81 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     }
   }
   const startZoom = hikers3d && introFrames ? closeZoom : zoom
-  // Ouverture : écart à l'écran du point de départ au centre de l'image, sur le plan d'ensemble (s0) et sur le plan du
-  // départ (s1). Pendant la plongée, le zoom va de l'un à l'autre (échelle log) et cet écart est interpolé : la caméra
-  // fond sur le départ sans dériver.
   const startLngLat: [number, number] = [points[0].lon, points[0].lat]
-  const offsetOf = (): { x: number; y: number } => {
-    const p = exportMap.project(startLngLat)
-    return { x: p.x - OUT_W / 2, y: p.y - OUT_H / 2 }
-  }
-  jumpToStart(startZoom)
-  const s1 = offsetOf()
-  let lo0 = Infinity, lo1 = -Infinity, la0 = Infinity, la1 = -Infinity
-  for (const p of visualPoints) { lo0 = Math.min(lo0, p.lon); lo1 = Math.max(lo1, p.lon); la0 = Math.min(la0, p.lat); la1 = Math.max(la1, p.lat) }
-  // Parcours à droite, titre à gauche (zone sombre de drawOpeningLight).
-  const ovCam = exportMap.cameraForBounds([[lo0, la0], [lo1, la1]], {
-    padding: { left: Math.round(OUT_W * 0.44), right: Math.round(OUT_W * 0.07), top: Math.round(OUT_H * 0.16), bottom: Math.round(OUT_H * 0.14) },
-  })
-  const ovZoom = Math.min(ovCam?.zoom ?? startZoom - 3, startZoom - 1)
-  exportMap.jumpTo({ center: ovCam?.center ?? startLngLat, zoom: ovZoom })
-  const s0 = offsetOf()
-  // Ruban d'ouverture : au plus ~2000 points du parcours, en pixels depuis le départ au zoom du plan d'ensemble (la
-  // projection est linéaire à zoom fixe, carte au nord) : placés ensuite à chaque image sans la carte.
-  const openingStep = Math.max(1, Math.floor(visualPoints.length / 2000))
-  const openingRel: OpeningPt[] = []
-  const openingPoiRel: OpeningPoi[] = []
-  {
-    const pS = exportMap.project(startLngLat)
-    const add = (p: { lon: number; lat: number }, f: number) => {
-      const q = exportMap.project([p.lon, p.lat])
-      openingRel.push({ x: q.x - pS.x, y: q.y - pS.y, f })
-    }
-    for (let i = 0; i < visualPoints.length; i += openingStep) add(visualPoints[i], distances[i] / totalDistance)
-    add(visualPoints[visualPoints.length - 1], 1)
-    // Lieux connus (points d'intérêt du film) posés sur l'ouverture.
-    for (const ev of localityEvents) {
-      if (ev.style !== 'poi') continue
-      const q = exportMap.project([ev.lon, ev.lat])
-      openingPoiRel.push({ x: q.x - pS.x, y: q.y - pS.y, name: ev.name })
-    }
-  }
-  // Cadrage de l'ouverture : plan d'ensemble qui se rapproche à peine (OPENING_PUSH niveau de zoom), puis plongée
-  // vers le plan du départ, zoom en échelle log et écart du départ au centre de l'image interpolé (la caméra fond sur
-  // le départ sans dériver).
-  const OPENING_PUSH = 0.1
-  const zHold = ovZoom + OPENING_PUSH, kHold = Math.pow(2, OPENING_PUSH)
-  type OpeningView = { z: number; ox: number; oy: number }
-  const openingView = (t: number): OpeningView => {
-    const e = openingDiveK(t)
-    const k = Math.pow(2, OPENING_PUSH * Math.min(1, t / OPENING.diveFromS))
-    return { z: ovZoom * (1 - e) + Math.log2(k) * (1 - e) + startZoom * e, ox: s0.x * k * (1 - e) + s1.x * e, oy: s0.y * k * (1 - e) + s1.y * e }
-  }
-  /** Même trajet, au zoom z. */
-  const openingViewAtZoom = (z: number): OpeningView => {
-    if (z <= zHold) { const k = Math.pow(2, z - ovZoom); return { z, ox: s0.x * k, oy: s0.y * k } }
-    const e = Math.min(1, (z - zHold) / Math.max(1e-6, startZoom - zHold))
-    return { z, ox: s0.x * kHold * (1 - e) + s1.x * e, oy: s0.y * kHold * (1 - e) + s1.y * e }
-  }
-  // La carte n'est PAS recalculée à chaque image de l'ouverture : 0,1 à 1 s par image, et une carte qui recharge sans
-  // cesse des centaines de tuiles a fait décrocher la carte graphique (contextes WebGL perdus, encodeur bloqué). On
-  // capture une fois une vue tous les 0,5 niveau de zoom le long du trajet, puis chaque image les agrandit et les fond
-  // (la plus nette par-dessus, bords adoucis).
+  // ── Ouverture : vue aérienne OBLIQUE (carte inclinée, horizon et ciel en haut), cadrée automatiquement sur le
+  // parcours : orientation, centre et zoom cherchés pour que le parcours tienne dans la partie droite (OPENING_BOX),
+  // la gauche restant au titre. Capturée UNE fois (une carte recalculée à chaque image coûtait 0,1 à 1 s par image et a
+  // fait décrocher la carte graphique), puis lent rapprochement et fondu vers le plan du départ.
+  const OPENING_PITCH = 76 // inclinaison (0 = vue verticale) : avec le champ de MapLibre, l'horizon passe ~12 % sous le haut
+  const OPENING_BOX = { x0: 0.46, x1: 0.95, y0: 0.3, y1: 0.9 } // zone du parcours, en part de l'image
   const openingFrames = Math.min(introFrames, Math.round(OPENING_S * fps))
-  const openingShots: (OpeningView & { img: HTMLCanvasElement })[] = []
+  const openingStep = Math.max(1, Math.floor(visualPoints.length / 2000))
+  const fitPts = visualPoints.filter((_, i) => i % Math.max(1, Math.floor(visualPoints.length / 300)) === 0)
+  let openingShot: HTMLCanvasElement | null = null
+  const openingRibbonPts: OpeningPt[] = []
+  let openingPois: OpeningPoi[] = []
   if (openingFrames > 0) {
-    const n = Math.max(1, Math.ceil((startZoom - ovZoom) / 0.5))
-    for (let k = 0; k <= n && !signal?.aborted; k++) {
-      const v = openingViewAtZoom(ovZoom + ((startZoom - ovZoom) * k) / n)
-      exportMap.jumpTo({ center: startLngLat, zoom: v.z })
-      const pc = exportMap.project(startLngLat)
-      exportMap.jumpTo({ center: exportMap.unproject([pc.x - v.ox, pc.y - v.oy]), zoom: v.z })
-      await waitForMapIdle(exportMap, signal)
-      const img = document.createElement('canvas')
-      img.width = OUT_W; img.height = OUT_H
-      const g = img.getContext('2d')!
-      try { g.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
-      catch { g.fillStyle = BASEMAP_BACKGROUND; g.fillRect(0, 0, OUT_W, OUT_H) }
-      openingShots.push({ ...v, img })
+    let lo0 = Infinity, lo1 = -Infinity, la0 = Infinity, la1 = -Infinity
+    for (const p of visualPoints) { lo0 = Math.min(lo0, p.lon); lo1 = Math.max(lo1, p.lon); la0 = Math.min(la0, p.lat); la1 = Math.max(la1, p.lat) }
+    const bx0 = OPENING_BOX.x0 * OUT_W, bx1 = OPENING_BOX.x1 * OUT_W, by0 = OPENING_BOX.y0 * OUT_H, by1 = OPENING_BOX.y1 * OUT_H
+    /** Place la caméra (orientation b, zoom z) pour centrer le parcours dans OPENING_BOX ; vrai s'il y tient. */
+    const placeAt = (b: number, z: number): boolean => {
+      let center: [number, number] = [(lo0 + lo1) / 2, (la0 + la1) / 2]
+      let ok = false
+      for (let it = 0; it < 4; it++) {
+        exportMap.jumpTo({ center, zoom: z, pitch: OPENING_PITCH, bearing: b })
+        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
+        for (const p of fitPts) {
+          const q = exportMap.project([p.lon, p.lat])
+          x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y)
+        }
+        if (!isFinite(x0) || !isFinite(y0)) return false
+        ok = x1 - x0 <= bx1 - bx0 && y1 - y0 <= by1 - by0
+        const dx = (x0 + x1) / 2 - (bx0 + bx1) / 2, dy = (y0 + y1) / 2 - (by0 + by1) / 2
+        if (Math.abs(dx) < 2 && Math.abs(dy) < 2) break
+        const c = exportMap.unproject([OUT_W / 2 + dx, OUT_H / 2 + dy])
+        center = [c.lng, c.lat]
+      }
+      return ok
     }
-  }
-  // Masque à bords adoucis et calque de travail pour poser une vue plus nette sur la précédente.
-  const featherMask = document.createElement('canvas')
-  const featherLayer = document.createElement('canvas')
-  if (openingShots.length > 1) {
-    featherMask.width = featherLayer.width = OUT_W
-    featherMask.height = featherLayer.height = OUT_H
-    const m = featherMask.getContext('2d')!
-    const fp = Math.round(OUT_W * 0.03)
-    m.filter = `blur(${fp}px)`
-    m.fillStyle = '#fff'
-    m.fillRect(fp * 1.5, fp * 1.5, OUT_W - fp * 3, OUT_H - fp * 3)
-    m.filter = 'none'
-  }
-  const fl = featherLayer.getContext('2d')!
-  /** Fond de l'ouverture au cadrage v : vues capturées encadrant le zoom, agrandies et fondues. */
-  const drawOpeningMap = (v: OpeningView) => {
-    let k = 0
-    while (k + 1 < openingShots.length && openingShots[k + 1].z <= v.z + 1e-6) k++
-    ctx.fillStyle = BASEMAP_BACKGROUND
-    ctx.fillRect(0, 0, OUT_W, OUT_H)
-    for (let j = Math.max(0, k - 1); j <= Math.min(openingShots.length - 1, k + 1); j++) {
-      const s = openingShots[j]
-      const m = Math.pow(2, v.z - s.z)
-      const dx = OUT_W / 2 + v.ox - (OUT_W / 2 + s.ox) * m, dy = OUT_H / 2 + v.oy - (OUT_H / 2 + s.oy) * m
-      if (j === Math.max(0, k - 1)) { ctx.drawImage(s.img, dx, dy, OUT_W * m, OUT_H * m); continue }
-      fl.globalCompositeOperation = 'copy'
-      fl.drawImage(s.img, dx, dy, OUT_W * m, OUT_H * m)
-      fl.globalCompositeOperation = 'destination-in'
-      fl.drawImage(featherMask, dx, dy, OUT_W * m, OUT_H * m)
-      ctx.drawImage(featherLayer, 0, 0)
+    /** Zoom le plus serré où le parcours tient, pour l'orientation b. */
+    const fitZoom = (b: number): number => {
+      let lo = startZoom - 9, hi = startZoom
+      for (let it = 0; it < 12; it++) { const mid = (lo + hi) / 2; if (placeAt(b, mid)) lo = mid; else hi = mid }
+      return lo
     }
+    // Orientation : la plus serrée des 12 directions (à cadrage égal, le nord en haut).
+    let bestB = 0, bestZ = -Infinity
+    for (let b = 0; b < 360; b += 30) {
+      const z = fitZoom(b)
+      if (z > bestZ + 0.05) { bestZ = z; bestB = b }
+    }
+    placeAt(bestB, bestZ)
+    // Ciel du matin au-dessus de l'horizon, brume légère vers le lointain.
+    const prevSky = exportMap.getSky()
+    try {
+      exportMap.setSky({
+        'sky-color': '#8fb4d6', 'horizon-color': '#f2e4cf', 'fog-color': '#dde3e6',
+        'sky-horizon-blend': 0.7, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.75, 'atmosphere-blend': 0,
+      })
+    } catch { /* ciel non pris en charge : fond uni */ }
+    await waitForMapIdle(exportMap, signal)
+    openingShot = document.createElement('canvas')
+    openingShot.width = OUT_W; openingShot.height = OUT_H
+    const g = openingShot.getContext('2d')!
+    try { g.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
+    catch { g.fillStyle = BASEMAP_BACKGROUND; g.fillRect(0, 0, OUT_W, OUT_H) }
+    // Parcours (part à la distance cumulée) et lieux connus du film, à l'écran sur cette vue.
+    const at = (lon: number, lat: number) => exportMap.project([lon, lat])
+    for (let i = 0; i < visualPoints.length; i += openingStep) {
+      const q = at(visualPoints[i].lon, visualPoints[i].lat)
+      openingRibbonPts.push({ x: q.x, y: q.y, f: distances[i] / totalDistance })
+    }
+    const last = visualPoints[visualPoints.length - 1], ql = at(last.lon, last.lat)
+    openingRibbonPts.push({ x: ql.x, y: ql.y, f: 1 })
+    openingPois = localityEvents.filter(ev => ev.style === 'poi').map(ev => ({ ...at(ev.lon, ev.lat), name: ev.name, type: 'poi' }))
+    try { exportMap.setSky(prevSky ?? {}) } catch { /* */ }
+    exportMap.jumpTo({ pitch: 0, bearing: 0 })
   }
   jumpToStart(startZoom)
   await waitForMapIdle(exportMap, signal)
@@ -1629,24 +1596,30 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const standUpFrame = Math.round(Math.max(0, OPENING_S - 1) * fps)
   for (let fi = 0; fi < introFrames && !signal?.aborted; fi++) {
     const tS = fi / fps
-    const inOpening = fi < openingFrames && openingShots.length > 0
-    const v = inOpening ? openingView(tS) : null
-    /** Départ à l'écran : sur le cadrage de l'ouverture, sinon sur la carte (plan du départ). */
-    const p0 = v ? { x: OUT_W / 2 + v.ox, y: OUT_H / 2 + v.oy } : exportMap.project(startLngLat)
-    // Habillage (panneaux, météo, encart du haut) : après l'ouverture, une fois la carte au plan du départ.
+    const inOpening = fi < openingFrames && openingShot != null
+    // Lent rapprochement de la vue d'ouverture (autour du centre de l'image), qui se poursuit pendant le fondu.
+    const mag = Math.pow(2, (0.1 * tS) / OPENING.diveFromS)
+    const e = openingDiveK(tS)
+    const p0 = exportMap.project(startLngLat)
+    // Habillage (panneaux, météo, encart du haut) : après l'ouverture.
     const hudA = openingHudAlpha(tS - 0.5)
     ctx.clearRect(0, 0, OUT_W, OUT_H)
-    if (v) drawOpeningMap(v)
-    else {
+    if (!inOpening || e > 0) {
       try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
       catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
+    }
+    if (inOpening && e < 1) {
+      ctx.save()
+      ctx.globalAlpha = 1 - e
+      ctx.drawImage(openingShot!, (OUT_W * (1 - mag)) / 2, (OUT_H * (1 - mag)) / 2, OUT_W * mag, OUT_H * mag)
+      ctx.restore()
     }
     // Heure de départ : affichée START_CLOCK_SHOW_S après l'ouverture, puis effacée avant le départ.
     const clockOffS = OPENING_S + START_CLOCK_SHOW_S
     if (hudA > 0) drawStartSigns(Math.max(0, Math.min(1, (clockOffS + START_CLOCK_FADE_S - tS) / START_CLOCK_FADE_S)), hudA)
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
-      drawHikers3d(p0.x, p0.y, startScale(v ? v.z : startZoom), Math.max(0, Math.min(1, (tS - (OPENING_S - 0.4)) / 0.6)))
+      drawHikers3d(p0.x, p0.y, startScale(startZoom), Math.max(0, Math.min(1, (tS - (OPENING_S - 0.4)) / 0.6)))
     }
     if (hudA > 0) {
       ctx.save()
@@ -1659,10 +1632,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       })
       ctx.restore()
     }
-    if (v) {
-      const sc = Math.pow(2, v.z - ovZoom)
-      drawOpening(ctx, OUT_W, OUT_H, tS, openingRel.map(p => ({ x: p0.x + p.x * sc, y: p0.y + p.y * sc, f: p.f })), openingTxt,
-        openingPoiRel.map(p => ({ x: p0.x + p.x * sc, y: p0.y + p.y * sc, name: p.name })))
+    if (inOpening) {
+      const zoomed = <T extends { x: number; y: number }>(p: T): T =>
+        ({ ...p, x: OUT_W / 2 + (p.x - OUT_W / 2) * mag, y: OUT_H / 2 + (p.y - OUT_H / 2) * mag })
+      drawOpeningScene(ctx, OUT_W, OUT_H, tS, openingEvent, { ribbon: openingRibbonPts.map(zoomed), pois: openingPois.map(zoomed) })
     }
     drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
     if (useWC && encoder) {

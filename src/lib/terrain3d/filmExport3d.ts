@@ -49,7 +49,7 @@ import type { StreetSpan } from '../streetCaption'
 import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
-import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
+import { buildOpeningEvent, drawOpeningScene, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, OPENING, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
 
 /** Adresse du site, signée en fin de film (comme le film 2D). */
 const SITE_ADDRESS = 'sillonphane.fr/running'
@@ -1662,11 +1662,13 @@ async function exportFilm3dImpl(
    *  tenir. */
   interface FrameBox { pitch: number; x0: number; x1: number; y0: number; y1: number }
   const OVERVIEW_FRAME: FrameBox = { pitch: OVERVIEW_PITCH, x0: -0.8, x1: 0.8, y0: -0.62, y1: 0.8 }
-  // Ouverture : plongée moins forte (la ville vue de biais) ; le cadre est décalé vers la gauche de OPENING_FRAME_SHIFT
-  // (setViewOffset, cf. boucle de rendu), d'où une zone utile décalée d'autant : le tracé se tient à droite, le
-  // titre à gauche.
+  // Ouverture : vue aérienne OBLIQUE, horizon visible en haut de l'image (plongée de 21° : avec 55° de champ vertical,
+  // l'horizon passe ~15 % sous le bord haut) ; le parcours tient sous l'horizon. Le cadre est décalé vers la gauche de
+  // OPENING_FRAME_SHIFT (setViewOffset, cf. boucle de rendu), d'où une zone utile décalée d'autant : le tracé se tient
+  // à droite, le titre à gauche. Position, distance et orientation : calculées sur l'emprise du parcours
+  // (computeOverviewPos).
   const OPENING_FRAME: FrameBox = {
-    pitch: THREE.MathUtils.degToRad(50), x0: -0.1 - 2 * OPENING_FRAME_SHIFT, x1: 0.86 - 2 * OPENING_FRAME_SHIFT, y0: -0.7, y1: 0.64,
+    pitch: THREE.MathUtils.degToRad(21), x0: -0.1 - 2 * OPENING_FRAME_SHIFT, x1: 0.88 - 2 * OPENING_FRAME_SHIFT, y0: -0.86, y1: 0.42,
   }
   function overviewCamPos(az: number, dist: number, out: THREE.Vector3, pitch = OVERVIEW_PITCH): void {
     const h = Math.cos(pitch) * dist
@@ -2119,8 +2121,8 @@ async function exportFilm3dImpl(
   const GOP = 48
   const motionStartFrame = Math.round((PHASE1_END - RENDER_FROM) * fps)
   await loadOpeningFont()
-  const openingTxt = openingText({
-    title: opts.eventCartouche?.title ?? opts.title, place: opts.eventCartouche?.place,
+  const openingEvent = buildOpeningEvent({
+    title: opts.eventCartouche?.title ?? opts.title, city: opts.eventCartouche?.place,
     date: opts.trailDate, distanceM: SHOWN_M, elevGainM,
   })
   // Lieux connus (points d'intérêt du film), posés au sol, pour l'ouverture.
@@ -2264,7 +2266,7 @@ async function exportFilm3dImpl(
         _poiV.copy(p.pos).project(camera)
         return { name: p.name, x: (_poiV.x + 1) / 2 * OUT_W, y: (1 - _poiV.y) / 2 * OUT_H, ok: _poiV.z < 1 }
       })
-      drawOpening(ctx2d, OUT_W, OUT_H, simElapsed, pts, openingTxt, pois)
+      drawOpeningScene(ctx2d, OUT_W, OUT_H, simElapsed, openingEvent, { ribbon: pts, pois })
     }
 
     if (useWC && encoder) {
