@@ -41,6 +41,7 @@ import { usePlaybackCountdown } from './hooks/usePlaybackCountdown'
 import { useFilmRecording } from './hooks/useFilmRecording'
 import { useFilm3dExport } from './hooks/useFilm3dExport'
 import { useFilm3dPrefetch } from './hooks/useFilm3dPrefetch'
+import { useFilm2dPrefetch } from './hooks/useFilm2dPrefetch'
 import { useBackupReminder } from './hooks/useBackupReminder'
 import { canRecordGps } from './lib/device'
 import { DEFAULT_CHARACTERS, toggleCharacter, type CharacterId } from './lib/characters'
@@ -234,11 +235,15 @@ export default function App() {
   }, [activeTrack]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Préchauffe le cache terrain du film 3D (1 000 à 2 300 requêtes IGN) seulement quand l'intention
-  // « Film 3D » est claire : clic sur « Film 3D » encore bloqué (aperçu à terminer, tracé à
-  // enregistrer) -> le terrain se télécharge pendant ce temps mort. Mémorisé par tracé (comparaison
-  // d'objet) : changer de tracé annule l'intention sans effet de remise à zéro.
+  // de faire un film est claire : lecture de l'aperçu, ou clic sur « Film 3D » encore bloqué (tracé à
+  // enregistrer) -> le terrain se télécharge pendant ce temps mort. Simple ouverture de l'animation :
+  // rien. Mémorisé par tracé (comparaison d'objet) : changer de tracé annule l'intention sans effet de
+  // remise à zéro.
   const [film3dIntentTrack, setFilm3dIntentTrack] = useState<GpxTrack | null>(null)
   useFilm3dPrefetch(activeTrack, points, view === 'animate' && film3dIntentTrack !== null && film3dIntentTrack === activeTrack)
+  // Film 2D : ses tuiles propres (cadre d'export, dézoom final, plans serrés) sont peu nombreuses -> préchargées dès
+  // l'ouverture de l'animation, sans attendre d'intention (délai de départ : voir useFilm2dPrefetch.ts).
+  useFilm2dPrefetch(activeTrack, points, ZOOMS[speedLevel - 1], characters.length > 0 && !ribbonOnly, view === 'animate')
   const panels = useLocalityPanels(activeTrack, points, distances, activityMode, lookahead, view === 'animate', state.currentPoint, pendingPanelRestoreRef)
   const {
     previewLocalities, customLocalities, setCustomLocalities,

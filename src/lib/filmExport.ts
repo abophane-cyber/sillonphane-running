@@ -938,7 +938,58 @@ function currentElevation(points: GpxPoint[], distances: number[], progress: num
  * phases séparément. */
 export const PREFETCH_PROGRESS_BUDGET = 0.15
 
+/**
+ * Tuiles du fond de carte dont le film 2D aura besoin (liste dédupliquée) : couloir du tracé aux zooms de
+ * lecture, avec un rayon couvrant le cadre d'export (1920×1080 ordinateur / 1280×720 mobile, +60 %) —
+ * nettement plus grand que la carte de l'aperçu, qui a donc déjà pu charger des tuiles utiles à la
+ * lecture mais insuffisantes au film ; rectangle englobant complet à TOUS les zooms du dézoom final
+ * (≈ 4 crans sous la lecture) ; plans serrés des coureurs 3D autour du départ et de l'arrivée.
+ * Tout doit être en cache AVANT la capture : une tuile chargée en direct se fait throttler par le
+ * serveur et MapLibre fige une tuile parente étirée -> voile flou sur la vidéo.
+ * `zoom` : zoom de lecture du film, déjà corrigé pour le mobile.
+ */
+// Rayon en tuiles (256 px) couvrant la moitié du plus grand côté du cadre d'export, +60 % de marge.
+const FILM_TILE_RADIUS = Math.max(1, Math.ceil(Math.max(OUT_W, OUT_H) / 2 / 256 * 1.6))
+
+function buildFilm2dTileUrls(
+  points: GpxPoint[], zoom: number, withHikers: boolean, withOverview: boolean, endPoints: GpxPoint[] = points,
+): string[] {
+  const tileRadius = FILM_TILE_RADIUS
+  const zHi = Math.ceil(zoom)
+  const zLo = withOverview ? Math.max(6, Math.floor(zoom) - 4) : Math.floor(zoom)
+  const zooms: number[] = []
+  for (let z = zLo; z <= zHi; z++) zooms.push(z)
+  const closeZooms: number[] = []
+  if (withHikers) for (let z = Math.ceil(zoom) + 1; z <= Math.ceil(zoom + HIKER3D_CLOSE_ZOOM); z++) closeZooms.push(z)
+  return [...new Set([
+    ...buildRouteTileUrls(points, [Math.floor(zoom), Math.ceil(zoom)], tileRadius),
+    ...buildBoundingBoxTileUrls(points, zooms, OUT_W / OUT_H),
+    ...(closeZooms.length ? buildRouteTileUrls([endPoints[0], endPoints[endPoints.length - 1]], closeZooms, tileRadius) : []),
+  ])]
+}
+
+/**
+ * Précharge (best-effort) les tuiles du film 2D dès l'ouverture de l'animation (useFilm2dPrefetch.ts) : la phase
+ * de préchargement du film retrouve ensuite tout en cache. Concurrence basse (2) pour ne pas gêner la carte de
+ * l'aperçu. `zoomRaw` : zoom de lecture choisi (ZOOMS[vitesse]), comme `opts.zoom` d'exportFilm.
+ */
+export function prefetchFilm2dTiles(points: GpxPoint[], zoomRaw: number, withCharacters: boolean, signal: AbortSignal): Promise<void> {
+  if (points.length < 2) return Promise.resolve()
+  const zoom = IS_MOBILE ? zoomRaw + 1 : zoomRaw
+  const urls = buildFilm2dTileUrls(points, zoom, withCharacters && HIKER3D_ENABLED, true)
+  // Contrôleur propre, que exportFilm coupe à son lancement : il redemande les mêmes URLs, à pleine concurrence ;
+  // ce qui est déjà téléchargé reste en cache.
+  const ctrl = new AbortController()
+  signal.addEventListener('abort', () => ctrl.abort(), { once: true })
+  previewPrefetch?.abort()
+  previewPrefetch = ctrl
+  return prefetchTiles(urls, { concurrency: 2, retries: 1, tileTimeoutMs: 9000, signal: ctrl.signal })
+    .finally(() => { if (previewPrefetch === ctrl) previewPrefetch = null })
+}
+let previewPrefetch: AbortController | null = null
+
 export async function exportFilm(opts: FilmExportOptions): Promise<Blob> {
+  previewPrefetch?.abort(); previewPrefetch = null // cf. prefetchFilm2dTiles
   // Encodeur vidéo en échec : on coupe le rendu via un signal d'annulation interne (relié à celui de l'appelant),
   // puis on remonte une erreur explicite — y compris si une attente a rejeté « aborted » entre-temps.
   let encoderFailed = false
@@ -991,9 +1042,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     ? points.slice(0, Math.max(2, Math.ceil(points.length * Math.min(1,
         (opts.debugMaxFrames / fps) / durationS * 1.3))))
     : points
-  const tileRadius = Math.max(1, Math.ceil(Math.max(OUT_W, OUT_H) / 2 / 256 * 1.6))
-  // Niveaux de zoom à couvrir : de la lecture (zoom / zoom+1) jusqu'au plan d'ensemble final
-  // (recul de caméra ≈ 4 crans plus bas). Aux crans bas, la bbox ne fait que quelques tuiles.
   // debugMaxFrames ne rend le plan d'ensemble QUE s'il excède la durée naturelle du tracé (sinon
   // renderFrames < totalFrames et ce plan est sauté, voir plus bas) — un tracé court/accéléré
   // (vitesse ×2, ANIM_SETTINGS) peut très bien tenir sous le plafond debug et enchaîner dessus.
@@ -1002,29 +1050,12 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // cache HTTP local déjà chaud d'une session de dev — invisible en local, très visible en prod).
   const totalFramesEstimate = Math.ceil(durationS * fps)
   const overviewWillRun = !opts.debugMaxFrames || opts.debugMaxFrames >= totalFramesEstimate
-  const zHi = Math.ceil(zoom)
-  const zLo = overviewWillRun ? Math.max(6, Math.floor(zoom) - 4) : Math.floor(zoom)
-  const prefetchZooms: number[] = []
-  for (let z = zLo; z <= zHi; z++) prefetchZooms.push(z)
-  // Liste dédupliquée : couloir du tracé (zooms de lecture, rayon large) + rectangle englobant
-  // complet à TOUS les niveaux de zoom, y compris ceux traversés par le dézoom final. Tout doit
-  // être en cache AVANT la boucle : pendant la capture, une tuile non préchargée se charge en
-  // direct, se fait throttler par le serveur, et MapLibre fige une tuile parente étirée -> voile
-  // flou sur la vidéo.
-  // Randonneurs 3D : plans serrés au départ et à l'arrivée (zoom de marche + HIKER3D_CLOSE_ZOOM) -> tuiles de ces
-  // zooms autour des deux extrémités, en plus.
   // « Ruban seul » (aucun personnage choisi), ou appareil sans WebGL2 : aucun randonneur dans le film.
   const noCharacter = !!opts.debugSkipCharacter || opts.characters.length === 0
   const want3d = !noCharacter && HIKER3D_ENABLED
-  const closeZooms: number[] = []
-  if (want3d) for (let z = Math.ceil(zoom) + 1; z <= Math.ceil(zoom + HIKER3D_CLOSE_ZOOM); z++) closeZooms.push(z)
-  const prefetchUrls = [...new Set([
-    ...buildRouteTileUrls(prefetchPoints, [Math.floor(zoom), Math.ceil(zoom)], tileRadius),
-    ...buildBoundingBoxTileUrls(prefetchPoints, prefetchZooms, OUT_W / OUT_H),
-    ...(closeZooms.length ? buildRouteTileUrls([points[0], points[points.length - 1]], closeZooms, tileRadius) : []),
-  ])]
+  const prefetchUrls = buildFilm2dTileUrls(prefetchPoints, zoom, want3d, overviewWillRun, points)
   _idleStats.calls = 0; _idleStats.timeouts = 0; _idleStats.worstMs = 0
-  console.log(`[film2d] ${prefetchUrls.length} tuiles à précharger (zoom ${zoom}, zooms ${prefetchZooms.join(',')})`)
+  console.log(`[film2d] ${prefetchUrls.length} tuiles à précharger (zoom ${zoom})`)
   // Abort dédié : sans ça, les requêtes de préchargement encore en vol après le délai d'attente
   // ci-dessous continuaient en tâche de fond PENDANT toute la boucle de capture, se disputant les
   // mêmes connexions réseau (~6 par serveur) que les propres tuiles de la carte hors-écran.
@@ -1476,7 +1507,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // tuiles nécessaires sont déjà en cache HTTP grâce au préchargement ci-dessus, donc ce
   // chargement/décodage est rapide. `null` (tracé trop long) -> repli sur le rendu MapLibre
   // existant, comme avant cette optimisation.
-  const mapMosaic = await buildMapMosaic(prefetchPoints, zoom, tileRadius, 8192, signal)
+  const mapMosaic = await buildMapMosaic(prefetchPoints, zoom, FILM_TILE_RADIUS, 8192, signal)
   if (signal?.aborted) { exportMap.remove(); mapContainer.remove(); return new Blob() }
   console.log(`[film2d] mosaïque fond de carte : ${mapMosaic ? `${mapMosaic.canvas.width}×${mapMosaic.canvas.height}px (zoom ${mapMosaic.zoom})` : 'indisponible (tracé trop long ?), repli MapLibre'}`)
 

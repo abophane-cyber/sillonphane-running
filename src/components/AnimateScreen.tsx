@@ -377,7 +377,9 @@ export function AnimateScreen({
             onToggleCharacter={onToggleCharacter}
             ribbonOnly={ribbonOnly}
             onToggleRibbon={onToggleRibbon}
-            onPlay={handlePlay}
+            // Lire l'aperçu lance aussi le préchargement du terrain 3D (useFilm3dPrefetch.ts) : il se télécharge
+            // pendant qu'on regarde, et « Film 3D » démarre ensuite presque sans préparation.
+            onPlay={() => { onFilm3dIntent(); handlePlay() }}
             wizardInProgress={wizardInProgress}
             onPause={handlePause}
             onReset={handleReset}
