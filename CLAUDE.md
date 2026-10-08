@@ -15,7 +15,9 @@ Ne jamais reprendre de logo d'épreuve, de commune ou de sponsor sans l'accord d
 ### Avant la course (parcours de l'épreuve)
 - **Cartouche d'épreuve fixe** : nom de l'épreuve · km · commune traversée, à la place des panneaux de
   commune répétés (« LILLE » ×4 sur le semi de Lille).
-- **Style « épreuve »** : fond satellite assombri, ruban épais d'une seule couleur au choix (celle de l'épreuve).
+- **Style « épreuve »** : fond satellite assombri.
+- **Ruban** : garder le dégradé crème → orange → vert (`src/lib/ribbon.ts`), signature du site ; ne pas le remplacer
+  par une couleur unique.
 - **Caméra** : plongée plus forte, plus basse, visée plus courte ; repère coureur toujours visible en tête de ruban.
 - **Vitesse** : 100 à 120 s pour un marathon, caméra à hauteur constante.
 - **Repères** : bannière de départ, bornes tous les 5 km et au semi, ravitaillements, lieux connus (OpenStreetMap).
