@@ -19,7 +19,6 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
-import { buildOpeningEvent, drawOpeningScene, openingDiveK, openingHudAlpha, OPENING, OPENING_S, type OpeningPoi, type OpeningPt } from './filmOpening'
 import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
@@ -89,7 +88,7 @@ export interface FilmExportOptions {
    *  tremblement caméra moins visible), ça donne un extrait fidèle au rendu normal. Le
    *  préchargement de tuiles est aussi limité à la portion du tracé concernée. */
   debugMaxFrames?: number
-  /** Film d'essai (?essai dans l'URL) : l'ouverture puis le début de la marche, sans dézoom de départ ni plans de fin. */
+  /** Film d'essai (?essai dans l'URL) : la marche seule, sans écran-titre, dézoom de départ ni plans de fin. */
   essai?: boolean
 }
 
@@ -687,7 +686,13 @@ const MARKER_H = 150
 /** Adresse du site, signée dans les films. */
 const SITE_ADDRESS = 'sillonphane.fr/running'
 
-// ─── Sigle Sillonphane : tracé du logo du site (AppLogoIcon.tsx), repris par la vignette de météo ──────────
+// ─── Watermark de fin ─────────────────────────────────────────────────────────
+// Reprend le tracé du logo Sillonphane-Rando (AppLogoIcon.tsx) : même chemin, même dégradé,
+// même animation (le trait se dessine puis les deux points apparaissent), rejouée ici image par
+// image plutôt qu'en CSS puisqu'il s'agit d'une vidéo exportée en frames.
+// Affiché à la fin, CENTRÉ, juste au-dessus du kilométrage : le logo se déroule en filigrane,
+// puis « sillonphane.fr/running » se révèle en balayage sous le logo (retirable à terme si l'appli
+// est achetée — un seul appel à supprimer).
 
 const SILLAGE_LOGO_D = 'M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60'
 let sillonLogoCache: { path: Path2D; length: number } | null = null
@@ -699,6 +704,82 @@ function getSillonLogoPath(): { path: Path2D; length: number } {
     sillonLogoCache = { path: new Path2D(SILLAGE_LOGO_D), length: el.getTotalLength() }
   }
   return sillonLogoCache
+}
+
+export function drawEndWatermark(
+  ctx: CanvasRenderingContext2D,
+  cw: number, ch: number,
+  opacity: number,
+  revealT: number,
+  bottomY: number = ch - Math.round(ch * 0.20),
+) {
+  if (opacity <= 0) return
+
+  const logoSize = Math.round(ch * 0.135)
+  const textSize = Math.round(ch * 0.030)
+  const gap      = Math.round(ch * 0.016)
+  const cx       = cw / 2
+
+  // Bloc : logo (filigrane) au-dessus, « sillonphane.fr/running » en dessous ; bord bas du texte = bottomY.
+  const textBaseY   = bottomY
+  const logoBottomY = textBaseY - textSize - gap
+  const logoTopY    = logoBottomY - logoSize
+
+  // ── Logo Sillon en filigrane : le tracé se déroule (comme l'en-tête de l'appli) ──
+  const { path, length } = getSillonLogoPath()
+  const scale = logoSize / 320
+  ctx.save()
+  ctx.globalAlpha = opacity
+  ctx.translate(cx - logoSize / 2, logoTopY)
+  ctx.scale(scale, scale)
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'
+  ctx.shadowBlur = 16
+  const drawProgress = Math.min(1, revealT / 0.55)
+  const strokeGrad = ctx.createLinearGradient(0, 320, 0, 0)
+  strokeGrad.addColorStop(0,    '#2F5C45')
+  strokeGrad.addColorStop(0.32, '#357049') // reste vert plus longtemps sur le début du tracé
+  strokeGrad.addColorStop(0.62, '#D97A3D')
+  strokeGrad.addColorStop(0.86, '#F4EDE0') // crème atteint plus tôt -> fin du tracé plus crème
+  strokeGrad.addColorStop(1,    '#F4EDE0')
+  ctx.strokeStyle = strokeGrad
+  ctx.lineWidth = 30
+  ctx.lineCap = 'round'
+  ctx.setLineDash([length])
+  ctx.lineDashOffset = length * (1 - drawProgress)
+  ctx.stroke(path)
+  ctx.setLineDash([])
+
+  // Points : apparaissent vers la fin du tracé, comme app-logo-dot-in
+  const dotsT = Math.min(1, Math.max(0, (revealT - 0.45) / 0.12))
+  if (dotsT > 0) {
+    ctx.globalAlpha = dotsT * opacity
+    ctx.fillStyle = '#F4EDE0'
+    ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill()
+    ctx.fillStyle = '#2F5C45'
+    ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = '#F4EDE0'; ctx.lineWidth = 3
+    ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.stroke()
+  }
+  ctx.restore()
+
+  // ── « sillonphane.fr/running » : révélé par balayage gauche → droite (fenêtre de clip qui s'ouvre) ──
+  const textReveal = Math.max(0, Math.min(1, (revealT - 0.5) / 0.45))
+  if (textReveal > 0) {
+    ctx.save()
+    ctx.globalAlpha = opacity
+    ctx.font = `bold ${textSize}px "Segoe UI", system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'alphabetic'
+    ctx.shadowColor = 'rgba(0,0,0,0.6)'
+    ctx.shadowBlur = 8
+    ctx.fillStyle = '#fff'
+    const tw = ctx.measureText(SITE_ADDRESS).width
+    ctx.beginPath()
+    ctx.rect(cx - tw / 2 - 2, textBaseY - textSize * 1.1, tw * textReveal + 4, textSize * 1.6)
+    ctx.clip()
+    ctx.fillText(SITE_ADDRESS, cx, textBaseY)
+    ctx.restore()
+  }
 }
 
 /** Carton de fin, bandeau bas (style générique TV) sur la vue d'ensemble : date dorée et intitulé en italique à
@@ -899,6 +980,63 @@ export function drawMapCredit(ctx: CanvasRenderingContext2D, cw: number, ch: num
   ctx.restore()
 }
 
+// Écran-titre d'ouverture (copie conforme du film 3D : voile sombre + date + titre 2 lignes max
+// + pastilles km / D+). Le voile noir plein de l'ouverture est géré à part par l'appelant.
+function drawIntroCard(
+  ctx: CanvasRenderingContext2D,
+  o: { title: string; date: string; km: string; gain: string; alpha: number },
+): void {
+  ctx.save()
+  ctx.globalAlpha = o.alpha
+  ctx.fillStyle = 'rgba(6,10,14,0.42)'
+  ctx.fillRect(0, 0, OUT_W, OUT_H)
+
+  const cx = OUT_W / 2
+  let y = OUT_H / 2 - 72
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+
+  ctx.fillStyle = 'rgba(255,255,255,0.72)'
+  ctx.font = '600 20px system-ui, sans-serif'
+  ctx.fillText(o.date.toUpperCase(), cx, y)
+  y += 48
+
+  ctx.fillStyle = '#fff'
+  ctx.font = '800 46px system-ui, sans-serif'
+  const maxW = OUT_W * 0.78
+  const lines: string[] = []
+  let cur = ''
+  for (const w of o.title.split(/\s+/)) {
+    const test = cur ? `${cur} ${w}` : w
+    if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w } else cur = test
+  }
+  if (cur) lines.push(cur)
+  const shown = lines.slice(0, 2)
+  if (lines.length > 2) shown[1] = `${shown[1].replace(/\s*\S*$/, '')}…`
+  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 12
+  for (const ln of shown) { ctx.fillText(ln, cx, y); y += 56 }
+  ctx.shadowColor = 'transparent'
+  y += 10
+
+  ctx.font = '800 22px system-ui, sans-serif'
+  const gap = 16, pad = 20, h = 44
+  const w1 = ctx.measureText(o.km).width + pad * 2
+  const w2 = ctx.measureText(o.gain).width + pad * 2
+  let px = cx - (w1 + gap + w2) / 2
+  const drawPill = (txt: string, w: number, bg: string) => {
+    ctx.fillStyle = bg
+    ctx.beginPath(); ctx.roundRect(px, y, w, h, 999); ctx.fill()
+    ctx.fillStyle = '#fff'
+    ctx.textBaseline = 'middle'
+    ctx.fillText(txt, px + w / 2, y + h / 2 + 1)
+    ctx.textBaseline = 'alphabetic'
+    px += w + gap
+  }
+  drawPill(o.km, w1, '#e31c1c')
+  drawPill(o.gain, w2, 'rgba(255,255,255,0.18)')
+  ctx.restore()
+}
+
 function currentElevation(points: GpxPoint[], distances: number[], progress: number): number {
   const total = distances[distances.length - 1], t = progress * total
   let lo = 0, hi = points.length - 1
@@ -1068,7 +1206,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     attributionControl: false,
     fadeDuration: 0,
     maxTileCacheSize: 5000,
-    maxPitch: 80, // ouverture en vue oblique (OPENING_PITCH)
   })
 
   await new Promise<void>(resolve => exportMap.once('load', resolve))
@@ -1282,13 +1419,18 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const renderFrames      = opts.debugMaxFrames ? Math.min(totalFrames, opts.debugMaxFrames) : totalFrames
   const msPerFrame        = 1000 / fps
 
-  // ── Ouverture (filmOpening.ts, comme le film 3D) : plan d'ensemble de la ville dans la lumière du matin, ruban du
-  // parcours qui s'y dessine, titre à gauche, puis plongée vers le plan du départ (OPENING_S) ; maintien sur le départ
-  // ensuite (heure de départ, coureuse qui se lève).
-  // Randonneurs 3D : la marche ne part qu'après le dézoom (START_DEZOOM_FRAMES).
+  // ── Écran-titre d'ouverture (mêmes paramètres que le film 3D) ─────────────
+  //  1. écran NOIR, le titre s'y inscrit en fondu sur TITLE_IN_S ;
+  //  2. le noir se lève sur SCENE_REVEAL_S ET le titre se ferme EN MÊME TEMPS ;
+  //  3. la marche démarre RIBBON_EARLY_S avant la fin de la levée du noir.
+  const TITLE_IN_S = 4
+  const SCENE_REVEAL_S = 1.6
+  const RIBBON_EARLY_S = 0.5
+  // Randonneurs 3D : le voile se lève entièrement sur le plan serré, puis maintien (le temps de se lever) ; la
+  // marche ne part qu'après le dézoom (START_DEZOOM_FRAMES).
   const INTRO_FRAMES = hikers3d
-    ? Math.round((OPENING_S + H3_START_HOLD_S) * fps)
-    : Math.round((OPENING_S + (hasStartClock ? START_CLOCK_HOLD_S : 0.6)) * fps)
+    ? Math.round((TITLE_IN_S + SCENE_REVEAL_S + H3_START_HOLD_S) * fps)
+    : Math.round((TITLE_IN_S + SCENE_REVEAL_S + (hasStartClock ? START_CLOCK_HOLD_S : -RIBBON_EARLY_S)) * fps)
   const START_DEZOOM_FRAMES = hikers3d && !opts.debugMaxFrames && !opts.essai ? Math.round((HIKER3D_START_DEZOOM_MS / 1000) * fps) : 0
   // Durées des plans de fin (vue d'ensemble) : comptées ici aussi pour que la barre de
   // progression continue d'avancer pendant ces phases au lieu de rester bloquée à 100% ("Presque
@@ -1301,15 +1443,42 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const END_HOLD_FRAMES = hikers3d ? END_ZOOM_FRAMES + Math.round(H3_END_HOLD_S * fps) : 0
   const EASE_OV = Math.round((hikers3d ? HIKER3D_OVERVIEW_MS / 1000 : 1.5) * fps)
   const HOLD_OV = Math.round((OVERVIEW_CLEAN_S + 5) * fps)
-  // Distance annoncée (carton final) : le compteur s'y arrête, l'ouverture l'affiche (bornes : km mesuré).
+  const openingTitle = (opts.title?.trim())
+    || [opts.startName, opts.endName].filter(Boolean).join(' → ') || 'Sillonphane'
+  const openingDate = opts.trailDate?.trim() ?? ''
+  // Distance annoncée (carton final) : le compteur s'y arrête, l'écran-titre l'affiche (bornes : km mesuré).
   const shownM = opts.shownDistanceM ?? totalDistance
   // Chrono de l'encart du haut : temps écoulé au point atteint (réel, prévu ou estimé).
   const clock = raceClock(points, distances, opts.raceTiming ?? { useRealTimes: false })
   const timeAt = (pr: number) => ({ elapsedS: clock.elapsedAtM(pr * totalDistance), timeLabel: clock.label })
-  const openingEvent = buildOpeningEvent({
-    title: opts.eventCartouche?.title ?? opts.title, city: opts.eventCartouche?.place,
-    date: opts.trailDate, distanceM: shownM, elevGainM: opts.elevGain,
-  })
+  const openingKm = `${(shownM / 1000).toFixed(1).replace('.', ',')} km`
+  const openingGain = `D+ ${Math.round(opts.elevGain / 10) * 10} m`
+  function drawOpening(tSec: number): void {
+    const revealT = tSec - TITLE_IN_S
+    const blackA = revealT <= 0 ? 1 : revealT >= SCENE_REVEAL_S ? 0 : 1 - revealT / SCENE_REVEAL_S
+    if (blackA > 0) {
+      const b = blackA * blackA * (3 - 2 * blackA)
+      ctx.fillStyle = `rgba(0,0,0,${b})`
+      ctx.fillRect(0, 0, OUT_W, OUT_H)
+    }
+    const introA = Math.min(Math.min(1, tSec / TITLE_IN_S), blackA)
+    if (introA > 0) {
+      const s = Math.max(0, Math.min(1, introA))
+      drawIntroCard(ctx, {
+        title: openingTitle, date: openingDate, km: openingKm, gain: openingGain,
+        alpha: s * s * (3 - 2 * s),
+      })
+      // Signature : logo + « sillonphane.fr/running » se déroulent sur l'écran-titre noir, puis
+      // s'effacent avec la levée du voile. Même dispositif et même position que le film 3D
+      // (bloc calé au tiers bas, cf. filmExport3d.ts).
+      drawEndWatermark(
+        ctx, OUT_W, OUT_H,
+        s * s * (3 - 2 * s),
+        Math.min(1, tSec / 2.2),
+        OUT_H - Math.round(OUT_H * 0.12) - 50 - Math.round(OUT_H * 0.02),
+      )
+    }
+  }
 
   // ── PARAMÈTRES CAMÉRA ────────────────────────────────────────────────────
 
@@ -1358,12 +1527,12 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
   /** Ouverture et dézoom du départ : panneau de départ et panneaux déjà visibles au début de la course (repère tout
    * proche du départ, ex. « Porte de Paris »). */
-  function drawStartSigns(timeAlpha = 0, alpha = 1) {
+  function drawStartSigns(timeAlpha = 0) {
     const startEvents = [...localityEvents.filter(e => e.showFrame === 0), ...(departureEvent ? [departureEvent] : [])]
     for (const ev of startEvents) {
       const pt = exportMap.project([ev.lon, ev.lat])
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, alpha, signScale())
+        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale())
     }
     // Heure de départ, sous le repère le plus proche du départ (ex. « Porte de Paris »), sinon sous le panneau de départ.
     const landmarks = localityEvents.filter(e => e.showFrame === 0)
@@ -1372,7 +1541,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const ev = landmarks.length ? landmarks.reduce((a, b) => (d2(b) < d2(a) ? b : a)) : departureEvent!
       const pt = exportMap.project([ev.lon, ev.lat])
       const s = signScale()
-      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 20 * s, timeAlpha * alpha)
+      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 20 * s, timeAlpha)
     }
   }
   /** Bornes et ravitaillements (cf. drawBorneLayer), à leur point lon/lat. */
@@ -1471,9 +1640,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   if (signal?.aborted) { exportMap.remove(); mapContainer.remove(); return new Blob() }
   console.log(`[film2d] mosaïque fond de carte : ${mapMosaic ? `${mapMosaic.canvas.width}×${mapMosaic.canvas.height}px (zoom ${mapMosaic.zoom})` : 'indisponible (tracé trop long ?), repli MapLibre'}`)
 
-  // debugMaxFrames : ouverture sautée (on veut voir la carte/les panneaux tout de suite), et les timestamps de la
-  // boucle de marche ne tiennent plus compte de sa durée. Film d'essai : ouverture gardée, pour la juger vite.
-  const introFrames = opts.debugMaxFrames && !opts.essai ? 0 : INTRO_FRAMES
+  // debugMaxFrames : écran-titre sauté (on veut voir la carte/les panneaux tout de suite, pas le
+  // voile noir), et les timestamps de la boucle de marche ne tiennent plus compte de sa durée.
+  const introFrames = opts.debugMaxFrames || opts.essai ? 0 : INTRO_FRAMES
   // Images avant la marche : écran-titre + dézoom de départ des randonneurs 3D.
   const preWalkFrames = introFrames + START_DEZOOM_FRAMES
   // Progression remontée à l'appelant, pondérée par coût réel par image et non par nombre brut
@@ -1513,130 +1682,30 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       exportMap.jumpTo({ center: exportMap.unproject([ps.x + dx, ps.y + dy]), zoom: z })
     }
   }
-  const startZoom = hikers3d && introFrames ? closeZoom : zoom
-  const startLngLat: [number, number] = [points[0].lon, points[0].lat]
-  // ── Ouverture : vue aérienne OBLIQUE (carte inclinée, horizon et ciel en haut), cadrée automatiquement sur le
-  // parcours : orientation, centre et zoom cherchés pour que le parcours tienne dans la partie droite (OPENING_BOX),
-  // la gauche restant au titre. Capturée UNE fois (une carte recalculée à chaque image coûtait 0,1 à 1 s par image et a
-  // fait décrocher la carte graphique), puis lent rapprochement et fondu vers le plan du départ.
-  const OPENING_PITCH = 76 // inclinaison (0 = vue verticale) : avec le champ de MapLibre, l'horizon passe ~12 % sous le haut
-  const OPENING_BOX = { x0: 0.46, x1: 0.95, y0: 0.3, y1: 0.9 } // zone du parcours, en part de l'image
-  const openingFrames = Math.min(introFrames, Math.round(OPENING_S * fps))
-  const openingStep = Math.max(1, Math.floor(visualPoints.length / 2000))
-  const fitPts = visualPoints.filter((_, i) => i % Math.max(1, Math.floor(visualPoints.length / 300)) === 0)
-  let openingShot: HTMLCanvasElement | null = null
-  const openingRibbonPts: OpeningPt[] = []
-  let openingPois: OpeningPoi[] = []
-  if (openingFrames > 0) {
-    let lo0 = Infinity, lo1 = -Infinity, la0 = Infinity, la1 = -Infinity
-    for (const p of visualPoints) { lo0 = Math.min(lo0, p.lon); lo1 = Math.max(lo1, p.lon); la0 = Math.min(la0, p.lat); la1 = Math.max(la1, p.lat) }
-    const bx0 = OPENING_BOX.x0 * OUT_W, bx1 = OPENING_BOX.x1 * OUT_W, by0 = OPENING_BOX.y0 * OUT_H, by1 = OPENING_BOX.y1 * OUT_H
-    /** Place la caméra (orientation b, zoom z) pour centrer le parcours dans OPENING_BOX ; vrai s'il y tient. */
-    const placeAt = (b: number, z: number): boolean => {
-      let center: [number, number] = [(lo0 + lo1) / 2, (la0 + la1) / 2]
-      let ok = false
-      for (let it = 0; it < 4; it++) {
-        exportMap.jumpTo({ center, zoom: z, pitch: OPENING_PITCH, bearing: b })
-        let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity
-        for (const p of fitPts) {
-          const q = exportMap.project([p.lon, p.lat])
-          x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y)
-        }
-        if (!isFinite(x0) || !isFinite(y0)) return false
-        ok = x1 - x0 <= bx1 - bx0 && y1 - y0 <= by1 - by0
-        const dx = (x0 + x1) / 2 - (bx0 + bx1) / 2, dy = (y0 + y1) / 2 - (by0 + by1) / 2
-        if (Math.abs(dx) < 2 && Math.abs(dy) < 2) break
-        const c = exportMap.unproject([OUT_W / 2 + dx, OUT_H / 2 + dy])
-        center = [c.lng, c.lat]
-      }
-      return ok
-    }
-    /** Zoom le plus serré où le parcours tient, pour l'orientation b. */
-    const fitZoom = (b: number): number => {
-      let lo = startZoom - 9, hi = startZoom
-      for (let it = 0; it < 12; it++) { const mid = (lo + hi) / 2; if (placeAt(b, mid)) lo = mid; else hi = mid }
-      return lo
-    }
-    // Orientation : la plus serrée des 12 directions (à cadrage égal, le nord en haut).
-    let bestB = 0, bestZ = -Infinity
-    for (let b = 0; b < 360; b += 30) {
-      const z = fitZoom(b)
-      if (z > bestZ + 0.05) { bestZ = z; bestB = b }
-    }
-    placeAt(bestB, bestZ)
-    // Ciel du matin au-dessus de l'horizon, brume légère vers le lointain.
-    const prevSky = exportMap.getSky()
-    try {
-      exportMap.setSky({
-        'sky-color': '#8fb4d6', 'horizon-color': '#f2e4cf', 'fog-color': '#dde3e6',
-        'sky-horizon-blend': 0.7, 'horizon-fog-blend': 0.6, 'fog-ground-blend': 0.75, 'atmosphere-blend': 0,
-      })
-    } catch { /* ciel non pris en charge : fond uni */ }
-    await waitForMapIdle(exportMap, signal)
-    openingShot = document.createElement('canvas')
-    openingShot.width = OUT_W; openingShot.height = OUT_H
-    const g = openingShot.getContext('2d')!
-    try { g.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
-    catch { g.fillStyle = BASEMAP_BACKGROUND; g.fillRect(0, 0, OUT_W, OUT_H) }
-    // Parcours (part à la distance cumulée) et lieux connus du film, à l'écran sur cette vue.
-    const at = (lon: number, lat: number) => exportMap.project([lon, lat])
-    for (let i = 0; i < visualPoints.length; i += openingStep) {
-      const q = at(visualPoints[i].lon, visualPoints[i].lat)
-      openingRibbonPts.push({ x: q.x, y: q.y, f: distances[i] / totalDistance })
-    }
-    const last = visualPoints[visualPoints.length - 1], ql = at(last.lon, last.lat)
-    openingRibbonPts.push({ x: ql.x, y: ql.y, f: 1 })
-    openingPois = localityEvents.filter(ev => ev.style === 'poi').map(ev => ({ ...at(ev.lon, ev.lat), name: ev.name, type: 'poi' }))
-    try { exportMap.setSky(prevSky ?? {}) } catch { /* */ }
-    exportMap.jumpTo({ pitch: 0, bearing: 0 })
-  }
-  jumpToStart(startZoom)
+  jumpToStart(hikers3d && introFrames ? closeZoom : zoom)
   await waitForMapIdle(exportMap, signal)
   if (hikers3d) hikers.forEach(h => h.resetToStart())
-  const standUpFrame = Math.round(Math.max(0, OPENING_S - 1) * fps)
+  const standUpFrame = Math.round(TITLE_IN_S * fps)
   for (let fi = 0; fi < introFrames && !signal?.aborted; fi++) {
-    const tS = fi / fps
-    const inOpening = fi < openingFrames && openingShot != null
-    // Lent rapprochement de la vue d'ouverture (autour du centre de l'image), qui se poursuit pendant le fondu.
-    const mag = Math.pow(2, (0.1 * tS) / OPENING.diveFromS)
-    const e = openingDiveK(tS)
-    const p0 = exportMap.project(startLngLat)
-    // Habillage (panneaux, météo, encart du haut) : après l'ouverture.
-    const hudA = openingHudAlpha(tS - 0.5)
     ctx.clearRect(0, 0, OUT_W, OUT_H)
-    if (!inOpening || e > 0) {
-      try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
-      catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
-    }
-    if (inOpening && e < 1) {
-      ctx.save()
-      ctx.globalAlpha = 1 - e
-      ctx.drawImage(openingShot!, (OUT_W * (1 - mag)) / 2, (OUT_H * (1 - mag)) / 2, OUT_W * mag, OUT_H * mag)
-      ctx.restore()
-    }
-    // Heure de départ : affichée START_CLOCK_SHOW_S après l'ouverture, puis effacée avant le départ.
-    const clockOffS = OPENING_S + START_CLOCK_SHOW_S
-    if (hudA > 0) drawStartSigns(Math.max(0, Math.min(1, (clockOffS + START_CLOCK_FADE_S - tS) / START_CLOCK_FADE_S)), hudA)
+    try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
+    catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
+    drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 0)
+    // Heure de départ : affichée START_CLOCK_SHOW_S après la levée du voile, puis effacée avant le départ.
+    const clockOffS = TITLE_IN_S + SCENE_REVEAL_S + START_CLOCK_SHOW_S
+    drawStartSigns(Math.max(0, Math.min(1, (clockOffS + START_CLOCK_FADE_S - fi / fps) / START_CLOCK_FADE_S)))
     if (hikers3d) {
       if (fi === standUpFrame) hikers.forEach(h => h.startIntro())
-      drawHikers3d(p0.x, p0.y, startScale(startZoom), Math.max(0, Math.min(1, (tS - (OPENING_S - 0.4)) / 0.6)))
+      const p0 = exportMap.project([points[0].lon, points[0].lat])
+      drawHikers3d(p0.x, p0.y, startScale(closeZoom))
     }
-    if (hudA > 0) {
-      ctx.save()
-      ctx.globalAlpha = hudA
-      drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
-      drawElevOverlay(ctx, OUT_W, OUT_H, {
-        points, distances, progress: 0, distanceCovered: 0, totalDistance: shownM,
-        elevGain: opts.elevGain, elevLoss: opts.elevLoss,
-        currentEle: currentElevation(points, distances, 0), trackName: '', ...timeAt(0),
-      })
-      ctx.restore()
-    }
-    if (inOpening) {
-      const zoomed = <T extends { x: number; y: number }>(p: T): T =>
-        ({ ...p, x: OUT_W / 2 + (p.x - OUT_W / 2) * mag, y: OUT_H / 2 + (p.y - OUT_H / 2) * mag })
-      drawOpeningScene(ctx, OUT_W, OUT_H, tS, openingEvent, { ribbon: openingRibbonPts.map(zoomed), pois: openingPois.map(zoomed) })
-    }
+    drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 0)
+    drawElevOverlay(ctx, OUT_W, OUT_H, {
+      points, distances, progress: 0, distanceCovered: 0, totalDistance: shownM,
+      elevGain: opts.elevGain, elevLoss: opts.elevLoss,
+      currentEle: currentElevation(points, distances, 0), trackName: '', ...timeAt(0),
+    })
+    drawOpening(fi / fps)
     drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
     if (useWC && encoder) {
       try {
@@ -1785,6 +1854,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       currentEle: currentElevation(points, distances, progress),
       trackName: '', ...timeAt(progress),
     })
+
+    // Fin de la levée du voile noir de l'ouverture : elle déborde de RIBBON_EARLY_S sur le
+    // début de la marche (le ruban part avant que le noir ait fini de se lever). Sautée en
+    // debugMaxFrames (introFrames = 0 -> le voile est déjà entièrement levé dès la 1ère image).
+    if (!opts.debugMaxFrames && !opts.essai) drawOpening((introFrames + f) / fps)
 
     drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
     if (useWC && encoder) {
