@@ -59,10 +59,10 @@ export const OPENING = {
 /** Durée totale de l'ouverture (fin de la plongée : la caméra est sur le départ). */
 export const OPENING_S = OPENING.diveFromS + OPENING.diveS
 
-/** Avancée de la plongée (0..1, adoucie aux deux bouts) à l'instant `t` de l'ouverture. */
+/** Avancée de la plongée (0..1, courbe sinusoïdale adoucie aux deux bouts) à l'instant `t` de l'ouverture. */
 export function openingDiveK(t: number): number {
   const u = clamp01((t - OPENING.diveFromS) / OPENING.diveS)
-  return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
+  return (1 - Math.cos(Math.PI * u)) / 2 // sinusoïdale : le mouvement se voit dès le départ, arrivée douce
 }
 /** Opacité du ruban d'ouverture : présent dès la première image, s'efface pendant la plongée (le ruban de la course
  * prend le relais). */
