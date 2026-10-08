@@ -320,7 +320,7 @@ function drawPoiIcon(ctx: CanvasRenderingContext2D, icon: string | undefined, cx
 
 /**
  * Lieux sur la carte, repères secondaires (le parcours domine). Points d'intérêt (`type` 'poi' ou absent, au plus 4) : rond blanc cerclé de noir sur le lieu, tige fine,
- * étiquette sans fond à contour clair arrondi, avec pictogramme (`icon`) et nom en blanc, relevée si elle chevauche une autre. Quartiers et
+ * étiquette à fond sombre très transparent et contour clair arrondi, avec pictogramme (`icon`) et nom en blanc, relevée si elle chevauche une autre. Quartiers et
  * communes (`type` 'district', au plus 4) : capitales gris foncé espacées, auréolées de clair. Hors champ et zone du
  * titre écartés. Pas de noms de rues sur l'ouverture.
  */
@@ -398,12 +398,14 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.lineWidth = 1.2 * k
   for (const { stem } of layout) { ctx.beginPath(); ctx.moveTo(stem.x, stem.y1); ctx.lineTo(stem.x, stem.y0); ctx.stroke() }
   for (const { p, lines, box: r } of layout) {
-    // Étiquette sans fond : contour clair seul ; contour, pictogramme et nom portent une ombre sombre pour rester
-    // lisibles sur la carte.
+    // Étiquette à fond sombre très transparent (la carte transparaît) et contour clair ; contour, pictogramme et nom
+    // portent une ombre sombre pour rester lisibles.
+    ctx.fillStyle = 'rgba(29,38,44,0.38)'
+    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 9 * k); ctx.fill()
     ctx.shadowColor = 'rgba(10,16,20,0.75)'; ctx.shadowBlur = 5 * k
     ctx.strokeStyle = 'rgba(255,255,255,0.92)'
     ctx.lineWidth = 1.8 * k
-    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 9 * k); ctx.stroke()
+    ctx.stroke()
     drawPoiIcon(ctx, p.icon, r.x0 + padX + iconS / 2, (r.y0 + r.y1) / 2, iconS)
     ctx.fillStyle = '#ffffff'
     const ty = (r.y0 + r.y1) / 2 - ((lines.length - 1) * lineH) / 2 + size * 0.36
