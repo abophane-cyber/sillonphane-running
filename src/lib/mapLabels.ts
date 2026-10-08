@@ -97,13 +97,26 @@ export function streetLabelAlpha(m: number, startM: number, endM: number, holdM:
 }
 
 /** Écrit `text` le long de la ligne `pts` (px écran), décalé de `offset` px sur le côté gauche du sens de lecture,
- * lettre par lettre en suivant la courbe ; lu de gauche à droite (la ligne est retournée si besoin). `k` : échelle. */
+ * lettre par lettre en suivant la courbe ; lu de gauche à droite (la ligne est retournée si besoin). `k` : échelle ;
+ * `view` : taille de l'image (seule la partie visible de la rue est utilisée). */
 export function drawStreetAlongPath(
   ctx: CanvasRenderingContext2D, label: { text: string; major: boolean }, pts: { x: number; y: number }[],
-  alpha: number, k = 1, offset = 16,
+  alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
 ) {
   if (alpha <= 0 || pts.length < 2) return
+  // Seule la partie de la rue visible à l'écran (`view`) compte : le nom y est centré, entier.
   let line = pts
+  if (view) {
+    const M = 30 * k
+    const inView = (p: { x: number; y: number }) => p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M
+    let best: { x: number; y: number }[] = [], cur: { x: number; y: number }[] = []
+    for (const p of pts) {
+      if (inView(p)) cur.push(p)
+      else { if (cur.length > best.length) best = cur; cur = [] }
+    }
+    line = cur.length > best.length ? cur : best
+    if (line.length < 2) return
+  }
   if (line[line.length - 1].x < line[0].x) line = [...line].reverse()
   // Rééchantillonnage tous les 4 px puis lissage : pas de lettres qui sautent sur les zigzags du GPS.
   const res: { x: number; y: number }[] = [line[0]]
@@ -130,15 +143,22 @@ export function drawStreetAlongPath(
     const f = (c - cum[i - 1]) / Math.max(1e-6, cum[i] - cum[i - 1])
     return { x: sm[i - 1].x + (sm[i].x - sm[i - 1].x) * f, y: sm[i - 1].y + (sm[i].y - sm[i - 1].y) * f }
   }
-  const size = (label.major ? 19 : 17) * k
-  const spacing = (label.major ? 0.12 : 0.04) * size
-  ctx.save()
-  ctx.globalAlpha = alpha * (label.major ? 0.95 : 0.75)
-  ctx.font = `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
-  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
+  // Le nom doit tenir sur la portion de rue visible (sinon ses lettres s'empilaient aux extrémités) : taille réduite
+  // jusqu'à 70 %, au-delà on ne l'écrit pas.
   const chars = [...label.text]
-  const widths = chars.map(ch => ctx.measureText(ch).width + spacing)
-  const textW = widths.reduce((a, b) => a + b, 0) - spacing
+  const base = 15 * k
+  let size = base, spacing = 0, widths: number[] = [], textW = 0
+  ctx.save()
+  for (; size >= base * 0.7; size -= 0.5 * k) {
+    spacing = (label.major ? 0.06 : 0.02) * size
+    ctx.font = `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
+    widths = chars.map(ch => ctx.measureText(ch).width + spacing)
+    textW = widths.reduce((a, b) => a + b, 0) - spacing
+    if (textW <= total * 0.92) break
+  }
+  if (textW > total * 0.92) { ctx.restore(); return }
+  ctx.globalAlpha = alpha * (label.major ? 0.95 : 0.75)
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
   let s = (total - textW) / 2
   for (let i = 0; i < chars.length; i++) {
     const mid = s + widths[i] / 2 - spacing / 2

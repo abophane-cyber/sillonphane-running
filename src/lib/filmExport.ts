@@ -1407,7 +1407,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const pts: { x: number; y: number }[] = []
       for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
         if (distances[i] >= st.startM) pts.push(project(visualPoints[i].lon, visualPoints[i].lat))
-      drawStreetAlongPath(ctx, st.label, pts, a, OUT_H / 1080, 20)
+      drawStreetAlongPath(ctx, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H })
     }
   }
 

@@ -2171,7 +2171,7 @@ async function exportFilm3dImpl(
           const p = ribbonScreenAt((st.from + (st.to - st.from) * i / 40) * RIBBON_SEGMENTS)
           if (p.z < 1) pts.push(p)
         }
-        drawStreetAlongPath(ctx2d, st.label, pts, a, OUT_H / 1080, 20)
+        drawStreetAlongPath(ctx2d, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H })
       }
     }
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)

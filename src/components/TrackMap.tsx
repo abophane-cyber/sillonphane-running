@@ -832,7 +832,7 @@ export function TrackMap({
         const pts: { x: number; y: number }[] = []
         for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
           if (distances[i] >= st.startM) pts.push(map.project([points[i].lon, points[i].lat]))
-        drawStreetAlongPath(ctx, st.label, pts, a, Math.max(0.6, w / 1920), 20)
+        drawStreetAlongPath(ctx, st.label, pts, a, Math.max(0.6, w / 1920), 20, { w, h })
       }
     }
     draw()
