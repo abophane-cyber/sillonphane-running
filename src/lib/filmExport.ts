@@ -621,24 +621,22 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
     icon = '🌡️'; tempStr = `${weather.tempMin}–${weather.tempMax}°C`; desc = ''
   }
 
-  // Encart météo (haut droite) : panneau sombre, barre jaune penchée, coureur jaune à gauche ; à droite le sigle
-  // Sillonphane et, dessous, la météo dans une pastille jaune.
-  const W = 340, H = 132, X = cw - W - 24, Y = 24
+  // Encart météo (haut droite), sur une ligne : sigle Sillonphane, coureur jaune, météo dans une pastille jaune.
+  const H = 66, Y = 26, PAD = 16, LOGO_W = 30, RUN_W = 40, GAP = 14, PILL_H = 38
+  const label = desc ? `${tempStr} · ${desc}` : tempStr
   ctx.save()
-  ctx.beginPath(); ctx.roundRect(X, Y, W, H, 16)
-  ctx.fillStyle = 'rgba(8,14,12,0.85)'; ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1.5; ctx.stroke()
-  ctx.fillStyle = '#f7b500'
-  ctx.beginPath()
-  ctx.moveTo(X + 16, Y + 12); ctx.lineTo(X + 27, Y + 12); ctx.lineTo(X + 13, Y + H - 12); ctx.lineTo(X + 2, Y + H - 12); ctx.closePath()
-  ctx.fill()
-  drawRunnerIcon(ctx, X + 78, Y + H / 2, '#f7b500')
-  // Sigle Sillonphane (le sillon et ses deux points), centré sur la colonne de droite.
-  const colX = X + 132, colW = W - 132 - 18
+  ctx.font = `italic 800 19px "Segoe UI", system-ui, sans-serif`
+  const pillW = 44 + ctx.measureText(label).width + 16
+  const W = PAD + LOGO_W + GAP + RUN_W + GAP + pillW + PAD - 4
+  const X = cw - W - 24, cy = Y + H / 2
+  ctx.beginPath(); ctx.roundRect(X, Y, W, H, 14)
+  ctx.fillStyle = 'rgba(8,14,12,0.78)'; ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.stroke()
+  // Sigle Sillonphane (le sillon et ses deux points), ~46 px de haut.
   const { path } = getSillonLogoPath()
-  const LOGO = 92, sc = LOGO / 320
+  const sc = 46 / 185
   ctx.save()
-  ctx.translate(colX + colW / 2 - 178 * sc, Y + 6 - 50 * sc)
+  ctx.translate(X + PAD - 117 * sc, cy - 23 - 50 * sc)
   ctx.scale(sc, sc)
   const g = ctx.createLinearGradient(0, 320, 0, 0)
   g.addColorStop(0, '#2F5C45'); g.addColorStop(0.32, '#357049'); g.addColorStop(0.62, '#D97A3D'); g.addColorStop(0.86, '#F4EDE0'); g.addColorStop(1, '#F4EDE0')
@@ -647,24 +645,23 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
   ctx.fillStyle = '#2F5C45'; ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill()
   ctx.strokeStyle = '#F4EDE0'; ctx.lineWidth = 3; ctx.stroke()
   ctx.restore()
+  drawRunnerIcon(ctx, X + PAD + LOGO_W + GAP + RUN_W / 2, cy, '#f7b500', 0.62)
   // Pastille jaune : pictogramme, température, ciel.
-  const pillH = 40, pillY = Y + H - pillH - 16
-  ctx.beginPath(); ctx.roundRect(colX, pillY, colW, pillH, pillH / 2)
+  const px = X + PAD + LOGO_W + GAP + RUN_W + GAP, py = cy - PILL_H / 2
+  ctx.beginPath(); ctx.roundRect(px, py, pillW, PILL_H, PILL_H / 2)
   ctx.fillStyle = '#f7b500'; ctx.fill()
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
-  ctx.font = '25px serif'; ctx.fillStyle = '#000'
-  ctx.fillText(icon, colX + 12, pillY + pillH / 2 + 1)
-  const label = desc ? `${tempStr} · ${desc}` : tempStr
-  let s = 22
-  do { ctx.font = `italic 800 ${s}px "Segoe UI", system-ui, sans-serif`; s -= 1 } while (ctx.measureText(label).width > colW - 58 && s > 13)
-  ctx.fillStyle = '#16140c'
-  ctx.fillText(label, colX + 46, pillY + pillH / 2 + 1)
+  ctx.font = '21px serif'; ctx.fillStyle = '#000'
+  ctx.fillText(icon, px + 11, cy + 1)
+  ctx.font = `italic 800 19px "Segoe UI", system-ui, sans-serif`; ctx.fillStyle = '#16140c'
+  ctx.fillText(label, px + 44, cy + 1)
   ctx.restore()
 }
 
-/** Coureur stylisé (tête, buste, bras et jambes en foulée), centré sur (cx, cy), environ 64 px de haut. */
-function drawRunnerIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string) {
+/** Coureur stylisé (tête, buste, bras et jambes en foulée), centré sur (cx, cy), environ 64 px de haut × `scale`. */
+function drawRunnerIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string, scale = 1) {
   ctx.save()
+  ctx.translate(cx, cy); ctx.scale(scale, scale); cx = 0; cy = 0
   ctx.strokeStyle = color; ctx.fillStyle = color
   ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
   ctx.beginPath(); ctx.arc(cx + 9, cy - 25, 7.5, 0, Math.PI * 2); ctx.fill()
