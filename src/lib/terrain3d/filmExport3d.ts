@@ -49,8 +49,9 @@ import type { StreetSpan } from '../streetCaption'
 import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
+import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
 
-/** Adresse du site, signée sur l'écran-titre et en fin de film (comme le film 2D). */
+/** Adresse du site, signée en fin de film (comme le film 2D). */
 const SITE_ADDRESS = 'sillonphane.fr/running'
 const OUT_W = 1920
 const OUT_H = 1080
@@ -1514,20 +1515,14 @@ async function exportFilm3dImpl(
     const h = x < f ? (x * x) / (2 * f) : x - f / 2
     return h / (1 - f / 2)
   }
-  // Ouverture, en 2 temps :
-  //  1. écran NOIR, le titre (date + nom + km + D+) s'y inscrit en fondu sur TITLE_IN_S ;
-  //  2. le noir se lève sur SCENE_REVEAL_S ET le titre se ferme EN MÊME TEMPS -> on ne voit
-  //     jamais le titre sur le paysage. Le survol démarre 0,5 s AVANT la fin de la levée du noir.
-  const TITLE_IN_S = 4         // écran noir tenu pendant que le titre s'inscrit en fondu
-  const SCENE_REVEAL_S = 1.6   // levée du noir = fermeture du titre (simultanées)
-  const RIBBON_EARLY_S = 0.5   // le ruban démarre ce délai avant la fin de la levée du noir
-  const INTRO_CARD_S = TITLE_IN_S + SCENE_REVEAL_S - RIBBON_EARLY_S // = début du survol
-  // Pause caméra fixe sur le départ, le temps de le lire : 1,5 s visible une fois le noir entièrement levé (la pause
-  // commence RIBBON_EARLY_S avant la fin de la levée). Avec une heure de départ : écran fixe START_CLOCK_SHOW_S, heure
-  // affichée, puis heure effacée sur START_CLOCK_FADE_S ; le survol ne part qu'ensuite.
+  // Ouverture (filmOpening.ts) : vue d'ensemble de la ville dans la lumière du matin, le ruban du parcours s'y
+  // dessine, le titre s'inscrit à gauche, puis la caméra plonge vers le départ (fin à OPENING_S).
+  // Pause caméra fixe sur le départ, le temps de le lire : 2 s une fois la plongée finie. Avec une heure de départ :
+  // écran fixe START_CLOCK_SHOW_S, heure affichée, puis heure effacée sur START_CLOCK_FADE_S ; le survol ne part
+  // qu'ensuite.
   const START_CLOCK_SHOW_S = 2, START_CLOCK_FADE_S = 0.6
   const hasStartClock = startClock(opts.startTime, opts.startTimePlanned ?? true) != null
-  const START_PAUSE = (hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 1.5) + RIBBON_EARLY_S
+  const START_PAUSE = (hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 1.5) + 0.5
   // Arrivée : pas de rapprochement caméra (demande 2026-09-28 : « juste un dézoom pour l'ensemble du tracé
   // et image fixe »), mais une pause caméra fixe de 2 s sur l'arrivée avant la montée vers la vue
   // d'ensemble (demande 2026-09-29).
@@ -1543,7 +1538,7 @@ async function exportFilm3dImpl(
   const ZOOM_LEAD = 12
   const INTRO_FRAC = 0.12
   const INTRO_PROX = 0.58
-  const PHASE0_END = INTRO_CARD_S                 // fin de l'écran-titre
+  const PHASE0_END = OPENING_S                    // fin de l'ouverture (caméra arrivée sur le départ)
   const PHASE1_END = PHASE0_END + START_PAUSE     // fin de la pause caméra fixe
   const PHASE2_END = PHASE1_END + DURATION        // fin du survol
   const PHASE3_END = PHASE2_END + END_PAUSE        // fin de la pause d'arrivée
@@ -1663,30 +1658,40 @@ async function exportFilm3dImpl(
   const ovSamples = trailPts.filter((_, i) => i % 2 === 0)
   const _ovCam = new THREE.PerspectiveCamera(55, OUT_W / OUT_H, 1, 1e7)
   const _ovV = new THREE.Vector3()
-  function overviewCamPos(az: number, dist: number, out: THREE.Vector3): void {
-    const h = Math.cos(OVERVIEW_PITCH) * dist
-    out.set(ovCenter.x - Math.sin(az) * h, ovCenter.y + Math.sin(OVERVIEW_PITCH) * dist, ovCenter.z - Math.cos(az) * h)
+  /** Cadrage d'un plan d'ensemble : plongée, et zone de l'image (coordonnées normalisées -1..1) où tout le tracé doit
+   *  tenir. */
+  interface FrameBox { pitch: number; x0: number; x1: number; y0: number; y1: number }
+  const OVERVIEW_FRAME: FrameBox = { pitch: OVERVIEW_PITCH, x0: -0.8, x1: 0.8, y0: -0.62, y1: 0.8 }
+  // Ouverture : plongée moins forte (la ville vue de biais) ; le cadre est décalé vers la gauche de OPENING_FRAME_SHIFT
+  // (setViewOffset, cf. boucle de rendu), d'où une zone utile décalée d'autant : le tracé se tient à droite, le
+  // titre à gauche.
+  const OPENING_FRAME: FrameBox = {
+    pitch: THREE.MathUtils.degToRad(50), x0: -0.1 - 2 * OPENING_FRAME_SHIFT, x1: 0.86 - 2 * OPENING_FRAME_SHIFT, y0: -0.7, y1: 0.64,
   }
-  function overviewFits(az: number, dist: number): boolean {
-    overviewCamPos(az, dist, _ovCam.position)
+  function overviewCamPos(az: number, dist: number, out: THREE.Vector3, pitch = OVERVIEW_PITCH): void {
+    const h = Math.cos(pitch) * dist
+    out.set(ovCenter.x - Math.sin(az) * h, ovCenter.y + Math.sin(pitch) * dist, ovCenter.z - Math.cos(az) * h)
+  }
+  function overviewFits(az: number, dist: number, box: FrameBox): boolean {
+    overviewCamPos(az, dist, _ovCam.position, box.pitch)
     _ovCam.lookAt(ovCenter)
     _ovCam.updateMatrixWorld()
     for (const p of ovSamples) {
       _ovV.copy(p).project(_ovCam)
-      if (_ovV.z > 1 || Math.abs(_ovV.x) > 0.8 || _ovV.y > 0.8 || _ovV.y < -0.62) return false
+      if (_ovV.z > 1 || _ovV.x < box.x0 || _ovV.x > box.x1 || _ovV.y > box.y1 || _ovV.y < box.y0) return false
     }
     return true
   }
-  /** Position caméra de la vue d'ensemble, visée = ovCenter. `lookAz` : azimut de la visée courante. */
-  function computeOverviewPos(lookAz: number, out: THREE.Vector3): void {
+  /** Position caméra d'un plan d'ensemble, visée = ovCenter. `lookAz` : azimut de la visée courante. */
+  function computeOverviewPos(lookAz: number, out: THREE.Vector3, box: FrameBox = OVERVIEW_FRAME): void {
     let best = Infinity, bestAz = lookAz
     for (let k = -4; k <= 4; k++) {
       const az = lookAz + THREE.MathUtils.degToRad(15 * k)
       let lo = 300, hi = 600_000
-      if (!overviewFits(az, hi)) continue
+      if (!overviewFits(az, hi, box)) continue
       for (let it = 0; it < 32; it++) {
         const mid = Math.sqrt(lo * hi)
-        if (overviewFits(az, mid)) hi = mid; else lo = mid
+        if (overviewFits(az, mid, box)) hi = mid; else lo = mid
       }
       const score = hi * (1 + 0.04 * Math.abs(k)) // à cadrage égal, on préfère ne pas tourner
       if (score < best) { best = score; bestAz = az }
@@ -1694,9 +1699,9 @@ async function exportFilm3dImpl(
     let lo = 300, hi = 600_000
     for (let it = 0; it < 32; it++) {
       const mid = Math.sqrt(lo * hi)
-      if (overviewFits(bestAz, mid)) hi = mid; else lo = mid
+      if (overviewFits(bestAz, mid, box)) hi = mid; else lo = mid
     }
-    overviewCamPos(bestAz, hi, out)
+    overviewCamPos(bestAz, hi, out, box.pitch)
   }
   let overviewCaptured = false
   const _ovStartLook = new THREE.Vector3()
@@ -1726,6 +1731,14 @@ async function exportFilm3dImpl(
   _camOff.multiplyScalar(INTRO_PROX * camK)
   currentCamPos.set(trailPts[0].x + _camOff.x, trailPts[0].y + _camOff.y, trailPts[0].z + _camOff.z)
   currentLookAt.set(trailPts[0].x, trailPts[0].y + LOOK_RAISE, trailPts[0].z)
+  // Ouverture : plan d'ensemble (OPENING_FRAME) pris du côté d'où la caméra du départ regarde, pour une plongée sans
+  // demi-tour.
+  const _introDir = new THREE.Vector3()
+  computeOverviewPos(Math.atan2(-_camOff.x, -_camOff.z), _introDir, OPENING_FRAME)
+  _introDir.sub(ovCenter)
+  const introD = Math.max(1, _introDir.length()); _introDir.normalize()
+  const _diveLook = new THREE.Vector3()
+  const _startDir = new THREE.Vector3()
 
   interface Overlay { distanceM: number; profileT: number }
 
@@ -1741,6 +1754,19 @@ async function exportFilm3dImpl(
       targetCamPos.set(trailPts[0].x + _camOff.x, trailPts[0].y + _camOff.y, trailPts[0].z + _camOff.z)
       targetLookAt.set(trailPts[0].x, trailPts[0].y + LOOK_RAISE, trailPts[0].z)
       avoidTerrain(targetCamPos, targetLookAt)
+      if (elapsed < PHASE0_END) {
+        // Ouverture : plan d'ensemble qui se rapproche à peine (×1,07 → 1), puis plongée vers la pose du départ :
+        // visée et direction interpolées, distance en échelle log (comme la montée vers la vue d'ensemble).
+        const e = openingDiveK(elapsed)
+        const dA = introD * (1 + 0.07 * (1 - Math.min(1, elapsed / OPENING.diveFromS)))
+        _startDir.subVectors(targetCamPos, targetLookAt)
+        const dStart = Math.max(1, _startDir.length()); _startDir.normalize()
+        _diveLook.lerpVectors(ovCenter, targetLookAt, e)
+        targetLookAt.copy(_diveLook)
+        _camOff.lerpVectors(_introDir, _startDir, e).normalize()
+        targetCamPos.copy(targetLookAt).addScaledVector(_camOff, dA * Math.pow(dStart / dA, e))
+        if (e > 0) avoidTerrain(targetCamPos, targetLookAt)
+      }
       ribbonGeom.setDrawRange(0, 6)
       coreGeom.instanceCount = 1
       tipCap.visible = false
@@ -1856,8 +1882,14 @@ async function exportFilm3dImpl(
       profileT = 1
     }
 
-    currentCamPos.lerp(targetCamPos, 0.045)
-    currentLookAt.lerp(targetLookAt, 0.035) // visée plus lissée (moins de balancements)
+    if (elapsed < PHASE0_END) {
+      // Ouverture : mouvement déjà adouci (openingDiveK), suivi exact.
+      currentCamPos.copy(targetCamPos)
+      currentLookAt.copy(targetLookAt)
+    } else {
+      currentCamPos.lerp(targetCamPos, 0.045)
+      currentLookAt.lerp(targetLookAt, 0.035) // visée plus lissée (moins de balancements)
+    }
     if (water) (water.material as THREE.ShaderMaterial).uniforms['time'].value += SIM_DT
     return { distanceM, profileT }
   }
@@ -1914,8 +1946,8 @@ async function exportFilm3dImpl(
     // Direction de course à l'écran : corde du parcours autour de sa position.
     const back = ribbonScreenAt(seg - 1.5), ahead = ribbonScreenAt(seg + 1.5)
     const dx = ahead.x - back.x, dy = ahead.y - back.y, dl = Math.hypot(dx, dy)
-    // Étapes : attente au départ, se lève avec la levée du voile, court pendant le survol, salue à l'arrivée.
-    if (runnerStage === 'wait' && elapsed >= TITLE_IN_S) { runner.startIntro(); runnerStage = 'intro' }
+    // Étapes : attente au départ, se lève en fin d'ouverture (et y apparaît en fondu), court pendant le survol, salue à l'arrivée.
+    if (runnerStage === 'wait' && elapsed >= PHASE0_END - 1) { runner.startIntro(); runnerStage = 'intro' }
     if (runnerStage === 'intro' && elapsed >= PHASE1_END) { runner.turnTo(dx, dy); runner.setPlaying(true); runnerStage = 'run' }
     // Victoire dès que la tête du ruban est au bout (sinon elle courait sur place jusqu'à la fin du survol).
     if (runnerStage === 'run' && (runnerAtEnd || elapsed >= PHASE2_END)) { runner.turnTo(0, 1); runner.startOutro(); runnerStage = 'outro' }
@@ -1927,7 +1959,7 @@ async function exportFilm3dImpl(
     }
     runner.renderFrame(dt)
     // Vue d'ensemble : s'efface pendant la première moitié de la montée de la caméra.
-    const alpha = Math.max(0, Math.min(1, 1 - (elapsed - PHASE3_END) / (OVERVIEW_RISE_S * 0.5)))
+    const alpha = Math.max(0, Math.min(1, 1 - (elapsed - PHASE3_END) / (OVERVIEW_RISE_S * 0.5), (elapsed - (PHASE0_END - 0.4)) / 0.6))
     const { w, h, feet, body } = runner.layout()
     // Présentation : k = 1 en grand en bas à gauche, 0 sur le ruban à taille de course.
     const k = 1 - smoothEase(Math.max(0, Math.min(1, (elapsed - (PHASE1_END - PRESENT_MOVE_S)) / PRESENT_MOVE_S)))
@@ -2086,6 +2118,11 @@ async function exportFilm3dImpl(
   // image complète à cet instant précis.
   const GOP = 48
   const motionStartFrame = Math.round((PHASE1_END - RENDER_FROM) * fps)
+  await loadOpeningFont()
+  const openingTxt = openingText({
+    title: opts.eventCartouche?.title ?? opts.title, place: opts.eventCartouche?.place,
+    date: opts.trailDate, distanceM: SHOWN_M, elevGainM,
+  })
   let simElapsed = 0
   let lastOverlay: Overlay = { distanceM: 0, profileT: 0 }
   while (simElapsed < RENDER_FROM) { simElapsed += SIM_DT; lastOverlay = simStep(simElapsed) }
@@ -2137,6 +2174,11 @@ async function exportFilm3dImpl(
     coreMat.depthTest = camDist < 6000
     camera.position.copy(currentCamPos)
     camera.lookAt(currentLookAt)
+    // Ouverture : cadre décalé vers la gauche (le parcours se tient à droite, le titre à gauche), recentré pendant la
+    // plongée.
+    const frameShift = openingFrameShift(simElapsed)
+    if (frameShift > 0) camera.setViewOffset(OUT_W, OUT_H, -frameShift * OUT_W, 0, OUT_W, OUT_H)
+    else if (camera.view?.enabled) camera.clearViewOffset()
     enforcePanelMinSize(currentCamPos, simElapsed >= PHASE3_END)
     renderer.render(scene, camera)
 
@@ -2175,6 +2217,8 @@ async function exportFilm3dImpl(
       }
     }
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
+    // Habillage (encart du haut, météo, flèche du nord, départ) : absent de l'ouverture, arrive en fin de plongée.
+    const hudAlpha = openingHudAlpha(simElapsed)
     // Cartouche d'épreuve (bas gauche) pendant le survol et la pause d'arrivée, comme le film 2D.
     if (opts.eventCartouche) {
       const a = Math.min((simElapsed - PHASE1_END) / 0.8, (PHASE3_END - simElapsed) / 0.5)
@@ -2187,56 +2231,30 @@ async function exportFilm3dImpl(
       // adresse de fin (bas droite) : fondu sur 0,5 s, comme le film 2D
       // Carton final saisi : il porte déjà l'adresse, on n'ajoute pas l'adresse seule.
       watermarkReveal: opts.endCard ? 0 : Math.max(0, Math.min(1, intoWatermark / 0.5)),
+      hudAlpha,
     }, drawProfile)
     // Flèche du nord (bas droite), tournée selon le cap de la caméra (x = est, z = sud) ; effacée avec l'adresse de fin.
     {
       const fx = currentLookAt.x - currentCamPos.x, fz = currentLookAt.z - currentCamPos.z
       const k = Math.min(OUT_W / 1920, OUT_H / 1080)
-      drawNorthArrow(ctx2d, OUT_W - 60 * k, OUT_H - 70 * k, k, Math.atan2(-fx, -fz), 1 - Math.max(0, Math.min(1, intoWatermark / 0.5)))
+      drawNorthArrow(ctx2d, OUT_W - 60 * k, OUT_H - 70 * k, k, Math.atan2(-fx, -fz), hudAlpha * (1 - Math.max(0, Math.min(1, intoWatermark / 0.5))))
     }
     // Nom du départ et heure de départ, en haut de l'écran sous le titre. L'heure s'efface sur START_CLOCK_FADE_S à
     // la fin de la pause sur le départ ; le nom reste jusqu'à la première seconde du survol, puis s'efface sur 0,6 s.
-    const startA = Math.max(0, Math.min(1, (PHASE1_END + 1.6 - simElapsed) / 0.6))
+    const startA = hudAlpha * Math.max(0, Math.min(1, (PHASE1_END + 1.6 - simElapsed) / 0.6))
     const clockA = Math.max(0, Math.min(1, (PHASE1_END - simElapsed) / START_CLOCK_FADE_S))
     if (startA > 0) drawStartHeader(ctx2d, departurePanel ? opts.departureName : null, opts.departureLieudit, startTimeText, startA, clockA)
     // Carton final (comme le film 2D) : sur la vue d'ensemble, après OVERVIEW_CLEAN_S sans infos, en fondu sur 0,5 s.
     if (opts.endCard && intoWatermark > 0) drawEndCard(ctx2d, OUT_W, OUT_H, opts.endCard, Math.min(1, intoWatermark / 0.5))
 
-    // Ouverture. (1) Voile noir : plein pendant TITLE_IN_S (le titre s'y inscrit), puis se lève
-    // sur SCENE_REVEAL_S -> le paysage se découvre DERRIÈRE le titre. Dessiné AVANT l'écran-titre.
-    const revealT = simElapsed - TITLE_IN_S
-    const blackA = revealT <= 0 ? 1
-      : revealT >= SCENE_REVEAL_S ? 0
-      : 1 - revealT / SCENE_REVEAL_S
-    if (blackA > 0) {
-      const b = blackA * blackA * (3 - 2 * blackA)
-      ctx2d.fillStyle = `rgba(0,0,0,${b})`
-      ctx2d.fillRect(0, 0, OUT_W, OUT_H)
-    }
-
-    // (2) Écran-titre : fondu d'ouverture sur TITLE_IN_S (sur le noir), puis fondu de FERMETURE
-    // calé sur la levée du noir (blackA) -> le titre disparaît pendant que le paysage se
-    // découvre, jamais visible par-dessus le paysage.
-    const introIn = Math.min(1, simElapsed / TITLE_IN_S)
-    const introA = Math.min(introIn, blackA)
-    if (introA > 0) {
-      const s = Math.max(0, Math.min(1, introA))
-      drawIntroCard(ctx2d, {
-        title: opts.title?.trim() || `${opts.departureName} → ${opts.arrivalName}`,
-        date: opts.trailDate,
-        km: `${(SHOWN_M / 1000).toFixed(1).replace('.', ',')} km`,
-        gain: `D+ ${Math.round(elevGainM / 10) * 10} m`,
-        alpha: s * s * (3 - 2 * s),
-      })
-      // Signature : logo + « sillonphane.fr/running » se déroulent sur l'écran-titre noir, EXACTEMENT
-      // à la même place qu'à la fin du film (au-dessus du badge kilométrage), puis s'effacent
-      // avec la levée du voile.
-      drawEndWatermark(
-        ctx2d, OUT_W, OUT_H,
-        s * s * (3 - 2 * s),
-        Math.min(1, simElapsed / 2.2),
-        OUT_H - Math.round(OUT_H * 0.12) - 50 - Math.round(OUT_H * 0.02),
-      )
+    // Ouverture (filmOpening.ts) : lumière du matin, ruban d'ouverture projeté depuis le ruban 3D, titre à gauche.
+    if (simElapsed < PHASE0_END) {
+      const pts: OpeningPt[] = []
+      for (let i = 0; i <= RIBBON_SEGMENTS; i += 2) {
+        const p = ribbonScreenAt(i)
+        pts.push({ x: p.x, y: p.y, f: i / RIBBON_SEGMENTS, ok: p.z < 1 })
+      }
+      drawOpening(ctx2d, OUT_W, OUT_H, simElapsed, pts, openingTxt)
     }
 
     if (useWC && encoder) {
@@ -2304,96 +2322,6 @@ async function exportFilm3dImpl(
   return new Blob()
 }
 
-// ─── Watermark de fin — repris à l'identique du film 2D (src/lib/filmExport.ts) ──────────────
-// Copié plutôt qu'importé : filmExport.ts tire maplibre-gl en tête de module.
-
-const SILLAGE_LOGO_D = 'M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60'
-let sillonLogoCache: { path: Path2D; length: number } | null = null
-
-function getSillonLogoPath(): { path: Path2D; length: number } {
-  if (!sillonLogoCache) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-    el.setAttribute('d', SILLAGE_LOGO_D)
-    sillonLogoCache = { path: new Path2D(SILLAGE_LOGO_D), length: el.getTotalLength() }
-  }
-  return sillonLogoCache
-}
-
-function drawEndWatermark(
-  ctx: CanvasRenderingContext2D,
-  cw: number, ch: number,
-  opacity: number,
-  revealT: number,
-  bottomY: number = ch - Math.round(ch * 0.20),
-) {
-  if (opacity <= 0) return
-
-  const logoSize = Math.round(ch * 0.135)
-  const textSize = Math.round(ch * 0.030)
-  const gap      = Math.round(ch * 0.016)
-  const cx       = cw / 2
-
-  // Bloc : logo (filigrane) au-dessus, « sillonphane.fr/running » en dessous ; bord bas du texte = bottomY.
-  const textBaseY   = bottomY
-  const logoBottomY = textBaseY - textSize - gap
-  const logoTopY    = logoBottomY - logoSize
-
-  // ── Logo Sillon en filigrane : le tracé se déroule (comme l'en-tête de l'appli) ──
-  const { path, length } = getSillonLogoPath()
-  const scale = logoSize / 320
-  ctx.save()
-  ctx.globalAlpha = opacity
-  ctx.translate(cx - logoSize / 2, logoTopY)
-  ctx.scale(scale, scale)
-  ctx.shadowColor = 'rgba(0,0,0,0.45)'
-  ctx.shadowBlur = 16
-  const drawProgress = Math.min(1, revealT / 0.55)
-  const strokeGrad = ctx.createLinearGradient(0, 320, 0, 0)
-  strokeGrad.addColorStop(0,    '#2F5C45')
-  strokeGrad.addColorStop(0.32, '#357049') // reste vert plus longtemps sur le début du tracé
-  strokeGrad.addColorStop(0.62, '#D97A3D')
-  strokeGrad.addColorStop(0.86, '#F4EDE0') // crème atteint plus tôt -> fin du tracé plus crème
-  strokeGrad.addColorStop(1,    '#F4EDE0')
-  ctx.strokeStyle = strokeGrad
-  ctx.lineWidth = 30
-  ctx.lineCap = 'round'
-  ctx.setLineDash([length])
-  ctx.lineDashOffset = length * (1 - drawProgress)
-  ctx.stroke(path)
-  ctx.setLineDash([])
-
-  const dotsT = Math.min(1, Math.max(0, (revealT - 0.45) / 0.12))
-  if (dotsT > 0) {
-    ctx.globalAlpha = dotsT * opacity
-    ctx.fillStyle = '#F4EDE0'
-    ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill()
-    ctx.fillStyle = '#2F5C45'
-    ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill()
-    ctx.strokeStyle = '#F4EDE0'; ctx.lineWidth = 3
-    ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.stroke()
-  }
-  ctx.restore()
-
-  // ── « sillonphane.fr/running » : révélé par balayage gauche → droite (fenêtre de clip qui s'ouvre) ──
-  const textReveal = Math.max(0, Math.min(1, (revealT - 0.5) / 0.45))
-  if (textReveal > 0) {
-    ctx.save()
-    ctx.globalAlpha = opacity
-    ctx.font = `bold ${textSize}px "Segoe UI", system-ui, sans-serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'alphabetic'
-    ctx.shadowColor = 'rgba(0,0,0,0.6)'
-    ctx.shadowBlur = 8
-    ctx.fillStyle = '#fff'
-    const tw = ctx.measureText(SITE_ADDRESS).width
-    ctx.beginPath()
-    ctx.rect(cx - tw / 2 - 2, textBaseY - textSize * 1.1, tw * textReveal + 4, textSize * 1.6)
-    ctx.clip()
-    ctx.fillText(SITE_ADDRESS, cx, textBaseY)
-    ctx.restore()
-  }
-}
-
 // Adresse « sillonphane.fr/running » en bas à droite, affichée à la FIN du film (fondu simple, sans
 // logo) — copie conforme de drawEndAddress (src/lib/filmExport.ts), utilisée par les films 2D et 2D+.
 function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: number, opacity: number) {
@@ -2455,67 +2383,9 @@ function drawStartHeader(
   if (start) drawStartTimePill(ctx, start, cx, top, 40, Math.min(alpha, clockAlpha))
 }
 
-// Écran-titre d'ouverture : voile sombre + date + titre (2 lignes max) + pastilles km / D+.
-function drawIntroCard(
-  ctx: CanvasRenderingContext2D,
-  o: { title: string; date: string; km: string; gain: string; alpha: number },
-): void {
-  ctx.save()
-  ctx.globalAlpha = o.alpha
-  // Voile léger seulement : le voile noir plein est géré à part (ouverture). Ici on garde juste
-  // ce qu'il faut pour que le titre reste lisible quand le paysage est découvert derrière.
-  ctx.fillStyle = 'rgba(6,10,14,0.42)'
-  ctx.fillRect(0, 0, OUT_W, OUT_H)
-
-  const cx = OUT_W / 2
-  let y = OUT_H / 2 - 72
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'alphabetic'
-
-  ctx.fillStyle = 'rgba(255,255,255,0.72)'
-  ctx.font = '600 20px system-ui, sans-serif'
-  ctx.fillText(o.date.toUpperCase(), cx, y)
-  y += 48
-
-  ctx.fillStyle = '#fff'
-  ctx.font = '800 46px system-ui, sans-serif'
-  const maxW = OUT_W * 0.78
-  const lines: string[] = []
-  let cur = ''
-  for (const w of o.title.split(/\s+/)) {
-    const test = cur ? `${cur} ${w}` : w
-    if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w } else cur = test
-  }
-  if (cur) lines.push(cur)
-  const shown = lines.slice(0, 2)
-  if (lines.length > 2) shown[1] = `${shown[1].replace(/\s*\S*$/, '')}…`
-  ctx.shadowColor = 'rgba(0,0,0,0.5)'; ctx.shadowBlur = 12
-  for (const ln of shown) { ctx.fillText(ln, cx, y); y += 56 }
-  ctx.shadowColor = 'transparent'
-  y += 10
-
-  ctx.font = '800 22px system-ui, sans-serif'
-  const gap = 16, pad = 20, h = 44
-  const w1 = ctx.measureText(o.km).width + pad * 2
-  const w2 = ctx.measureText(o.gain).width + pad * 2
-  let px = cx - (w1 + gap + w2) / 2
-  const drawPill = (txt: string, w: number, bg: string) => {
-    ctx.fillStyle = bg
-    ctx.beginPath(); ctx.roundRect(px, y, w, h, 999); ctx.fill()
-    ctx.fillStyle = '#fff'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(txt, px + w / 2, y + h / 2 + 1)
-    ctx.textBaseline = 'alphabetic'
-    px += w + gap
-  }
-  drawPill(o.km, w1, '#e31c1c')
-  drawPill(o.gain, w2, 'rgba(255,255,255,0.18)')
-  ctx.restore()
-}
-
 function drawOverlays(
   ctx: CanvasRenderingContext2D,
-  o: { distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number },
+  o: { distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number; hudAlpha: number },
   drawProfile: (ctx: CanvasRenderingContext2D, t: number, distanceM: number) => void,
 ): void {
   // Habillage aligné sur le film 2D : encart du haut (chiffres et profil), météo en haut à droite, adresse de fin.
@@ -2532,6 +2402,10 @@ function drawOverlays(
   ctx.fillText('© IGN · Esri, Maxar · AWS Terrain Tiles', 16, OUT_H - 12)
   ctx.restore()
 
+  if (o.hudAlpha <= 0) return
+  ctx.save()
+  ctx.globalAlpha = o.hudAlpha
   drawWeatherCard(ctx, OUT_W, o.weather, o.profileT)
   drawProfile(ctx, o.profileT, o.distanceM)
+  ctx.restore()
 }

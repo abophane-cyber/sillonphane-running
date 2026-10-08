@@ -2,6 +2,7 @@
 // elles viendront du vrai GPX / PanelWizard / meteo.ts de l'app.
 
 import { exportFilm3d } from '../../lib/terrain3d/filmExport3d'
+import { parseEventName } from '../../lib/raceSplits'
 
 const TRAIL: [number, number][] = [ // Sotteville-Veules — 117 pts, 7.8 km, BOUCLE, côte normande
   [0.82973, 49.88728], [0.82754, 49.88673], [0.82567, 49.88601], [0.82393, 49.88525],
@@ -78,12 +79,17 @@ goBtn.addEventListener('click', async () => {
 
   try {
     const file = gpxInput.files?.[0]
-    const trail = file ? parseGpxTrail(await file.text()) : TRAIL
+    const xml = file ? await file.text() : ''
+    const trail = file ? parseGpxTrail(xml) : TRAIL
+    // Épreuve tirée du nom du GPX (localité : le mot qui précède l'année, à défaut du lieu de départ connu de l'appli).
+    const trkName = xml.match(/<name>([^<]*)<\/name>/)?.[1]
+    const ev = parseEventName(trkName, trkName?.match(/(\p{Lu}[\p{L}-]+)\s+\d{4}/u)?.[1])
     // Même durée demandée que l'app (useFilm3dExport : niveau 1, facteur 1,6).
     const durationS = Math.min(45, Math.max(10, trailKm(trail) * 2)) * 1.6
     const blob = await exportFilm3d({
       trail,
-      trailDate: '10 août 2026',
+      trailDate: file ? '17 septembre 2026' : '10 août 2026',
+      ...(ev.title && ev.place ? { eventCartouche: { title: ev.title, place: ev.place } } : {}),
       departureName: file ? 'Départ' : 'Sotteville-sur-Mer',
       arrivalName: file ? 'Arrivée' : 'Sotteville-sur-Mer',
       panels: file ? [] : [{ name: 'Veules-les-Roses', lon: 0.8006, lat: 49.8709, style: 'lieudit' }],
