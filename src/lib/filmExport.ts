@@ -64,6 +64,8 @@ export interface FilmExportOptions {
   streets?:          StreetRun[]
   /** Carton de fin (bandeau bas sur la vue d'ensemble finale) ; sans, l'adresse du site seule. */
   endCard?:          EndCard
+  /** Cartouche d'épreuve (bas gauche) pendant la course : localité et titre de l'épreuve. */
+  eventCartouche?:   EventCartouche
   /** Chrono de l'encart : heures réelles du GPX, ou vitesses prévues (cf. raceClock) ; absent = temps estimé. */
   raceTiming?:       { useRealTimes: boolean; speedsKmh?: number[] }
   /** Distance annoncée de l'épreuve (m, celle du carton final : 21,1 km pour un semi) : fin du compteur et écran-titre ;
@@ -858,6 +860,41 @@ export function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: nu
 // films 2D, juste avant l'encodage. Bas GAUCHE, discrète, même facture que les
 // crédits du film 3D (drawOverlays, filmExport3d.ts) : le bas-droit porte l'adresse de fin (drawEndAddress), le
 // le haut-gauche le profil — rien d'autre n'occupe ce coin.
+/** Cartouche d'épreuve (bas gauche) : barre jaune penchée, localité en grandes capitales italiques, titre de
+ * l'épreuve en capitales espacées dessous (« LILLE / SEMI-MARATHON 2026 »). */
+export interface EventCartouche { place: string; title: string }
+export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch: number, c: EventCartouche, alpha: number) {
+  if (alpha <= 0 || (!c.place && !c.title)) return
+  const k = ch / 1080
+  const x = Math.round(56 * k), base = ch - Math.round(64 * k)
+  const placeSize = Math.round(76 * k), titleSize = Math.round(27 * k)
+  const barW = Math.round(13 * k), barH = Math.round(118 * k), slant = Math.round(16 * k)
+  const tx = x + barW + slant + Math.round(22 * k)
+  const maxW = cw * 0.45
+  ctx.save()
+  ctx.globalAlpha = alpha
+  // Barre jaune penchée, de la hauteur des deux lignes.
+  ctx.fillStyle = '#f7b500'
+  ctx.beginPath()
+  ctx.moveTo(x + slant, base - barH); ctx.lineTo(x + slant + barW, base - barH)
+  ctx.lineTo(x + barW, base); ctx.lineTo(x, base); ctx.closePath()
+  ctx.fill()
+  ctx.fillStyle = '#fff'; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'
+  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 12 * k; ctx.shadowOffsetY = 2 * k
+  if (c.place) {
+    let s = placeSize
+    do { ctx.font = `italic 800 ${s}px "Arial Narrow", Arial, sans-serif`; s -= 2 } while (ctx.measureText(c.place.toUpperCase()).width > maxW && s > 30)
+    ctx.fillText(c.place.toUpperCase(), tx, base - Math.round(50 * k))
+  }
+  if (c.title) {
+    let s = titleSize
+    ctx.letterSpacing = `${Math.round(7 * k)}px`
+    do { ctx.font = `500 ${s}px "Segoe UI", system-ui, sans-serif`; ctx.letterSpacing = `${Math.round(s * 0.26)}px`; s -= 1 } while (ctx.measureText(c.title.toUpperCase()).width > maxW && s > 14)
+    ctx.fillText(c.title.toUpperCase(), tx + Math.round(4 * k), base - Math.round(6 * k))
+  }
+  ctx.restore()
+}
+
 export function drawMapCredit(ctx: CanvasRenderingContext2D, cw: number, ch: number) {
   ctx.save()
   ctx.textAlign = 'left'
@@ -1690,6 +1727,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // Rue empruntée : son nom en haut de l'écran pendant que la coureuse y court, les rues se succédant en fondu.
     streetCaption.update(progress, 1 / fps)
     streetCaption.draw(ctx, OUT_W / 2)
+    // Cartouche d'épreuve : en fondu au départ de la course, tenu jusqu'à l'arrivée.
+    if (opts.eventCartouche) drawEventCartouche(ctx, OUT_W, OUT_H, opts.eventCartouche, Math.min(1, f / (0.8 * fps)))
 
     // 3. Panneaux localités
     // Évite la collision visuelle avec le randonneur : un panneau de lieu-dit qui se déclenche

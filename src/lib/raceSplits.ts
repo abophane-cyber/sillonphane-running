@@ -19,6 +19,8 @@ export interface RaceSettings {
   speeds: number[]
   /** Inscription de l'épreuve (nom, date, distance) ; vide = valeur par défaut (titre du parcours, date, distance). */
   eventName?: string
+  /** Localité de l'épreuve (cartouche du film, au-dessus du titre) ; vide = lieu de départ. */
+  eventPlace?: string
   bannerDate?: string
   bannerDistance?: string
   /** Numéro inscrit sur le dossard de la coureuse ; vide = dossard blanc. */

@@ -247,6 +247,12 @@ export function PanelWizard({
             id="pwiz-film-title" className="pwiz-input" value={filmTitle} placeholder={bannerDefaults.title || "Nom de l'épreuve"}
             onChange={e => onFilmTitleChange(e.target.value)}
           />
+          {/* Localité de l'épreuve : cartouche du film (« LILLE » au-dessus du titre). */}
+          <label className="pwiz-field-label" htmlFor="pwiz-event-place">Localité de l'épreuve</label>
+          <input
+            id="pwiz-event-place" className="pwiz-input" value={race.eventPlace ?? ''} placeholder={startName || 'Localité'}
+            onChange={e => onRaceChange({ ...race, eventPlace: e.target.value })}
+          />
           <div className="pwiz-row">
             <input
               className="pwiz-input" value={race.bannerDate ?? ''} placeholder={bannerDefaults.date || 'Date'}

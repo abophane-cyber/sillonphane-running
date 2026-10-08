@@ -473,6 +473,7 @@ export default function App() {
       streets: race.streets,
       endCard,
       raceTiming: { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds },
+      eventCartouche: { place: race.eventPlace?.trim() || effectiveStartName || '', title: customTitle || activeTrack.name },
       trackName: customTitle || activeTrack.name,
       activeSillonId,
       activeSillonTrackId,
