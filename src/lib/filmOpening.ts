@@ -367,7 +367,7 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
     ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, r.y1); ctx.stroke()
     ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10 * k; ctx.shadowOffsetY = 3 * k
     ctx.fillStyle = 'rgba(29,38,44,0.94)'
-    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 4 * k); ctx.fill()
+    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 9 * k); ctx.fill()
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
     ctx.strokeStyle = 'rgba(255,255,255,0.55)'
     ctx.lineWidth = 1.5 * k
