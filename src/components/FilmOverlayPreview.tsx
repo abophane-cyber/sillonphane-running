@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { drawElevOverlay } from '../lib/drawElevOverlay'
-import { drawEventCartouche, drawWeatherCard, type EventCartouche } from '../lib/filmExport'
+import { drawEventCartouche, drawScaleNorth, drawWeatherCard, type EventCartouche } from '../lib/filmExport'
+import { metersPerPixel } from '../lib/hiker3dStaging'
 import type { GpxPoint } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { RaceClock } from '../lib/raceSplits'
@@ -17,6 +18,8 @@ interface Props {
   clock: RaceClock
   weather: WeatherInfo | null
   cartouche: EventCartouche
+  /** Zoom de la carte (échelle) ; null tant qu'il n'est pas connu. */
+  mapZoom: number | null
 }
 
 /** Largeur de référence des films (px) : les incrustations sont dessinées dans ce repère, puis réduites à la
@@ -55,7 +58,9 @@ export function FilmOverlayPreview(p: Props) {
     })
     drawWeatherCard(ctx, FILM_W, p.weather, p.progress)
     drawEventCartouche(ctx, FILM_W, vh, p.cartouche, 1)
-  }, [size, p.points, p.distances, p.progress, p.distanceCovered, p.totalDistance, p.elevGain, p.elevLoss, p.currentEle, p.clock, p.weather, p.cartouche])
+    // Échelle : mètres par pixel CSS de la carte, ramenés au repère du film (1 px du film = s px CSS).
+    if (p.mapZoom != null && p.points.length) drawScaleNorth(ctx, FILM_W, vh, metersPerPixel(p.points[0].lat, p.mapZoom) * s)
+  }, [size, p.points, p.distances, p.progress, p.distanceCovered, p.totalDistance, p.elevGain, p.elevLoss, p.currentEle, p.clock, p.weather, p.cartouche, p.mapZoom])
 
   return <canvas ref={canvasRef} className="film-overlay-preview" style={{ width: size.w, height: size.h }} aria-hidden="true" />
 }

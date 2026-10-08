@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { TrackMap } from './TrackMap'
 import { AnimationControls } from './AnimationControls'
 import { FilmOverlayPreview } from './FilmOverlayPreview'
@@ -152,6 +152,8 @@ export function AnimateScreen({
   // guide » vivent dans le header (App). Ici on ne fait qu'afficher le calque et,
   // quand il est masqué, laisser les bulles d'aide historiques reprendre le relais.
   const wizardInProgress = wizardStep > 0 && !wizardDone
+  // Zoom de la carte : échelle des incrustations (FilmOverlayPreview).
+  const [mapZoom, setMapZoom] = useState<number | null>(null)
 
   // Lire l'aperçu n'est pas nécessaire pour créer un film : un personnage (ou le ruban seul) choisi suffit.
   const choiceMade = characters.length > 0 || ribbonOnly
@@ -188,7 +190,7 @@ export function AnimateScreen({
           zoomToStart={zoomToStartCount}
           targetZoom={targetZoom}
           zoomResetSeq={zoomResetSeq}
-          onZoomChange={() => {}}
+          onZoomChange={setMapZoom}
           onMapIdle={handleMapIdle}
           activityMode={activityMode}
           characters={characters}
@@ -287,6 +289,7 @@ export function AnimateScreen({
           clock={clock}
           weather={weather}
           cartouche={eventCartouche}
+          mapZoom={mapZoom}
         />
 
         {/* Modal de création du film (2D ou 3D — un seul actif à la fois) */}

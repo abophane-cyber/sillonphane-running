@@ -920,6 +920,40 @@ export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch
   ctx.restore()
 }
 
+/** Échelle graduée (« 0 · 0,5 · 1 km ») et flèche du nord, en bas à droite ; `mPerPx` : mètres par pixel de l'image. */
+export function drawScaleNorth(ctx: CanvasRenderingContext2D, cw: number, ch: number, mPerPx: number) {
+  if (!(mPerPx > 0) || !Number.isFinite(mPerPx)) return
+  const k = Math.min(cw / 1920, ch / 1080)
+  const NICE = [50, 100, 200, 250, 500, 1000, 2000, 2500, 5000, 10000, 20000, 25000, 50000]
+  const maxM = (260 * k) * mPerPx
+  const L = [...NICE].reverse().find(n => n <= maxM) ?? NICE[0]
+  const len = L / mPerPx
+  const fmt = (m: number) => m >= 1000 ? `${String(m / 1000).replace('.', ',')}` : `${m}`
+  const unit = L >= 1000 ? 'km' : 'm'
+  const right = cw - Math.round(56 * k), y = ch - Math.round(44 * k), x0 = right - len
+  ctx.save()
+  ctx.strokeStyle = '#fff'; ctx.fillStyle = '#fff'
+  ctx.shadowColor = 'rgba(0,0,0,0.7)'; ctx.shadowBlur = 6 * k
+  ctx.lineWidth = 3 * k; ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(x0, y); ctx.lineTo(right, y)
+  for (const t of [0, 0.5, 1]) { ctx.moveTo(x0 + len * t, y - 9 * k); ctx.lineTo(x0 + len * t, y + 9 * k) }
+  ctx.stroke()
+  ctx.font = `600 ${Math.round(24 * k)}px "Segoe UI", system-ui, sans-serif`
+  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'center'
+  ctx.fillText('0', x0, y - 18 * k)
+  ctx.fillText(fmt(L / 2), x0 + len / 2, y - 18 * k)
+  ctx.fillText(`${fmt(L)} ${unit}`, right, y - 18 * k)
+  // Flèche du nord : « N » au-dessus d'une pointe de flèche, moitié pleine, moitié en contour.
+  const ax = right, aTop = y - 112 * k, aBot = y - 58 * k, half = 15 * k
+  ctx.font = `700 ${Math.round(28 * k)}px "Segoe UI", system-ui, sans-serif`
+  ctx.fillText('N', ax, aTop - 8 * k)
+  ctx.lineWidth = 2.5 * k; ctx.lineJoin = 'round'
+  ctx.beginPath(); ctx.moveTo(ax, aTop); ctx.lineTo(ax + half, aBot); ctx.lineTo(ax, aBot - 12 * k); ctx.closePath(); ctx.fill()
+  ctx.beginPath(); ctx.moveTo(ax, aTop); ctx.lineTo(ax - half, aBot); ctx.lineTo(ax, aBot - 12 * k); ctx.closePath(); ctx.stroke()
+  ctx.restore()
+}
+
 export function drawMapCredit(ctx: CanvasRenderingContext2D, cw: number, ch: number) {
   ctx.save()
   ctx.textAlign = 'left'
@@ -1754,6 +1788,12 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     streetCaption.draw(ctx, OUT_W / 2)
     // Cartouche d'épreuve : en fondu au départ de la course, tenu jusqu'à l'arrivée.
     if (opts.eventCartouche) drawEventCartouche(ctx, OUT_W, OUT_H, opts.eventCartouche, Math.min(1, f / (0.8 * fps)))
+    // Échelle et nord (bas droite) : mètres par pixel mesurés sur la projection de l'image.
+    {
+      const a = project(camLng, camLat), b = project(camLng + 0.01, camLat)
+      const px = Math.hypot(b.x - a.x, b.y - a.y)
+      drawScaleNorth(ctx, OUT_W, OUT_H, px > 0 ? (0.01 * 111320 * Math.cos((camLat * Math.PI) / 180)) / px : 0)
+    }
 
     // 3. Panneaux localités
     // Évite la collision visuelle avec le randonneur : un panneau de lieu-dit qui se déclenche

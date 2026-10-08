@@ -4808,3 +4808,5 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .film-overlay-preview { position: absolute; inset: 0; z-index: 850; pointer-events: none; }
 /* Zoom et échelle remontés : le bas gauche est au cartouche d'épreuve, comme dans le film. */
 .viewer__map-wrap .maplibregl-ctrl-bottom-left { bottom: 30%; }
+/* Échelle de MapLibre masquée : l'aperçu dessine celle des films (drawScaleNorth). */
+.viewer__map-wrap .maplibregl-ctrl-scale { display: none; }
