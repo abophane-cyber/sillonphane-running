@@ -59,7 +59,7 @@ export function buildOpeningEvent(o: {
 /** Point du parcours à l'écran ; `f` = part du parcours, à la DISTANCE cumulée (0 départ, 1 arrivée) ; `ok` faux =
  * hors champ (derrière la caméra). */
 export interface OpeningPt { x: number; y: number; f: number; ok?: boolean }
-/** Lieu connu (point d'intérêt) à l'écran. */
+/** Lieu à l'écran : point d'intérêt (`type` 'poi' ou absent) ou quartier / commune (`type` 'district'). */
 export interface OpeningPoi { x: number; y: number; name: string; type?: string; ok?: boolean }
 /** Ce que chaque film calcule avec sa caméra, image par image : parcours et lieux à l'écran. */
 export interface OpeningFrame { ribbon: OpeningPt[]; pois: OpeningPoi[] }
@@ -74,7 +74,7 @@ const CREAM: [number, number, number] = [0xf6, 0xef, 0xe2]
  * jusqu'à `orangeTo`, puis orange → crème jusqu'à l'arrivée. Une seule fois sur tout le parcours. */
 export const RIBBON_STOPS = { orangeFrom: 0.45, orangeTo: 0.7 }
 /** Ruban : largeur du trait, largeur et opacité du léger halo (en px pour une image de 1080 px de haut). */
-export const RIBBON_STYLE = { width: 7, glowWidth: 13, glowBlur: 5, glowAlpha: 0.35 }
+export const RIBBON_STYLE = { width: 13, glowWidth: 22, glowBlur: 6, glowAlpha: 0.38 }
 
 /** Durées de l'ouverture (s) : la carte apparaît avec le ruban déjà en place, le titre entre d'un seul fondu, plan
  * tenu (lent rapprochement), puis passage à la première scène (« plongée ») ; titre, lieux et ruban s'effacent. */
@@ -147,52 +147,34 @@ export function loadOpeningFont(): Promise<void> {
 
 // ─── Carte : étalonnage ──────────────────────────────────────────────────────
 
+/** Crème du voile de gauche et de l'apparition. */
+const PAPER = '247,241,231'
+
 /**
- * Étalonnage de la carte : contraste un peu renforcé, lumière douce et chaude de matin depuis le haut à droite, brume
- * de profondeur vers l'horizon, gauche assombrie pour le titre (sans noircir la carte). Couleurs naturelles. Voile de
- * levée du tout début. Tout s'atténue pendant le passage à la première scène.
+ * Étalonnage par-dessus la carte claire (déjà éclaircie par openingMap.ts) : léger voile crème sur toute l'image,
+ * voile crème plus dense à gauche (zone du titre, la carte s'y efface en douceur). Apparition depuis le crème au tout
+ * début. Tout s'atténue pendant le passage à la première scène.
  */
 export function drawOpeningMapGrade(ctx: CanvasRenderingContext2D, w: number, h: number, t: number): void {
   const strength = 1 - openingDiveK(t)
   if (strength > 0) {
     ctx.save()
-    ctx.globalCompositeOperation = 'soft-light'
-    ctx.globalAlpha = 0.4 * strength
-    ctx.drawImage(ctx.canvas, 0, 0, w, h)
-    ctx.globalCompositeOperation = 'soft-light'
-    ctx.globalAlpha = 0.22 * strength
-    ctx.fillStyle = '#ffd9a8'
-    ctx.fillRect(0, 0, w, h)
-    ctx.globalCompositeOperation = 'screen'
     ctx.globalAlpha = strength
-    const sun = ctx.createRadialGradient(w * 0.97, 0, 0, w * 0.97, 0, w * 0.6)
-    sun.addColorStop(0, 'rgba(255,222,175,0.22)')
-    sun.addColorStop(1, 'rgba(255,215,165,0)')
-    ctx.fillStyle = sun
+    ctx.fillStyle = `rgba(${PAPER},0.16)`
     ctx.fillRect(0, 0, w, h)
-    const haze = ctx.createLinearGradient(0, 0, 0, h * 0.42)
-    haze.addColorStop(0, 'rgba(190,205,220,0.14)')
-    haze.addColorStop(1, 'rgba(190,205,220,0)')
-    ctx.fillStyle = haze
-    ctx.fillRect(0, 0, w, h * 0.42)
-    ctx.globalCompositeOperation = 'source-over'
     const left = ctx.createLinearGradient(0, 0, w * 0.6, 0)
-    left.addColorStop(0, 'rgba(6,9,14,0.74)')
-    left.addColorStop(0.45, 'rgba(6,9,14,0.46)')
-    left.addColorStop(1, 'rgba(6,9,14,0)')
+    left.addColorStop(0, `rgba(${PAPER},0.94)`)
+    left.addColorStop(0.42, `rgba(${PAPER},0.8)`)
+    left.addColorStop(0.75, `rgba(${PAPER},0.3)`)
+    left.addColorStop(1, `rgba(${PAPER},0)`)
     ctx.fillStyle = left
-    ctx.fillRect(0, 0, w, h)
-    const vert = ctx.createLinearGradient(0, 0, 0, h)
-    vert.addColorStop(0.82, 'rgba(6,9,14,0)')
-    vert.addColorStop(1, 'rgba(6,9,14,0.35)')
-    ctx.fillStyle = vert
     ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
   const veil = 1 - smooth(t / OPENING.mapInS)
   if (veil > 0) {
     ctx.save()
-    ctx.fillStyle = `rgba(6,9,14,${veil})`
+    ctx.fillStyle = `rgba(${PAPER},${veil})`
     ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
@@ -229,8 +211,8 @@ export function ribbonColorAtDistance(f: number): string {
 
 let glowCanvas: HTMLCanvasElement | null = null
 
-/** Ruban du parcours, FIXE, posé sur la carte : dégradé à la distance parcourue, liseré sombre, très léger halo pour
- * la lisibilité (pas de néon : la carte reste visible autour). */
+/** Ruban du parcours, FIXE, posé sur la carte : dégradé à la distance parcourue, halo doux de sa couleur (lisible sur
+ * la carte claire, sans l'effacer), liseré fin orangé qui détache la partie crème du fond clair. */
 export function drawRouteRibbon(ctx: CanvasRenderingContext2D, w: number, h: number, path: OpeningPt[], alpha: number): void {
   if (alpha <= 0 || path.length < 2) return
   const k = h / 1080
@@ -271,22 +253,19 @@ export function drawRouteRibbon(ctx: CanvasRenderingContext2D, w: number, h: num
 
   ctx.save()
   ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-  ctx.globalAlpha = alpha
-  ctx.strokeStyle = 'rgba(8,12,10,0.45)'
-  strokePlain((RIBBON_STYLE.width + 4) * k)
-  ctx.globalCompositeOperation = 'screen'
   ctx.globalAlpha = alpha * RIBBON_STYLE.glowAlpha
   ctx.drawImage(glowCanvas, 0, 0, w, h)
-  ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = alpha
+  ctx.strokeStyle = 'rgba(200,110,40,0.55)'
+  strokePlain((RIBBON_STYLE.width + 3) * k)
   strokeRibbon(ctx, RIBBON_STYLE.width * k)
-  ctx.globalAlpha = alpha * 0.3
+  ctx.globalAlpha = alpha * 0.35
   ctx.strokeStyle = '#fffaf0'
-  strokePlain(1.6 * k)
+  strokePlain(2 * k)
   ctx.restore()
 }
 
-// ─── Lieux connus ────────────────────────────────────────────────────────────
+// ─── Lieux ───────────────────────────────────────────────────────────────────
 
 /** Coupe un nom en deux lignes équilibrées au-delà de 14 caractères (« Citadelle / de Lille »). */
 function poiLines(name: string): string[] {
@@ -301,34 +280,54 @@ function poiLines(name: string): string[] {
   return best
 }
 
-/** Lieux connus : point blanc cerclé, tige, nom blanc au-dessus (étiquette flottante). Au plus 5 ; hors champ et zone
- * du titre écartés. Pas de noms de rues sur l'ouverture. */
+/**
+ * Lieux sur la carte. Points d'intérêt (`type` 'poi' ou absent, au plus 5) : rond blanc cerclé de noir, étiquette
+ * blanche à texte noir posée au-dessus (relevée si elle chevauche une autre). Quartiers et communes (`type`
+ * 'district', au plus 6) : capitales grises espacées, sans repère. Hors champ et zone du titre écartés. Pas de noms de
+ * rues sur l'ouverture.
+ */
 export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: number, pois: OpeningPoi[], alpha: number): void {
   if (alpha <= 0 || !pois.length) return
   const k = h / 1080
-  const shown = pois.filter(p => p.ok !== false && p.x > w * 0.42 && p.x < w - 80 * k && p.y > 120 * k && p.y < h - 60 * k).slice(0, 5)
+  const inView = (p: OpeningPoi) => p.ok !== false && p.x > w * 0.45 && p.x < w - 90 * k && p.y > 70 * k && p.y < h - 50 * k
   ctx.save()
   ctx.globalAlpha = alpha
   ctx.textAlign = 'center'
-  ctx.textBaseline = 'alphabetic'
-  const size = Math.round(22 * k)
+  // Quartiers.
+  ctx.font = `600 ${Math.round(21 * k)}px ${FONT}`
+  ctx.letterSpacing = `${4 * k}px`
+  ctx.fillStyle = 'rgba(70,72,76,0.72)'
+  ctx.textBaseline = 'middle'
+  for (const p of pois.filter(q => q.type === 'district' && inView(q)).slice(0, 6)) ctx.fillText(p.name.toLocaleUpperCase('fr-FR'), p.x, p.y)
+  ctx.letterSpacing = '0px'
+  // Points d'intérêt.
+  const size = Math.round(21 * k)
   ctx.font = `600 ${size}px ${FONT}`
-  for (const p of shown) {
-    const stem = 30 * k
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
-    ctx.lineWidth = 1.5 * k
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - stem); ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath(); ctx.arc(p.x, p.y, 5.5 * k, 0, Math.PI * 2); ctx.fill()
-    ctx.strokeStyle = 'rgba(10,14,18,0.7)'
-    ctx.lineWidth = 2 * k
-    ctx.stroke()
+  ctx.textBaseline = 'alphabetic'
+  const placed: { x0: number; x1: number; y0: number; y1: number }[] = []
+  for (const p of pois.filter(q => q.type !== 'district' && inView(q)).slice(0, 5)) {
     const lines = poiLines(p.name)
-    ctx.shadowColor = 'rgba(0,0,0,0.85)'
-    ctx.shadowBlur = 8 * k
+    const padX = 9 * k, padY = 6 * k, lineH = size * 1.12
+    const bw = Math.max(...lines.map(l => ctx.measureText(l).width)) + padX * 2, bh = lines.length * lineH + padY * 2
+    let stem = 26 * k
+    const rectAt = (s: number) => ({ x0: p.x - bw / 2, x1: p.x + bw / 2, y1: p.y - s, y0: p.y - s - bh })
+    const hits = (r: ReturnType<typeof rectAt>) => placed.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0)
+    for (let i = 0; i < 4 && hits(rectAt(stem)); i++) stem += bh + 6 * k
+    const r = rectAt(stem)
+    placed.push(r)
+    ctx.strokeStyle = 'rgba(25,25,28,0.8)'
+    ctx.lineWidth = 1.5 * k
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, r.y1); ctx.stroke()
+    ctx.shadowColor = 'rgba(0,0,0,0.22)'; ctx.shadowBlur = 8 * k; ctx.shadowOffsetY = 2 * k
     ctx.fillStyle = '#ffffff'
-    lines.forEach((l, i) => ctx.fillText(l, p.x, p.y - stem - 8 * k - (lines.length - 1 - i) * size * 1.15))
-    ctx.shadowColor = 'transparent'
+    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 3 * k); ctx.fill()
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+    ctx.fillStyle = '#16171a'
+    lines.forEach((l, i) => ctx.fillText(l, p.x, r.y0 + padY + lineH * (i + 1) - size * 0.22))
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath(); ctx.arc(p.x, p.y, 7 * k, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = '#16171a'; ctx.lineWidth = 2.5 * k
+    ctx.stroke()
   }
   ctx.restore()
 }
@@ -336,18 +335,19 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
 // ─── Titre, chiffres, logo ───────────────────────────────────────────────────
 
 /** Marge gauche du bloc titre et largeur maximale du titre. */
-const titleX = (h: number) => Math.round(96 * (h / 1080))
-const titleMaxW = (w: number) => w * 0.4
+const titleX = (h: number) => Math.round(84 * (h / 1080))
+const titleMaxW = (w: number) => w * 0.42
+const INK = '#111214'
 
 /** Filet au dégradé signature (vert → orange, fondu au bout). */
 function drawSignatureLine(ctx: CanvasRenderingContext2D, x: number, y: number, wd: number, hgt: number) {
   const g = ctx.createLinearGradient(x, 0, x + wd, 0)
-  g.addColorStop(0, rgb(GREEN)); g.addColorStop(0.6, rgb(ORANGE)); g.addColorStop(1, 'rgba(224,127,60,0)')
+  g.addColorStop(0, rgb(GREEN)); g.addColorStop(0.35, '#e9a23b'); g.addColorStop(0.7, rgb(ORANGE)); g.addColorStop(1, 'rgba(224,127,60,0)')
   ctx.fillStyle = g
   ctx.fillRect(x, y, wd, hgt)
 }
 
-/** Date, nom de la course, ville et année (orange doré, même hauteur que la ville), filets. Renvoie le bas du bloc. */
+/** Date, nom de la course, ville et année (orange, même hauteur que la ville), filets. Renvoie le bas du bloc. */
 export function drawEventTitle(ctx: CanvasRenderingContext2D, w: number, h: number, ev: OpeningEvent): number {
   const k = h / 1080
   const x = titleX(h), maxW = titleMaxW(w)
@@ -356,50 +356,46 @@ export function drawEventTitle(ctx: CanvasRenderingContext2D, w: number, h: numb
   ctx.textBaseline = 'alphabetic'
   // Taille commune aux deux lignes, réduite pour tenir dans maxW.
   const cityLine = ev.year ? `${ev.city} ${ev.year}` : ev.city
-  let size = 124 * k
+  let size = 150 * k
   const fits = () => {
     ctx.font = `800 ${size}px ${FONT}`
-    ctx.letterSpacing = `${-2 * k}px`
+    ctx.letterSpacing = `${-3 * k}px`
     return Math.max(ctx.measureText(cityLine).width, ev.title ? ctx.measureText(ev.title).width : 0) <= maxW
   }
   while (!fits() && size > 56 * k) size -= 3 * k
 
-  let y = Math.round(h * 0.14)
+  let y = Math.round(h * 0.12)
   if (ev.date) {
-    ctx.letterSpacing = `${9 * k}px`
-    ctx.fillStyle = 'rgba(235,238,242,0.88)'
-    ctx.font = `500 ${Math.round(27 * k)}px ${FONT}`
+    ctx.letterSpacing = `${11 * k}px`
+    ctx.fillStyle = INK
+    ctx.font = `500 ${Math.round(28 * k)}px ${FONT}`
     ctx.fillText(ev.date, x, y)
   }
-  y += 22 * k
-  drawSignatureLine(ctx, x, y, 150 * k, 3 * k)
-  y += 22 * k
+  y += 26 * k
+  drawSignatureLine(ctx, x, y, 170 * k, 4 * k)
+  y += 26 * k
 
   ctx.font = `800 ${size}px ${FONT}`
-  ctx.letterSpacing = `${-2 * k}px`
-  ctx.shadowColor = 'rgba(0,0,0,0.45)'
-  ctx.shadowBlur = 22 * k
-  ctx.fillStyle = '#ffffff'
+  ctx.letterSpacing = `${-3 * k}px`
+  ctx.fillStyle = INK
   if (ev.title) {
-    y += size * 0.86
+    y += size * 0.84
     ctx.fillText(ev.title, x, y)
     y += size * 0.12
   }
-  y += size * 0.86
+  y += size * 0.84
   const cityW = ctx.measureText(`${ev.city} `).width
   ctx.fillText(`${ev.city} `, x, y)
   if (ev.year) {
     const g = ctx.createLinearGradient(0, y - size * 0.72, 0, y)
-    g.addColorStop(0, '#ffcf5a'); g.addColorStop(1, '#f07a2a')
+    g.addColorStop(0, '#f39a1e'); g.addColorStop(1, '#e8481c')
     ctx.fillStyle = g
-    ctx.shadowColor = 'rgba(255,150,50,0.4)'
-    ctx.shadowBlur = 22 * k
     ctx.fillText(ev.year, x + cityW, y)
   }
   ctx.restore()
-  y += 34 * k
-  drawSignatureLine(ctx, x, y, Math.min(maxW, 440 * k), 3 * k)
-  return y + 3 * k
+  y += 36 * k
+  drawSignatureLine(ctx, x, y, Math.min(maxW, 520 * k), 4 * k)
+  return y + 4 * k
 }
 
 /** Pictogramme coureur, dans un carré de `s` px centré en (cx, cy). */
@@ -431,29 +427,19 @@ function drawMountainIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number,
   ctx.beginPath(); ctx.moveTo(7, 10.5); ctx.lineTo(9, 12); ctx.lineTo(11, 10.5); ctx.stroke()
   ctx.restore()
 }
-/** Badge arrondi (icône + texte) ; renvoie sa largeur. */
+/** Badge arrondi (icône + texte blanc) ; renvoie sa largeur. */
 function drawBadge(
   ctx: CanvasRenderingContext2D, x: number, y: number, hgt: number, text: string,
-  icon: (c: CanvasRenderingContext2D, cx: number, cy: number, s: number) => void, accent: boolean,
+  icon: (c: CanvasRenderingContext2D, cx: number, cy: number, s: number) => void, fill: string,
 ): number {
-  const k = hgt / 56
-  ctx.font = `600 ${Math.round(25 * k)}px ${FONT}`
-  const iconS = 26 * k, padX = 20 * k, gap = 12 * k
+  const k = hgt / 60
+  ctx.font = `600 ${Math.round(27 * k)}px ${FONT}`
+  const iconS = 30 * k, padX = 24 * k, gap = 16 * k
   const wd = padX + iconS + gap + ctx.measureText(text).width + padX
   ctx.beginPath()
   ctx.roundRect(x, y, wd, hgt, hgt / 2)
-  if (accent) {
-    const g = ctx.createLinearGradient(x, 0, x + wd, 0)
-    g.addColorStop(0, '#d9262c'); g.addColorStop(1, '#e8492c')
-    ctx.fillStyle = g
-    ctx.fill()
-  } else {
-    ctx.fillStyle = 'rgba(14,18,24,0.55)'
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(255,255,255,0.45)'
-    ctx.lineWidth = 1.5 * k
-    ctx.stroke()
-  }
+  ctx.fillStyle = fill
+  ctx.fill()
   icon(ctx, x + padX + iconS / 2, y + hgt / 2, iconS)
   ctx.fillStyle = '#ffffff'
   ctx.textBaseline = 'middle'
@@ -462,12 +448,12 @@ function drawBadge(
   return wd
 }
 
-/** Badges distance (accent rouge orangé) et D+ (sombre, contour discret), à partir de `y`. Renvoie leur bas. */
+/** Badges distance (rouge orangé) et D+ (anthracite), à partir de `y`. Renvoie leur bas. */
 export function drawEventStats(ctx: CanvasRenderingContext2D, h: number, ev: OpeningEvent, y: number): number {
-  const k = h / 1080, x = titleX(h), bh = 56 * k
+  const k = h / 1080, x = titleX(h), bh = 60 * k
   ctx.save()
-  const bw = drawBadge(ctx, x, y, bh, ev.distance, drawRunnerIcon, true)
-  drawBadge(ctx, x + bw + 16 * k, y, bh, ev.elevation, drawMountainIcon, false)
+  const bw = drawBadge(ctx, x, y, bh, ev.distance, drawRunnerIcon, '#e8392b')
+  drawBadge(ctx, x + bw + 16 * k, y, bh, ev.elevation, drawMountainIcon, '#2a2d30')
   ctx.restore()
   return y + bh
 }
@@ -476,39 +462,42 @@ export function drawEventStats(ctx: CanvasRenderingContext2D, h: number, ev: Ope
 const LOGO_D = 'M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60'
 let logoPath: Path2D | null = null
 
-/** Logo Sillonphane (identique pour toutes les épreuves) et adresse du site, à partir de `y`. */
+/** Logo Sillonphane (identique pour toutes les épreuves) et adresse du site, à partir de `y`. Sur le fond clair, une
+ * ombre douce détache la partie crème du logo. */
 export function drawBranding(ctx: CanvasRenderingContext2D, h: number, y: number): void {
-  const k = h / 1080, x = titleX(h), size = 112 * k
+  const k = h / 1080, x = titleX(h), size = 140 * k
   if (!logoPath) logoPath = new Path2D(LOGO_D)
   // Le tracé (trait de 29 compris) occupe x 107..249, y 45..247 du repère 320 : on le cadre sur ce rectangle.
   const s = size / 202
   ctx.save()
   ctx.save()
-  ctx.translate(x + 6 * k - 107 * s, y - 45 * s)
+  ctx.translate(x + 8 * k - 107 * s, y - 45 * s)
   ctx.scale(s, s)
+  ctx.shadowColor = 'rgba(60,40,20,0.35)'
+  ctx.shadowBlur = 10
   const grad = ctx.createLinearGradient(0, 232, 0, 60)
   grad.addColorStop(0, '#2F5C45'); grad.addColorStop(0.5, '#D97A3D'); grad.addColorStop(1, '#F4EDE0')
   ctx.strokeStyle = grad
   ctx.lineWidth = 29
   ctx.lineCap = 'round'
   ctx.stroke(logoPath)
+  ctx.shadowColor = 'transparent'
   ctx.fillStyle = '#2F5C45'; ctx.strokeStyle = '#F4EDE0'; ctx.lineWidth = 3
   ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
-  ctx.fillStyle = '#F4EDE0'
-  ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#F4EDE0'; ctx.strokeStyle = '#2F5C45'
+  ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
   ctx.restore()
-  ctx.globalAlpha *= 0.85
-  ctx.fillStyle = '#e8eaee'
+  ctx.fillStyle = INK
   ctx.textAlign = 'left'
-  ctx.font = `500 ${Math.round(25 * k)}px ${FONT}`
-  ctx.fillText('sillonphane.fr/running', x, y + size + 44 * k)
+  ctx.font = `500 ${Math.round(28 * k)}px ${FONT}`
+  ctx.fillText('sillonphane.fr/running', x, y + size + 48 * k)
   ctx.restore()
 }
 
 // ─── Scène ───────────────────────────────────────────────────────────────────
 
-/** Page d'ouverture complète, par-dessus l'image de la carte déjà dessinée : étalonnage, ruban fixe, lieux connus,
- * titre, chiffres, logo. `t` : temps de l'ouverture (s). */
+/** Page d'ouverture complète, par-dessus l'image de la carte déjà dessinée : étalonnage, ruban fixe, lieux, titre,
+ * chiffres, logo. `t` : temps de l'ouverture (s). */
 export function drawOpeningScene(
   ctx: CanvasRenderingContext2D, w: number, h: number, t: number, ev: OpeningEvent, frame: OpeningFrame,
 ): void {
@@ -522,6 +511,6 @@ export function drawOpeningScene(
   ctx.globalAlpha = a
   const k = h / 1080
   const y = drawEventStats(ctx, h, ev, drawEventTitle(ctx, w, h, ev) + 30 * k)
-  drawBranding(ctx, h, y + 58 * k)
+  drawBranding(ctx, h, y + 56 * k)
   ctx.restore()
 }
