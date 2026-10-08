@@ -1552,10 +1552,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       openingPoiRel.push({ x: q.x - pS.x, y: q.y - pS.y, name: ev.name })
     }
   }
-  // Cadrage de l'ouverture : plan d'ensemble qui se rapproche à peine (OPENING_PUSH niveau de zoom), puis plongée
+  // Cadrage de l'ouverture : plan d'ensemble (OPENING_PUSH : rapprochement pendant le titre, nul), puis plongée
   // vers le plan du départ, zoom en échelle log et écart du départ au centre de l'image interpolé (la caméra fond sur
   // le départ sans dériver).
-  const OPENING_PUSH = 0.1
+  const OPENING_PUSH = 0 // plan d'ensemble fixe pendant le titre (un lent rapprochement donnait deux zooms successifs)
   const zHold = ovZoom + OPENING_PUSH, kHold = Math.pow(2, OPENING_PUSH)
   type OpeningView = { z: number; ox: number; oy: number }
   const openingView = (t: number): OpeningView => {

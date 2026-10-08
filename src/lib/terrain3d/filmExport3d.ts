@@ -49,7 +49,7 @@ import type { StreetSpan } from '../streetCaption'
 import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
-import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
+import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
 
 /** Adresse du site, signée en fin de film (comme le film 2D). */
 const SITE_ADDRESS = 'sillonphane.fr/running'
@@ -1757,10 +1757,10 @@ async function exportFilm3dImpl(
       targetLookAt.set(trailPts[0].x, trailPts[0].y + LOOK_RAISE, trailPts[0].z)
       avoidTerrain(targetCamPos, targetLookAt)
       if (elapsed < PHASE0_END) {
-        // Ouverture : plan d'ensemble qui se rapproche à peine (×1,07 → 1), puis plongée vers la pose du départ :
+        // Ouverture : plan d'ensemble fixe, puis plongée vers la pose du départ :
         // visée et direction interpolées, distance en échelle log (comme la montée vers la vue d'ensemble).
         const e = openingDiveK(elapsed)
-        const dA = introD * (1 + 0.07 * (1 - Math.min(1, elapsed / OPENING.diveFromS)))
+        const dA = introD // plan d'ensemble fixe pendant le titre (un lent rapprochement donnait deux zooms successifs)
         _startDir.subVectors(targetCamPos, targetLookAt)
         const dStart = Math.max(1, _startDir.length()); _startDir.normalize()
         _diveLook.lerpVectors(ovCenter, targetLookAt, e)
