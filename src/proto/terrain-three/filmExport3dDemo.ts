@@ -3,6 +3,7 @@
 
 import { exportFilm3d } from '../../lib/terrain3d/filmExport3d'
 import { parseEventName } from '../../lib/raceSplits'
+import { parseGpx } from '../../lib/gpx'
 
 const TRAIL: [number, number][] = [ // Sotteville-Veules — 117 pts, 7.8 km, BOUCLE, côte normande
   [0.82973, 49.88728], [0.82754, 49.88673], [0.82567, 49.88601], [0.82393, 49.88525],
@@ -84,10 +85,14 @@ goBtn.addEventListener('click', async () => {
     // Épreuve tirée du nom du GPX (localité : le mot qui précède l'année, à défaut du lieu de départ connu de l'appli).
     const trkName = xml.match(/<name>([^<]*)<\/name>/)?.[1]
     const ev = parseEventName(trkName, trkName?.match(/(\p{Lu}[\p{L}-]+)\s+\d{4}/u)?.[1])
+    // Distance et D+ mesurés sur le GPX, comme l'appli (useFilm3dExport) ; sinon le film les recalcule sur son tracé
+    // 3D lissé (virages coupés : 20,5 km au lieu de 21,2 sur le semi de Lille) et sur le relief.
+    const gpxTrack = file ? parseGpx(xml).tracks[0] : undefined
     // Même durée demandée que l'app (useFilm3dExport : niveau 1, facteur 1,6).
     const durationS = Math.min(45, Math.max(10, trailKm(trail) * 2)) * 1.6
     const blob = await exportFilm3d({
       trail,
+      ...(gpxTrack ? { trackDistanceM: gpxTrack.distance, elevGainM: gpxTrack.elevGain } : {}),
       trailDate: file ? '17 septembre 2026' : '10 août 2026',
       ...(ev.title && ev.place ? { eventCartouche: { title: ev.title, place: ev.place } } : {}),
       departureName: file ? 'Départ' : 'Sotteville-sur-Mer',
