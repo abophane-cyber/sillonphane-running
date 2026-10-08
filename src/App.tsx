@@ -33,7 +33,7 @@ import {
   computeBornes, computeRavitos, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
-import { useAnimationSettings, ZOOMS, animSpeed } from './hooks/useAnimationSettings'
+import { useAnimationSettings, ANIM_ZOOM, animSpeed } from './hooks/useAnimationSettings'
 import { useGpxSession } from './hooks/useGpxSession'
 import { hasActiveRecording } from './hooks/useGpsRecorder'
 import { useLocalityPanels, type PendingPanelRestore } from './hooks/useLocalityPanels'
@@ -208,7 +208,7 @@ export default function App() {
   })
 
   const {
-    activityMode, speedLevel, lookahead, setLookahead,
+    activityMode, lookahead, setLookahead,
     targetZoom, setTargetZoom, zoomResetSeq, setZoomResetSeq,
     handleModeChange,
   } = useAnimationSettings(activeTrack, setSpeed)
@@ -243,7 +243,7 @@ export default function App() {
   useFilm3dPrefetch(activeTrack, points, view === 'animate' && film3dIntentTrack !== null && film3dIntentTrack === activeTrack)
   // Film 2D : ses tuiles propres (cadre d'export, dézoom final, plans serrés) sont peu nombreuses -> préchargées dès
   // l'ouverture de l'animation, sans attendre d'intention (délai de départ : voir useFilm2dPrefetch.ts).
-  useFilm2dPrefetch(activeTrack, points, ZOOMS[speedLevel - 1], characters.length > 0 && !ribbonOnly, view === 'animate')
+  useFilm2dPrefetch(activeTrack, points, characters.length > 0 && !ribbonOnly, view === 'animate')
   const panels = useLocalityPanels(activeTrack, points, distances, activityMode, lookahead, view === 'animate', state.currentPoint, pendingPanelRestoreRef)
   const {
     previewLocalities, customLocalities, setCustomLocalities,
@@ -358,8 +358,8 @@ export default function App() {
     reset()
     // Vitesse initiale selon le mode et la distance
     const distKm = (parsed.tracks[0]?.distance ?? 0) / 1000
-    setTargetZoom(ZOOMS[0])
-    setSpeed(animSpeed(activityMode, 1, distKm))
+    setTargetZoom(ANIM_ZOOM)
+    setSpeed(animSpeed(activityMode, distKm))
     // Auto-remplir date et heures depuis les timestamps GPX
     // (à la réouverture d'un sillon, les valeurs enregistrées avec le tracé priment).
     const start = parsed.tracks[0]?.startTime
@@ -427,7 +427,7 @@ export default function App() {
     customTitle, manualDate, departureTime, arrivalTime])
 
   const { countdown, waitingMap, mapIdleRef, handleMapIdle, handlePlay, handlePause, handleReset, handleRestart } = usePlaybackCountdown(
-    state, play, pause, reset, speedLevel, ZOOMS, setTargetZoom, () => setZoomResetSeq(s => s + 1),
+    state, play, pause, reset, setTargetZoom, () => setZoomResetSeq(s => s + 1),
     bumpZoomToStart, setHasPlayedPreview, () => setView('title'),
     startDelayMsRef,
   )
@@ -476,7 +476,6 @@ export default function App() {
       streets: race.streets,
       endCard,
       trackName: customTitle || activeTrack.name,
-      speedLevel,
       activeSillonId,
       activeSillonTrackId,
       // Lire l'aperçu n'est pas nécessaire : le film prépare ses propres données.
@@ -512,7 +511,6 @@ export default function App() {
       ravitos,
       endCard,
       trackName: customTitle || activeTrack.name,
-      speedLevel,
       activeSillonId,
       activeSillonTrackId,
       hasPlayedPreview: true,
@@ -723,7 +721,7 @@ export default function App() {
         {view === 'how' && (
           <HowItWorks
             onStart={() => {
-              handleModeChange('randonneur', 1)
+              handleModeChange('randonneur')
               setView(canRecordGps() ? 'choice' : 'upload')
             }}
             onBack={() => { window.location.href = '/' }}
@@ -850,7 +848,6 @@ export default function App() {
             onToggleCharacter={handleToggleCharacter}
             ribbonOnly={ribbonOnly}
             onToggleRibbon={handleToggleRibbon}
-            speedLevel={speedLevel}
             locality={locality}
             colMarkers={colMarkers}
             panels={panels}

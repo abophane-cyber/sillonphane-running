@@ -67,7 +67,6 @@ export interface FilmExportOptions {
   /** Distance annoncée de l'épreuve (m, celle du carton final : 21,1 km pour un semi) : fin du compteur et écran-titre ;
    * absent = distance mesurée sur le tracé. */
   shownDistanceM?:   number
-  speedLevel?:       1 | 2 // niveau de vitesse de l'aperçu (×1 / ×2)
   trackName:         string
   durationS:         number // Défaut: 30s (correspond à la Preview)
   zoom:              number
@@ -971,7 +970,7 @@ function buildFilm2dTileUrls(
 /**
  * Précharge (best-effort) les tuiles du film 2D dès l'ouverture de l'animation (useFilm2dPrefetch.ts) : la phase
  * de préchargement du film retrouve ensuite tout en cache. Concurrence basse (2) pour ne pas gêner la carte de
- * l'aperçu. `zoomRaw` : zoom de lecture choisi (ZOOMS[vitesse]), comme `opts.zoom` d'exportFilm.
+ * l'aperçu. `zoomRaw` : zoom de lecture (ANIM_ZOOM), comme `opts.zoom` d'exportFilm.
  */
 export function prefetchFilm2dTiles(points: GpxPoint[], zoomRaw: number, withCharacters: boolean, signal: AbortSignal): Promise<void> {
   if (points.length < 2) return Promise.resolve()

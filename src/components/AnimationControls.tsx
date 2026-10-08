@@ -28,10 +28,7 @@ interface Props {
   totalElevGain: number
   weather?: WeatherInfo | null
   activityMode?: ActivityMode
-  speedLevel?: 1 | 2
-  speedLabels?: [string, string]
-  onModeChange?: (mode: ActivityMode, level?: 1 | 2) => void
-  onSpeedLevel?: (level: 1 | 2) => void
+  onModeChange?: (mode: ActivityMode) => void
   lookahead?: number
   onLookahead?: (v: number) => void
   characters?: CharacterId[]
@@ -78,7 +75,7 @@ interface Props {
 
 export function AnimationControls({
   state, totalDistance, totalElevGain: _teg, weather: _weather,
-  activityMode, speedLevel, speedLabels = ['×1', '×2'], onModeChange, onSpeedLevel,
+  activityMode, onModeChange,
   onPlay, onPause, onReset: _onReset, onRestart, onSeek, onAddPanel,
   lookahead: _lookahead, onLookahead: _onLookahead,
   onRecord, recState = 'idle', lastFilmUrl,
@@ -158,13 +155,8 @@ export function AnimationControls({
       setExpanded(null)
     } else {
       setExpanded(mode)
-      if (activityMode !== mode) onModeChange?.(mode, 1)
+      if (activityMode !== mode) onModeChange?.(mode)
     }
-  }
-
-  function handleSpeedClick(level: 1 | 2) {
-    onSpeedLevel?.(level)
-    setExpanded(null)
   }
 
   const pct = Math.round(state.progress * 100)
@@ -221,7 +213,7 @@ export function AnimationControls({
           Film · Créer mon album ── */}
       <div className="controls__buttons">
 
-          {/* Section Navigation : Retour / Aperçu / Vitesse regroupés dans un même encadré */}
+          {/* Section Navigation : Retour / Aperçu regroupés dans un même encadré */}
           <div className={`controls__section controls__section--nav`}>
             <div className="controls__subgroup">
               <span className="controls__group-label">Retour</span>
@@ -253,24 +245,6 @@ export function AnimationControls({
               }
             </div>
 
-            {onSpeedLevel && (
-              <>
-                <div className="controls__divider" />
-                <div className="controls__subgroup">
-                  <span className="controls__group-label">Vitesse</span>
-                  <div className="controls__speed-btns">
-                    <button
-                      className={`ctrl-btn ctrl-btn--speed${speedLevel === 1 ? ' active' : ''}`}
-                      onClick={() => onSpeedLevel(1)}
-                    >{speedLabels[0]}</button>
-                    <button
-                      className={`ctrl-btn ctrl-btn--speed${speedLevel === 2 ? ' active' : ''}`}
-                      onClick={() => onSpeedLevel(2)}
-                    >{speedLabels[1]}</button>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
 
           {/* Section Personnage(s) — 1 ou 2 parmi 4, validés/invalidés au clic */}

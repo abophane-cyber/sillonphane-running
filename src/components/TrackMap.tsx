@@ -7,7 +7,7 @@ import type { GpxPoint } from '../types'
 import type { LocalityInfo, ColMarker } from '../hooks/useLocality'
 import { fetchLocalityInfo } from '../hooks/useLocality'
 import { BASEMAP_ADJUST, BASEMAP_BACKGROUND, BASEMAP_TILE_URL } from '../lib/tileSources'
-import { ZOOMS } from '../hooks/useAnimationSettings'
+import { ANIM_ZOOM } from '../hooks/useAnimationSettings'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from '../lib/tilePrefetch'
 import { DEFAULT_CHARACTERS, type CharacterId } from '../lib/characters'
 import { smoothTrackCoords } from '../lib/gpx'
@@ -179,7 +179,6 @@ interface Props {
   zoomResetSeq?: number
   activityMode?: 'randonneur'
   characters?: CharacterId[]
-  speedLevel?: 1 | 2
   panelDuration?: number
   localityDedupKm?: number
   localityDedupMinScore?: number
@@ -253,7 +252,7 @@ export function TrackMap({
   markerPosition, followMarker, animating,
   playing, fitBounds, seekCount, zoomToStart,
   onZoomChange, onMapIdle, targetZoom, zoomResetSeq = 0,
-  activityMode = 'randonneur', characters = DEFAULT_CHARACTERS, speedLevel = 1,
+  activityMode = 'randonneur', characters = DEFAULT_CHARACTERS,
   panelDuration = 3000,
   localityDedupKm = 5,
   localityDedupMinScore = 6,
@@ -306,7 +305,7 @@ export function TrackMap({
     const sprites = hiker3dRef.current
     const map = mapRef.current
     if (!sprites.length || !map) return
-    const base = targetZoomRef.current ?? ZOOMS[0]
+    const base = targetZoomRef.current ?? ANIM_ZOOM
     const f = hiker3dScaleForZoom(map.getZoom(), base) * HIKER3D_BODY_SCALE
     hikerScaleRef.current = f
     // Décalages exprimés en taille de MARCHE (×f à l'affichage) : l'écart grandit et rapetisse avec les personnages.
@@ -442,7 +441,7 @@ export function TrackMap({
     map.on('moveend', updateAlt)
     // Pancartes couchées sur la carte : même taille que les personnages selon le zoom (cf. .loc-sign dans App.css).
     const updateGroundScale = () => containerRef.current?.style.setProperty('--ground-scale',
-      String(hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ZOOMS[0])))
+      String(hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ANIM_ZOOM)))
     map.on('zoom', updateGroundScale)
     updateGroundScale()
 
@@ -462,7 +461,7 @@ export function TrackMap({
   // bien visibles à l'écran (coins du cadrage), d'où un préchargement par zone plutôt que par point. ──
   useEffect(() => {
     if (points.length < 2) return
-    const animZooms = Array.from(new Set(ZOOMS.flatMap(z => [Math.floor(z), Math.ceil(z)])))
+    const animZooms = [Math.floor(ANIM_ZOOM), Math.ceil(ANIM_ZOOM)]
     const overviewZooms = [9, 10, 11]
     const rect = containerRef.current?.getBoundingClientRect()
     const viewportAspect = rect && rect.height > 0 ? rect.width / rect.height : 1.6
@@ -773,7 +772,7 @@ export function TrackMap({
   useEffect(() => {
     const el = markerElRef.current
     if (el && HIKER3D) mountHiker3d(el, characters)
-  }, [activityMode, characters, speedLevel]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [activityMode, characters]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Zoom mode activité ────────────────────────────────────────────────────
   useEffect(() => {
@@ -885,7 +884,7 @@ export function TrackMap({
       if (presentRef.current?.token !== token) return
       const t = Math.min(1, (now - t0) / durationMs), e = smoothEase(t)
       const o = map.project([points[0].lon, points[0].lat])
-      const s1 = hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ZOOMS[0]) * HIKER3D_BODY_SCALE
+      const s1 = hiker3dScaleForZoom(map.getZoom(), targetZoomRef.current ?? ANIM_ZOOM) * HIKER3D_BODY_SCALE
       placePresented(x0 + (o.x - x0) * e, y0 + (o.y - y0) * e, s0 + (s1 - s0) * e)
       if (t < 1) requestAnimationFrame(frame)
       else removePresentation()
@@ -997,7 +996,7 @@ export function TrackMap({
       hiker3dRef.current.forEach(s => s.turnTo(d0.x, d0.y))
       flyingRef.current = true
       map.once('moveend', () => { flyingRef.current = false })
-      map.easeTo({ center: [points[0].lon, points[0].lat], zoom: targetZoomRef.current ?? ZOOMS[0], duration: HIKER3D_START_DEZOOM_MS, easing: smoothEase, essential: true })
+      map.easeTo({ center: [points[0].lon, points[0].lat], zoom: targetZoomRef.current ?? ANIM_ZOOM, duration: HIKER3D_START_DEZOOM_MS, easing: smoothEase, essential: true })
       // Coureur présenté en grand : pendant que la carte zoome sur le départ, il rapetisse jusqu'à sa taille de
       // course, pieds sur le point de départ.
       if (presentRef.current) {

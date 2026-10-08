@@ -38,7 +38,6 @@ interface Props {
   /** « Ruban seul » : aucun personnage, le ruban seul avance (aperçu et film). */
   ribbonOnly: boolean
   onToggleRibbon: () => void
-  speedLevel: 1 | 2
   locality: Locality
   colMarkers: ColMarkers
   panels: LocalityPanels
@@ -101,7 +100,7 @@ interface Props {
   handleReset: () => void
   handleRestart: () => void
   onSeek: (t: number) => void
-  handleModeChange: (mode: ActivityMode, speedLevel?: 1 | 2) => void
+  handleModeChange: (mode: ActivityMode) => void
   lookahead: number
   setLookahead: (v: number) => void
   hasPlayedPreview: boolean
@@ -120,7 +119,7 @@ interface Props {
 export function AnimateScreen({
   activeTrack, rawGpx, distances, state,
   fitBoundsCount, seekCount, zoomToStartCount, targetZoom, zoomResetSeq,
-  handleMapIdle, activityMode, characters, onToggleCharacter, ribbonOnly, onToggleRibbon, speedLevel,
+  handleMapIdle, activityMode, characters, onToggleCharacter, ribbonOnly, onToggleRibbon,
   locality, colMarkers, panels, endDelayMsRef, startDelayMsRef,
   startName, endName, onStartNameChange, onEndNameChange,
   effectiveStartName, effectiveEndName, startColEle, endColEle, startLieudit, endLieudit, onStartKindChange, onEndKindChange, onMapCanvasReady,
@@ -187,9 +186,8 @@ export function AnimateScreen({
           onMapIdle={handleMapIdle}
           activityMode={activityMode}
           characters={characters}
-          speedLevel={speedLevel}
           panelDuration={3000}
-          localityDedupKm={speedLevel === 2 ? 2 : 1}
+          localityDedupKm={1}
           localityDedupMinScore={5}
           locality={locality}
           colMarkers={visibleColMarkers}
@@ -369,7 +367,6 @@ export function AnimateScreen({
             totalElevGain={activeTrack.elevGain}
             weather={weather}
             activityMode={activityMode}
-            speedLevel={speedLevel}
             onModeChange={handleModeChange}
             lookahead={lookahead}
             onLookahead={setLookahead}

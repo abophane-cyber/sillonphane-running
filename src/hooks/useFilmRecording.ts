@@ -4,7 +4,7 @@ import { exportFilm, PREFETCH_PROGRESS_BUDGET } from '../lib/filmExport'
 import { beginExportKeepAlive } from '../lib/exportKeepAlive'
 import { makeExportEta } from '../lib/exportEta'
 import { addFilmToVoyage } from '../lib/voyageDB'
-import { animDurationS, ZOOMS } from './useAnimationSettings'
+import { animDurationS, ANIM_ZOOM } from './useAnimationSettings'
 import { formatTrailDate } from '../lib/terrain3d/appAdapters'
 import type { LocalityInfo } from './useLocality'
 import type { GpxTrack } from '../types'
@@ -44,7 +44,6 @@ export interface CreateFilmContext {
   /** Carton de fin du film (intitulé, date, distance, dénivelé, temps, moyenne). */
   endCard?: EndCard
   trackName: string
-  speedLevel: 1 | 2
   activeSillonId: string | null
   /** Id du tracé déjà enregistré dans le sillon actif (posé à la sauvegarde / à l'ouverture
    *  depuis Mes sillons). Sert à rattacher le film au bon tracé sans deviner par le nom —
@@ -101,7 +100,7 @@ export function useFilmRecording() {
     const releaseKeepAlive = beginExportKeepAlive()
 
     const distKm = ctx.activeTrack.distance / 1000
-    const durationS = animDurationS(ctx.speedLevel, distKm)
+    const durationS = animDurationS(distKm)
     const eta = makeExportEta('2d', durationS, PREFETCH_PROGRESS_BUDGET)
 
     // Debug local (?filmdebug dans l'URL) : ne rend que les premières secondes de marche, à la
@@ -147,10 +146,9 @@ export function useFilmRecording() {
           const km = parseFloat((ctx.endCard?.distance ?? '').replace(',', '.'))
           return km > 0 ? km * 1000 : undefined
         })(),
-        speedLevel: ctx.speedLevel,
         trackName: ctx.trackName,
         durationS,
-        zoom: ZOOMS[ctx.speedLevel - 1],
+        zoom: ANIM_ZOOM,
         fps: FPS,
         onProgress: r => { setFilmProgress(Math.max(0, r)); setFilmEtaS(eta.update(r)) },
         signal: abort.signal,

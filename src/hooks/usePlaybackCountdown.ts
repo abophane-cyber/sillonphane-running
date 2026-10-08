@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { AnimationState } from '../types'
+import { ANIM_ZOOM } from './useAnimationSettings'
 
 /**
  * Décompte avant lecture + attente que la carte soit "idle" (tuiles chargées) avant de
@@ -10,8 +11,6 @@ export function usePlaybackCountdown(
   play: () => void,
   pause: () => void,
   reset: () => void,
-  speedLevel: 1 | 2,
-  ZOOMS: [number, number],
   setTargetZoom: (zoom: number | null) => void,
   bumpZoomResetSeq: () => void,
   bumpZoomToStart: () => void,
@@ -81,7 +80,7 @@ export function usePlaybackCountdown(
   function handlePlay() {
     setHasPlayedPreview(true)
     mapIdleRef.current = false
-    setTargetZoom(ZOOMS[speedLevel - 1])
+    setTargetZoom(ANIM_ZOOM)
     bumpZoomResetSeq()
     // En fin d'animation : reset + retour au départ avant de relancer
     if (state.progress >= 1) {

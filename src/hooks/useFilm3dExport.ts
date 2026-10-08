@@ -42,7 +42,6 @@ export interface CreateFilm3dContext {
   ravitos?: Ravito[]
   endCard?: EndCard
   trackName: string
-  speedLevel: 1 | 2
   activeSillonId: string | null
   /** Id du tracé déjà enregistré dans le sillon actif — cf. useFilmRecording.ts (rattachement
    *  fiable du film, sans deviner par le nom auto commun à deux sorties du même jour). */
@@ -92,7 +91,7 @@ export function useFilm3dExport() {
     // l'augmenter ralentit tout uniformément SANS toucher aux proportions (montées plus lentes
     // que le plat, dwell aux panneaux, mise en route) — c'est un pur changement d'échelle du temps.
     const FILM3D_DURATION_FACTOR = 1.6
-    const s = ANIM_SETTINGS.randonneur[ctx.speedLevel]
+    const s = ANIM_SETTINGS.randonneur
     const base = Math.min(s.max, Math.max(s.min, (ctx.activeTrack.distance / 1000) * s.secondsPerKm))
     const durationS = base * FILM3D_DURATION_FACTOR
 

@@ -1480,7 +1480,6 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   .guided-tour { transition: transform 0.4s ease; animation: none; }
 }
 
-.controls__speed-btns { display: flex; flex-direction: row; gap: 4px; align-items: center; }
 
 /* Bouton ▶/⏸ principal */
 .ctrl-btn--play {
@@ -1582,8 +1581,6 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
-.ctrl-btn--speed { padding: 4px 14px; font-size: 12px; font-weight: 600; }
-.ctrl-btn--speed.active { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
 
 /* Apparence */
 .controls__group--character {
