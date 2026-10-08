@@ -114,7 +114,15 @@ export function PanelWizard({
   const findStreets = () => {
     setStreetState('loading')
     fetchRouteStreets(points, distances)
-      .then(list => { setStreetList(list); setStreetState('idle') })
+      .then(list => {
+        setStreetList(list); setStreetState('idle')
+        // Première recherche : rues d'au moins 500 m et places cochées d'office (leurs noms s'affichent dans le film).
+        if (!chosenStreets.length) {
+          const runsOf = (name: string) => list.filter(r => r.name === name)
+          const main = new Set(list.map(r => r.name).filter(n => isMainStreet(runsOf(n))))
+          onRaceChange({ ...race, streets: list.filter(r => main.has(r.name)) })
+        }
+      })
       .catch(e => { console.error('[rues]', e); setStreetState('error') })
   }
   const [addEle, setAddEle] = useState('')
