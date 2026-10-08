@@ -97,6 +97,7 @@ goBtn.addEventListener('click', async () => {
       durationS,
       fps: Math.max(5, Math.min(60, Number(fpsInput.value) || 30)),
       videoMaxMbps: Number(mbpsInput.value) || undefined,
+      openingOnly,
       signal: ctrl.signal,
       onProgress: ({ phase, ratio, label: l, etaS }) => {
         const pct = phase === 'prepare' ? ratio * 15 : 15 + ratio * 85
@@ -113,6 +114,7 @@ goBtn.addEventListener('click', async () => {
     dl.style.display = 'inline-block'
     preview.src = url
     preview.style.display = 'block'
+    if (openingOnly) { preview.muted = true; preview.loop = true; void preview.play() }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     errEl.textContent = msg === 'aborted' ? 'Export annulé.' : `Échec : ${msg}`
@@ -124,3 +126,16 @@ goBtn.addEventListener('click', async () => {
 })
 
 cancelBtn.addEventListener('click', () => ctrl?.abort())
+
+// « ?ouverture » : seules les premières secondes (l'ouverture) sont rendues, sur le semi-marathon de Lille de
+// public/demo, lancé tout seul au chargement, et la vidéo se rejoue en boucle.
+const openingOnly = new URLSearchParams(location.search).has('ouverture')
+if (openingOnly) {
+  void (async () => {
+    const xml = await (await fetch(`${import.meta.env.BASE_URL}demo/_essai-semi-lille.gpx`)).text()
+    const dt = new DataTransfer()
+    dt.items.add(new File([xml], 'Parcours Semi-marathon Lille 2026.gpx', { type: 'application/gpx+xml' }))
+    gpxInput.files = dt.files
+    goBtn.click()
+  })()
+}

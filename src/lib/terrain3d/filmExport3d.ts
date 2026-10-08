@@ -171,6 +171,8 @@ export interface FilmExport3dOptions {
   /** Film d'essai (?essai dans l'URL) : le survol seul, en `durationS` exactement, sans écran-titre, pause de
    *  départ ni plans de fin. */
   essai?:         boolean
+  /** Banc d'essai : seule l'ouverture est rendue (jusqu'à l'arrivée de la caméra sur le départ, plus 1 s). */
+  openingOnly?:   boolean
   fps?:           number
   /** Plafond de débit vidéo (Mb/s) au-dessus de la qualité constante. Défaut 16 (voir QP_CAP_BPS). */
   videoMaxMbps?:  number
@@ -1546,7 +1548,7 @@ async function exportFilm3dImpl(
   const WATERMARK_LEAD = 5 // adresse de fin sur les 5 dernières secondes (vue d'ensemble), comme le film 2D
   // Essai : seul le survol est rendu (de PHASE1_END à PHASE2_END) ; ce qui précède est simulé sans image.
   const RENDER_FROM = opts.essai ? PHASE1_END : 0
-  const FILM_S = (opts.essai ? PHASE2_END : TOTAL_CYCLE) - RENDER_FROM
+  const FILM_S = (opts.openingOnly ? PHASE0_END + 1 : opts.essai ? PHASE2_END : TOTAL_CYCLE) - RENDER_FROM
 
   const _oa = new THREE.Vector3()
   const _ob = new THREE.Vector3()
