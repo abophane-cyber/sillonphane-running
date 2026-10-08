@@ -621,35 +621,60 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
     icon = '🌡️'; tempStr = `${weather.tempMin}–${weather.tempMax}°C`; desc = ''
   }
 
-  // Dimensions encore agrandies (x1.3 supplémentaire), à la demande (plus lisible sur le film exporté)
-  const PAD = 21, ICON_W = 72, cardH = 102, cardY = 34
-
+  // Encart météo (haut droite) : panneau sombre, barre jaune penchée, coureur jaune à gauche ; à droite le sigle
+  // Sillonphane et, dessous, la météo dans une pastille jaune.
+  const W = 340, H = 132, X = cw - W - 24, Y = 24
   ctx.save()
-  ctx.font = 'bold 38px "Segoe UI", system-ui, sans-serif'
-  const tempW = ctx.measureText(tempStr).width
-  ctx.font = '22px "Segoe UI", system-ui, sans-serif'
-  const descW = desc ? ctx.measureText(desc).width : 0
-  const cardW = PAD + ICON_W + Math.max(tempW, descW) + PAD
-  // Haut-droite, un peu plus bas que le bord.
-  const cardX = cw - cardW - 16
-
-  ctx.fillStyle = 'rgba(10,26,14,0.82)'
-  ctx.beginPath(); ctx.roundRect(cardX, cardY, cardW, cardH, 12); ctx.fill()
-
-  ctx.font = '51px serif'; ctx.fillStyle = '#fff'
+  ctx.beginPath(); ctx.roundRect(X, Y, W, H, 16)
+  ctx.fillStyle = 'rgba(8,14,12,0.85)'; ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1.5; ctx.stroke()
+  ctx.fillStyle = '#f7b500'
+  ctx.beginPath()
+  ctx.moveTo(X + 16, Y + 12); ctx.lineTo(X + 27, Y + 12); ctx.lineTo(X + 13, Y + H - 12); ctx.lineTo(X + 2, Y + H - 12); ctx.closePath()
+  ctx.fill()
+  drawRunnerIcon(ctx, X + 78, Y + H / 2, '#f7b500')
+  // Sigle Sillonphane (le sillon et ses deux points), centré sur la colonne de droite.
+  const colX = X + 132, colW = W - 132 - 18
+  const { path } = getSillonLogoPath()
+  const LOGO = 92, sc = LOGO / 320
+  ctx.save()
+  ctx.translate(colX + colW / 2 - 178 * sc, Y + 6 - 50 * sc)
+  ctx.scale(sc, sc)
+  const g = ctx.createLinearGradient(0, 320, 0, 0)
+  g.addColorStop(0, '#2F5C45'); g.addColorStop(0.32, '#357049'); g.addColorStop(0.62, '#D97A3D'); g.addColorStop(0.86, '#F4EDE0'); g.addColorStop(1, '#F4EDE0')
+  ctx.strokeStyle = g; ctx.lineWidth = 30; ctx.lineCap = 'round'; ctx.stroke(path)
+  ctx.fillStyle = '#F4EDE0'; ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#2F5C45'; ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = '#F4EDE0'; ctx.lineWidth = 3; ctx.stroke()
+  ctx.restore()
+  // Pastille jaune : pictogramme, température, ciel.
+  const pillH = 40, pillY = Y + H - pillH - 16
+  ctx.beginPath(); ctx.roundRect(colX, pillY, colW, pillH, pillH / 2)
+  ctx.fillStyle = '#f7b500'; ctx.fill()
   ctx.textBaseline = 'middle'; ctx.textAlign = 'left'
-  ctx.fillText(icon, cardX + PAD, cardY + cardH / 2)
+  ctx.font = '25px serif'; ctx.fillStyle = '#000'
+  ctx.fillText(icon, colX + 12, pillY + pillH / 2 + 1)
+  const label = desc ? `${tempStr} · ${desc}` : tempStr
+  let s = 22
+  do { ctx.font = `italic 800 ${s}px "Segoe UI", system-ui, sans-serif`; s -= 1 } while (ctx.measureText(label).width > colW - 58 && s > 13)
+  ctx.fillStyle = '#16140c'
+  ctx.fillText(label, colX + 46, pillY + pillH / 2 + 1)
+  ctx.restore()
+}
 
-  const colX = cardX + PAD + ICON_W, midY = cardY + cardH / 2
-  ctx.font = 'bold 38px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#e8f5e9'
-  ctx.textBaseline = desc ? 'alphabetic' : 'middle'
-  ctx.fillText(tempStr, colX, desc ? midY - 1 : midY)
-
-  if (desc) {
-    ctx.font = '22px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#a5c8a8'
-    ctx.textBaseline = 'top'; ctx.fillText(desc, colX, midY + 6)
-  }
-
+/** Coureur stylisé (tête, buste, bras et jambes en foulée), centré sur (cx, cy), environ 64 px de haut. */
+function drawRunnerIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string) {
+  ctx.save()
+  ctx.strokeStyle = color; ctx.fillStyle = color
+  ctx.lineWidth = 7; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  ctx.beginPath(); ctx.arc(cx + 9, cy - 25, 7.5, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(cx + 4, cy - 13); ctx.lineTo(cx - 4, cy + 6)                           // buste
+  ctx.moveTo(cx + 3, cy - 10); ctx.lineTo(cx + 15, cy - 3); ctx.lineTo(cx + 22, cy - 12) // bras avant
+  ctx.moveTo(cx + 2, cy - 9); ctx.lineTo(cx - 10, cy - 4); ctx.lineTo(cx - 18, cy + 4)   // bras arrière
+  ctx.moveTo(cx - 4, cy + 6); ctx.lineTo(cx + 10, cy + 15); ctx.lineTo(cx + 9, cy + 30)  // jambe avant
+  ctx.moveTo(cx - 4, cy + 6); ctx.lineTo(cx - 13, cy + 19); ctx.lineTo(cx - 27, cy + 21) // jambe arrière
+  ctx.stroke()
   ctx.restore()
 }
 
