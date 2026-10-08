@@ -2306,7 +2306,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   border: 1.5px solid rgba(44,110,63,0.55);
 }
 .pwiz-section--endpoint .pwiz-section-label {
-  font-size: 12px; opacity: 1; color: #2c6e3f;
+  font-size: 13px; opacity: 1; color: #2c6e3f;
   border-bottom-color: rgba(44,110,63,0.3);
 }
 @media (prefers-color-scheme: dark) {
@@ -2370,9 +2370,9 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .pwiz-race-hint { font-size: 12px; opacity: .7; }
 .pwiz-race-total { margin: 2px 0 0; font-size: 13px; font-weight: 600; }
 .pwiz-section-label {
-  font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
-  opacity: .5; padding-bottom: 2px;
-  border-bottom: 1px solid rgba(128,128,128,0.2);
+  font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  opacity: 1; padding-bottom: 4px;
+  border-bottom: 2px solid rgba(128,128,128,0.35);
 }
 .pwiz-row { display: flex; align-items: center; gap: 10px; }
 .pwiz-kind { margin-top: 6px; }
