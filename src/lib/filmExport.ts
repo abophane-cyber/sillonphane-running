@@ -29,6 +29,7 @@ import {
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
 import { drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from './mapLabels'
+import { FIN_FILM_S } from './filmEssai'
 
 export interface FilmExportOptions {
   points:            GpxPoint[]
@@ -91,6 +92,9 @@ export interface FilmExportOptions {
   debugMaxFrames?: number
   /** Film d'essai (?essai dans l'URL) : l'ouverture puis le début de la marche, sans dézoom de départ ni plans de fin. */
   essai?: boolean
+  /** Fin seule (?fin dans l'URL) : les FIN_FILM_S dernières secondes (arrivée et vue d'ensemble) ; ce qui précède est
+   *  calculé (caméra) mais ni dessiné ni encodé, sans ouverture ni bande-son. */
+  fin?: boolean
 }
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -291,6 +295,9 @@ type SignStyle = 'standard' | 'lieudit' | 'col' | 'poi' | 'ravito' | 'borne'
 const SIGN_RES = 2.5
 /** Taille minimale des bornes sur la vue d'ensemble de fin : km et temps de passage lisibles en 1080p. */
 export const OVERVIEW_BORNE_SCALE = 1.15
+/** Vue d'ensemble de fin : bande de l'image (en part de sa largeur et de sa hauteur) où tient tout le tracé — sous le
+ * sigle du haut à droite, au-dessus du carton du bas (son voile commence à 80 % de la hauteur, cf. drawEndCard). */
+export const OVERVIEW_BAND = { x0: 0.06, x1: 0.94, y0: 0.13, y1: 0.75 }
 
 interface LocSignSprite { canvas: HTMLCanvasElement; offX: number; offY: number }
 export type LocSignCache = Map<string, LocSignSprite>
@@ -607,8 +614,23 @@ function signAlpha(f: number, showFrame: number, hideFrame: number, fadeFrames: 
 // ─── Carte météo ─────────────────────────────────────────────────────────────
 
 
-export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weather: FilmExportOptions['weather'], progress: number) {
-  if (!weather) return
+/** Encart du haut à droite : sigle Sillonphane, coureur jaune et météo. `weatherA` (1 pendant la course) : en le faisant
+ * descendre à 0 (vue d'ensemble finale), coureur et météo s'effacent et l'encart se resserre sur le sigle, qui reste ;
+ * sans météo, l'encart n'apparaît que réduit au sigle, en fondu (1 - weatherA). */
+export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weather: FilmExportOptions['weather'], progress: number, weatherA = 1) {
+  const H = 66, Y = 26, PAD = 16, LOGO_W = 30, RUN_W = 40, GAP = 14, PILL_H = 38
+  const cy = Y + H / 2
+  const WC = PAD * 2 + LOGO_W
+  if (!weather) {
+    if (weatherA >= 1) return
+    ctx.save()
+    ctx.globalAlpha *= 1 - weatherA
+    const X = cw - WC - 24
+    drawCardBox(ctx, X, Y, WC, H)
+    drawSillonSigle(ctx, X + PAD, cy)
+    ctx.restore()
+    return
+  }
 
   const hasDep = weather.departure != null
   const hasArr = weather.arrival != null
@@ -628,29 +650,20 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
   }
 
   // Encart météo (haut droite), sur une ligne : sigle Sillonphane, coureur jaune, météo dans une pastille jaune.
-  const H = 66, Y = 26, PAD = 16, LOGO_W = 30, RUN_W = 40, GAP = 14, PILL_H = 38
   const label = desc ? `${tempStr} · ${desc}` : tempStr
   ctx.save()
   ctx.font = `italic 800 19px "Segoe UI", system-ui, sans-serif`
   const pillW = 44 + ctx.measureText(label).width + 16
-  const W = PAD + LOGO_W + GAP + RUN_W + GAP + pillW + PAD - 4
-  const X = cw - W - 24, cy = Y + H / 2
-  ctx.beginPath(); ctx.roundRect(X, Y, W, H, 14)
-  ctx.fillStyle = 'rgba(8,14,12,0.78)'; ctx.fill()
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.stroke()
-  // Sigle Sillonphane (le sillon et ses deux points), ~46 px de haut.
-  const { path } = getSillonLogoPath()
-  const sc = 46 / 185
-  ctx.save()
-  ctx.translate(X + PAD - 117 * sc, cy - 23 - 50 * sc)
-  ctx.scale(sc, sc)
-  const g = ctx.createLinearGradient(0, 320, 0, 0)
-  g.addColorStop(0, '#2F5C45'); g.addColorStop(0.32, '#357049'); g.addColorStop(0.62, '#D97A3D'); g.addColorStop(0.86, '#F4EDE0'); g.addColorStop(1, '#F4EDE0')
-  ctx.strokeStyle = g; ctx.lineWidth = 30; ctx.lineCap = 'round'; ctx.stroke(path)
-  ctx.fillStyle = '#F4EDE0'; ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill()
-  ctx.fillStyle = '#2F5C45'; ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill()
-  ctx.strokeStyle = '#F4EDE0'; ctx.lineWidth = 3; ctx.stroke()
-  ctx.restore()
+  const WF = PAD + LOGO_W + GAP + RUN_W + GAP + pillW + PAD - 4
+  const k = Math.max(0, Math.min(1, weatherA))
+  const W = WC + (WF - WC) * k
+  const X = cw - W - 24
+  drawCardBox(ctx, X, Y, W, H)
+  drawSillonSigle(ctx, X + PAD, cy)
+  if (k <= 0) { ctx.restore(); return }
+  // Coureur et météo : s'effacent pendant que l'encart se resserre (découpés au bord de l'encart).
+  ctx.beginPath(); ctx.roundRect(X, Y, W, H, 14); ctx.clip()
+  ctx.globalAlpha *= k
   drawRunnerIcon(ctx, X + PAD + LOGO_W + GAP + RUN_W / 2, cy, '#f7b500', 0.62)
   // Pastille jaune : pictogramme, température, ciel.
   const px = X + PAD + LOGO_W + GAP + RUN_W + GAP, py = cy - PILL_H / 2
@@ -661,6 +674,29 @@ export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weath
   ctx.fillText(icon, px + 11, cy + 1)
   ctx.font = `italic 800 19px "Segoe UI", system-ui, sans-serif`; ctx.fillStyle = '#16140c'
   ctx.fillText(label, px + 44, cy + 1)
+  ctx.restore()
+}
+
+/** Fond des encarts du haut à droite. */
+function drawCardBox(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number) {
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 14)
+  ctx.fillStyle = 'rgba(8,14,12,0.78)'; ctx.fill()
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1.5; ctx.stroke()
+}
+
+/** Sigle Sillonphane (le sillon et ses deux points), ~46 px de haut, bord gauche en `x`, centré en hauteur sur `cy`. */
+function drawSillonSigle(ctx: CanvasRenderingContext2D, x: number, cy: number) {
+  const { path } = getSillonLogoPath()
+  const sc = 46 / 185
+  ctx.save()
+  ctx.translate(x - 117 * sc, cy - 23 - 50 * sc)
+  ctx.scale(sc, sc)
+  const g = ctx.createLinearGradient(0, 320, 0, 0)
+  g.addColorStop(0, '#2F5C45'); g.addColorStop(0.32, '#357049'); g.addColorStop(0.62, '#D97A3D'); g.addColorStop(0.86, '#F4EDE0'); g.addColorStop(1, '#F4EDE0')
+  ctx.strokeStyle = g; ctx.lineWidth = 30; ctx.lineCap = 'round'; ctx.stroke(path)
+  ctx.fillStyle = '#F4EDE0'; ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill()
+  ctx.fillStyle = '#2F5C45'; ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill()
+  ctx.strokeStyle = '#F4EDE0'; ctx.lineWidth = 3; ctx.stroke()
   ctx.restore()
 }
 
@@ -1106,6 +1142,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const hasWC = typeof VideoEncoder !== 'undefined' && typeof VideoFrame !== 'undefined'
   let useWC   = false, muxer: InstanceType<typeof Muxer<ArrayBufferTarget>> | null = null, encoder: VideoEncoder | null = null
   let encoderError: unknown = null
+  /** Fin seule (?fin) : indice de la première image encodée (cf. encodeFrame), fixé avant la boucle de rendu. */
+  let finFrom = 0
 
   // ── Bande-son (chemin WebCodecs uniquement) ───────────────────────────────────
   // Durée totale du film = intro (écran-titre) + survol + plan d'ensemble/watermark (dézoom 1,5 s
@@ -1139,7 +1177,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       + (HIKER3D_END_ZOOM_MS / 1000 + H3_END_HOLD_S + HIKER3D_OVERVIEW_MS / 1000 + OVERVIEW_CLEAN_S + 5)
     : durationS + (4 + 1.6 + (hasStartClock ? START_CLOCK_HOLD_S : -0.5)) + (1.5 + OVERVIEW_CLEAN_S + 5)
   let audioBuffer: AudioBuffer | null = null
-  if (hasWC && hasFilmAudio(opts.audio) && filmAudioSupported()) {
+  if (hasWC && !opts.fin && hasFilmAudio(opts.audio) && filmAudioSupported()) {
     try {
       audioBuffer = await buildFilmAudioTrack(opts.audio, filmDurationS, opts.signal)
     } catch (e) {
@@ -1173,6 +1211,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // chemin qu'une annulation (toutes les boucles testent signal.aborted et nettoient la carte), et exportFilm
   // remonte alors encoderFailMessage().
   async function encodeFrame(fi: number, keyFrame: boolean) {
+    if (fi < finFrom) return // fin seule : images d'avant les FIN_FILM_S dernières secondes, non encodées
+    fi -= finFrom
     if (encoderError != null || encoder!.state === 'closed') { onEncoderFail(); return }
     noteEncoderFrame(fi)
     const vf = new VideoFrame(canvas, { timestamp: Math.round(fi * 1_000_000 / fps) })
@@ -1291,7 +1331,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const INTRO_FRAMES = hikers3d
     ? Math.round((OPENING_S + H3_START_HOLD_S) * fps)
     : Math.round((OPENING_S + (hasStartClock ? START_CLOCK_HOLD_S : 0.6)) * fps)
-  const START_DEZOOM_FRAMES = hikers3d && !opts.debugMaxFrames && !opts.essai ? Math.round((HIKER3D_START_DEZOOM_MS / 1000) * fps) : 0
+  const START_DEZOOM_FRAMES = hikers3d && !opts.debugMaxFrames && !opts.essai && !opts.fin ? Math.round((HIKER3D_START_DEZOOM_MS / 1000) * fps) : 0
   // Durées des plans de fin (vue d'ensemble) : comptées ici aussi pour que la barre de
   // progression continue d'avancer pendant ces phases au lieu de rester bloquée à 100% ("Presque
   // prêt…" figé plusieurs secondes, impression d'export planté).
@@ -1332,6 +1372,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
   let camLng = points[0].lon
   let camLat = points[0].lat
+  let walkStarted = false // marche des randonneurs 3D lancée (première image de marche dessinée)
 
   // Cache des sprites de panneaux localité (voir buildLocSignSprite) : une entrée par nom+style,
   // réutilisée pour toutes les images du film.
@@ -1475,7 +1516,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
   // debugMaxFrames : ouverture sautée (on veut voir la carte/les panneaux tout de suite), et les timestamps de la
   // boucle de marche ne tiennent plus compte de sa durée. Film d'essai : ouverture gardée, pour la juger vite.
-  const introFrames = opts.debugMaxFrames && !opts.essai ? 0 : INTRO_FRAMES
+  const introFrames = (opts.debugMaxFrames && !opts.essai) || opts.fin ? 0 : INTRO_FRAMES
   // Images avant la marche : écran-titre + dézoom de départ des randonneurs 3D.
   const preWalkFrames = introFrames + START_DEZOOM_FRAMES
   // Progression remontée à l'appelant, pondérée par coût réel par image et non par nombre brut
@@ -1485,6 +1526,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // barre finissait alors sur un long « Finalisation… » (rattrapage de l'encodeur).
   const WALK_FRAME_WEIGHT = 1
   const grandTotal = preWalkFrames + totalFrames * WALK_FRAME_WEIGHT + END_HOLD_FRAMES + EASE_OV + HOLD_OV
+  // Fin seule : première image dessinée et encodée (les précédentes ne servent qu'à amener la caméra à l'arrivée).
+  finFrom = opts.fin ? Math.max(0, preWalkFrames + renderFrames + END_HOLD_FRAMES + EASE_OV + HOLD_OV - Math.round(FIN_FILM_S * fps)) : 0
   // Progression remontée à l'appelant sur le reste du budget, après la part réservée au
   // préchargement des tuiles (voir PREFETCH_PROGRESS_BUDGET plus haut).
   const frameProgress = (weightedFi: number) => PREFETCH_PROGRESS_BUDGET + (1 - PREFETCH_PROGRESS_BUDGET) * (weightedFi / grandTotal)
@@ -1746,6 +1789,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (elevFactor > 0) k = Math.max(k, k + (0.12 - k) * elevFactor)
     camLng += (lng - camLng) * k
     camLat += (lat - camLat) * k
+    if (preWalkFrames + f < finFrom) { // fin seule : caméra suivie, image ni dessinée ni encodée
+      if (f % 60 === 0) { onProgress?.(frameProgress(preWalkFrames + f * WALK_FRAME_WEIGHT)); await new Promise(r => setTimeout(r, 0)) }
+      continue
+    }
 
     // 1. Fond de carte : recadrage pur de la mosaïque pré-composée (aucun rendu GPU par image,
     // voir filmMapMosaic.ts), ou repli sur le rendu MapLibre habituel si elle est indisponible.
@@ -1800,7 +1847,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
     // 4. Randonneurs 3D : jusqu'au bout du tracé (le salut se fait au panneau d'arrivée, comme l'aperçu).
     if (hikers3d) {
-      if (f === 0) hikers.forEach(h => { if (opts.essai) h.skipToWalk(); h.setPlaying(true) }) // essai : pas d'écran-titre où se lever
+      if (!walkStarted) { // essai, fin seule : pas d'écran-titre où se lever
+        walkStarted = true
+        hikers.forEach(h => { if (opts.essai || opts.fin) h.skipToWalk(); h.setPlaying(true) })
+      }
       const [lngPos, latPos] = lngLatAtProgress(visualPoints, distances, totalDistance, progress)
       const mk = project(lngPos, latPos)
       steerHikers3d(project, progress * totalDistance, mk, latPos)
@@ -1857,6 +1907,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       if (hikers3d && f <= END_ZOOM_FRAMES) { await waitForMapIdle(exportMap, signal); if (signal?.aborted) break }
       // Geste d'arrivée à HIKER3D_OUTRO_AT du zoom (comme l'aperçu) : dès la ligne franchie en course.
       if (hikers3d && f === Math.round(END_ZOOM_FRAMES * HIKER3D_OUTRO_AT)) hikers.forEach(h => h.startOutro())
+      if (fi < finFrom) continue // fin seule
 
       ctx.clearRect(0, 0, OUT_W, OUT_H)
       try { ctx.drawImage(exportMap.getCanvas(), 0, 0, OUT_W, OUT_H) }
@@ -1908,18 +1959,28 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       if (pt.lat < minLat) minLat = pt.lat
       if (pt.lat > maxLat) maxLat = pt.lat
     }
-    const overviewLng = (minLng + maxLng) / 2
-    const overviewLat = (minLat + maxLat) / 2
+    const bboxLng = (minLng + maxLng) / 2
+    const bboxLat = (minLat + maxLat) / 2
 
+    // Cadrage : le tracé entier dans la bande libre de l'image, entre le logo (haut droite) et le carton du bas
+    // (OVERVIEW_BAND) — le carton ne masque ni n'assombrit le tracé.
     let overviewZoom = zoom
     for (let z = zoom; z >= 1; z -= 0.25) {
-      exportMap.jumpTo({ center: [overviewLng, overviewLat], zoom: z })
+      exportMap.jumpTo({ center: [bboxLng, bboxLat], zoom: z })
       const p1 = exportMap.project([minLng, minLat])
       const p2 = exportMap.project([maxLng, maxLat])
-      if (Math.abs(p2.x - p1.x) < OUT_W * 0.80 && Math.abs(p2.y - p1.y) < OUT_H * 0.80) {
+      if (Math.abs(p2.x - p1.x) < OUT_W * (OVERVIEW_BAND.x1 - OVERVIEW_BAND.x0) &&
+        Math.abs(p2.y - p1.y) < OUT_H * (OVERVIEW_BAND.y1 - OVERVIEW_BAND.y0)) {
         overviewZoom = z; break
       }
     }
+    // Centre de la carte décalé pour que le centre du tracé tombe au milieu de la bande libre.
+    exportMap.jumpTo({ center: [bboxLng, bboxLat], zoom: overviewZoom })
+    const ovC = exportMap.unproject([
+      OUT_W / 2 + OUT_W * (0.5 - (OVERVIEW_BAND.x0 + OVERVIEW_BAND.x1) / 2),
+      OUT_H / 2 + OUT_H * (0.5 - (OVERVIEW_BAND.y0 + OVERVIEW_BAND.y1) / 2),
+    ])
+    const overviewLng = ovC.lng, overviewLat = ovC.lat
 
     // (Le dézoom final ne fait plus de préchargement dédié : la vue d'ensemble et tous les niveaux
     // de zoom traversés par le recul de caméra sont déjà couverts par le préchargement initial.)
@@ -1946,6 +2007,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const cZoom = startZoom + te * (overviewZoom - startZoom)
       // Décalé du plan rapproché figé (END_HOLD_FRAMES) inséré juste avant.
       const fi    = preWalkFrames + renderFrames + END_HOLD_FRAMES + f
+      if (fi < finFrom) continue // fin seule
 
       exportMap.jumpTo({ center: [cLng, cLat], zoom: cZoom })
       await waitForMapIdle(exportMap, signal)
@@ -1981,16 +2043,21 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         }
       }
 
-      drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 1)
-      // Désormais en haut-gauche (plus petite, voir ELEV_OVERLAY_SCALE) : ne gêne plus la vue
-      // d'ensemble, reste affichée jusqu'à la fin sans fondu de sortie.
-      drawElevOverlay(ctx, OUT_W, OUT_H, {
-        points, distances, progress: 1,
-        distanceCovered: shownM, totalDistance: shownM,
-        elevGain: opts.elevGain, elevLoss: opts.elevLoss,
-        currentEle: currentElevation(points, distances, 1),
-        trackName: '', ...timeAt(1),
-      })
+      // Encart de profil et météo : leurs chiffres sont repris par le carton du bas ; ils s'effacent pendant le dézoom
+      // (avec les localités). Le sigle Sillonphane reste en haut à droite.
+      drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 1, locFade)
+      if (locFade > 0) {
+        ctx.save()
+        ctx.globalAlpha = locFade
+        drawElevOverlay(ctx, OUT_W, OUT_H, {
+          points, distances, progress: 1,
+          distanceCovered: shownM, totalDistance: shownM,
+          elevGain: opts.elevGain, elevLoss: opts.elevLoss,
+          currentEle: currentElevation(points, distances, 1),
+          trackName: '', ...timeAt(1),
+        })
+        ctx.restore()
+      }
 
       // Randonneurs 3D : ils rapetissent avec le dézoom et s'effacent en même temps (comme l'aperçu).
       if (hikers3d && f < EASE_OV) {

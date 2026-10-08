@@ -15,3 +15,20 @@ export function isEssaiFilm(): boolean {
     return v != null && v !== '0'
   }
 }
+
+// Fin seule : « ?fin » dans l'URL -> films 2D et 3D réduits à leurs FIN_FILM_S dernières secondes (arrivée et vue
+// d'ensemble). Ce qui précède est calculé (caméra, positions) mais ni dessiné ni encodé. Même mémorisation que ?essai ;
+// « ?fin=0 » l'arrête.
+export const FIN_FILM_S = 15
+const FIN_KEY = 'sillonphane.fin'
+
+export function isFinFilm(): boolean {
+  const v = new URLSearchParams(window.location.search).get('fin')
+  try {
+    if (v === '0') sessionStorage.removeItem(FIN_KEY)
+    else if (v != null) sessionStorage.setItem(FIN_KEY, '1')
+    return sessionStorage.getItem(FIN_KEY) === '1'
+  } catch {
+    return v != null && v !== '0'
+  }
+}

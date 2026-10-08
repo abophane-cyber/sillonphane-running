@@ -46,10 +46,10 @@ import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, startPresentAt, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import type { StreetSpan } from '../streetCaption'
-import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
+import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BAND, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
-import { ESSAI_FILM_S } from '../filmEssai'
+import { ESSAI_FILM_S, FIN_FILM_S } from '../filmEssai'
 import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
 
 /** Adresse du site, signée en fin de film (comme le film 2D). */
@@ -172,6 +172,9 @@ export interface FilmExport3dOptions {
   /** Film d'essai (?essai dans l'URL) : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes
    *  du survol, sans plans de fin. */
   essai?:         boolean
+  /** Fin seule (?fin dans l'URL) : les FIN_FILM_S dernières secondes (arrivée et vue d'ensemble) ; ce qui précède est
+   *  simulé sans image. */
+  fin?:           boolean
   /** Banc d'essai : seule l'ouverture est rendue (jusqu'à l'arrivée de la caméra sur le départ, plus 1 s). */
   openingOnly?:   boolean
   fps?:           number
@@ -1569,8 +1572,10 @@ async function exportFilm3dImpl(
   const TOTAL_CYCLE = PHASE3_END + OVERVIEW_RISE_S + OVERVIEW_HOLD_S
   const WATERMARK_LEAD = 5 // adresse de fin sur les 5 dernières secondes (vue d'ensemble), comme le film 2D
   // Essai : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes du survol (vitesse normale).
-  const RENDER_FROM = 0
-  const FILM_S = opts.openingOnly ? PHASE0_END + 1 : opts.essai ? Math.min(PHASE2_END, PHASE1_END + ESSAI_FILM_S) : TOTAL_CYCLE
+  // Fin seule : les FIN_FILM_S dernières secondes, ce qui précède simulé sans image (cf. RENDER_FROM plus bas).
+  const RENDER_FROM = opts.fin ? Math.max(0, TOTAL_CYCLE - FIN_FILM_S) : 0
+  const FILM_S = opts.openingOnly ? PHASE0_END + 1 : opts.fin ? TOTAL_CYCLE - RENDER_FROM
+    : opts.essai ? Math.min(PHASE2_END, PHASE1_END + ESSAI_FILM_S) : TOTAL_CYCLE
 
   const _oa = new THREE.Vector3()
   const _ob = new THREE.Vector3()
@@ -1685,7 +1690,12 @@ async function exportFilm3dImpl(
   /** Cadrage d'un plan d'ensemble : plongée, et zone de l'image (coordonnées normalisées -1..1) où tout le tracé doit
    *  tenir. */
   interface FrameBox { pitch: number; x0: number; x1: number; y0: number; y1: number }
-  const OVERVIEW_FRAME: FrameBox = { pitch: OVERVIEW_PITCH, x0: -0.8, x1: 0.8, y0: -0.62, y1: 0.8 }
+  // Vue d'ensemble de fin : tout le tracé dans la bande libre de l'image (OVERVIEW_BAND, comme le film 2D), sous le sigle
+  // du haut à droite et au-dessus du carton du bas — en coordonnées normalisées (x : -1 gauche, y : -1 bas).
+  const OVERVIEW_FRAME: FrameBox = {
+    pitch: OVERVIEW_PITCH,
+    x0: 2 * OVERVIEW_BAND.x0 - 1, x1: 2 * OVERVIEW_BAND.x1 - 1, y0: 1 - 2 * OVERVIEW_BAND.y1, y1: 1 - 2 * OVERVIEW_BAND.y0,
+  }
   // Ouverture : plongée moins forte (la ville vue de biais) ; le cadre est décalé vers la gauche de OPENING_FRAME_SHIFT
   // (setViewOffset, cf. boucle de rendu), d'où une zone utile décalée d'autant : le tracé se tient à droite, le
   // titre à gauche.
@@ -2262,6 +2272,9 @@ async function exportFilm3dImpl(
       // Carton final saisi : il porte déjà l'adresse, on n'ajoute pas l'adresse seule.
       watermarkReveal: opts.endCard ? 0 : Math.max(0, Math.min(1, intoWatermark / 0.5)),
       hudAlpha,
+      // Profil et météo : leurs chiffres sont repris par le carton du bas ; effacés au début de la montée vers la vue
+      // d'ensemble (le sigle reste).
+      infoA: 1 - Math.max(0, Math.min(1, (simElapsed - PHASE3_END) / (OVERVIEW_RISE_S * 0.35))),
     }, drawProfile)
     // Flèche du nord (bas droite), tournée selon le cap de la caméra (x = est, z = sud) ; effacée avec l'adresse de fin.
     {
@@ -2419,7 +2432,7 @@ function drawStartHeader(
 
 function drawOverlays(
   ctx: CanvasRenderingContext2D,
-  o: { distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number; hudAlpha: number },
+  o: { distanceM: number; profileT: number; weather: WeatherCardData | null; watermarkReveal: number; hudAlpha: number; infoA: number },
   drawProfile: (ctx: CanvasRenderingContext2D, t: number, distanceM: number) => void,
 ): void {
   // Habillage aligné sur le film 2D : encart du haut (chiffres et profil), météo en haut à droite, adresse de fin.
@@ -2439,7 +2452,10 @@ function drawOverlays(
   if (o.hudAlpha <= 0) return
   ctx.save()
   ctx.globalAlpha = o.hudAlpha
-  drawWeatherCard(ctx, OUT_W, o.weather, o.profileT)
-  drawProfile(ctx, o.profileT, o.distanceM)
+  drawWeatherCard(ctx, OUT_W, o.weather, o.profileT, o.infoA)
+  if (o.infoA > 0) {
+    ctx.globalAlpha = o.hudAlpha * o.infoA
+    drawProfile(ctx, o.profileT, o.distanceM)
+  }
   ctx.restore()
 }
