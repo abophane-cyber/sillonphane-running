@@ -1,7 +1,8 @@
-// Ouverture des films 2D et 3D : la carte se découvre dans la lumière du matin, le ruban du parcours s'y dessine
-// (vert au départ, orange, crème à l'arrivée : le dégradé signature, réparti une fois sur le parcours), le titre de
-// l'épreuve s'inscrit à gauche dans une zone assombrie, puis la caméra plonge vers le départ. Ce module ne dessine
-// que les calques 2D (lumière, ruban, titre) ; chaque film gère sa caméra et appelle ces fonctions à chaque image.
+// Ouverture des films 2D et 3D, façon affiche de film sportif : la vraie carte vue d'ensemble dans une lumière de
+// matin, le ruban du parcours FIXE (vert au départ, orange, crème à l'arrivée : le dégradé signature, réparti une fois
+// sur le parcours), quelques lieux connus, le titre de l'épreuve à gauche sur une zone assombrie ; plan presque fixe
+// (lent rapprochement), puis la caméra plonge vers le départ. Ce module ne dessine que les calques 2D (lumière, ruban,
+// lieux, titre) ; chaque film gère sa caméra et appelle drawOpening à chaque image.
 
 import { formatBannerDistance } from './raceSplits'
 
@@ -32,32 +33,28 @@ const GREEN_HSL = toHsl(GREEN), ORANGE_HSL = toHsl(ORANGE)
  * vert → orange se fait par la teinte (via un jaune lumineux) : un mélange RVB passait par un kaki terne. */
 function ribbonColor(f: number): string {
   const x = Math.max(0, Math.min(1, f))
-  if (x <= 0.12) return rgb(GREEN)
-  if (x <= 0.5) { const u = smooth((x - 0.12) / 0.38); return rgb(fromHsl(GREEN_HSL.map((v, i) => v + (ORANGE_HSL[i] - v) * u))) }
-  return rgb(mix(ORANGE, CREAM, smooth((x - 0.5) / 0.4)))
+  if (x <= 0.08) return rgb(GREEN)
+  if (x <= 0.45) { const u = smooth((x - 0.08) / 0.37); return rgb(fromHsl(GREEN_HSL.map((v, i) => v + (ORANGE_HSL[i] - v) * u))) }
+  return rgb(mix(ORANGE, CREAM, smooth((x - 0.55) / 0.4)))
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x))
 const smooth = (x: number) => { const u = clamp01(x); return u * u * (3 - 2 * u) }
-const easeOut = (x: number) => 1 - Math.pow(1 - clamp01(x), 3)
 
 // ─── Déroulé ─────────────────────────────────────────────────────────────────
 
-/** Durées de l'ouverture (s). La carte se découvre, le ruban se dessine, le titre s'inscrit, plan tenu, puis plongée
- * de la caméra vers le départ (le titre s'efface au début de la plongée, le ruban d'ouverture pendant). */
+/** Durées de l'ouverture (s) : la carte apparaît avec le ruban déjà en place, le titre entre d'un seul fondu, plan
+ * tenu (lent rapprochement), puis plongée de la caméra vers le départ (titre, lieux et ruban d'ouverture s'effacent). */
 export const OPENING = {
-  /** Levée du voile sombre : la carte apparaît dans la lumière du matin. */
-  mapInS: 1.8,
-  /** Le ruban commence à se dessiner… */
-  ribbonFromS: 0.9,
-  /** … et atteint l'arrivée. */
-  ribbonToS: 5.2,
-  /** Début de l'inscription du titre. */
-  titleFromS: 2.0,
+  /** Levée du voile sombre du tout début. */
+  mapInS: 0.8,
+  /** Fondu d'entrée du titre. */
+  titleFromS: 0.4,
+  titleInS: 1.0,
   /** Début de la plongée vers le départ (fin du plan d'ensemble). */
-  diveFromS: 7.4,
+  diveFromS: 6.6,
   /** Durée de la plongée. */
-  diveS: 3.4,
+  diveS: 3.2,
 } as const
 /** Durée totale de l'ouverture (fin de la plongée : la caméra est sur le départ). */
 export const OPENING_S = OPENING.diveFromS + OPENING.diveS
@@ -67,12 +64,8 @@ export function openingDiveK(t: number): number {
   const u = clamp01((t - OPENING.diveFromS) / OPENING.diveS)
   return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2
 }
-/** Part du parcours dessinée par le ruban d'ouverture à l'instant `t`. */
-export function openingRibbonHead(t: number): number {
-  const u = clamp01((t - OPENING.ribbonFromS) / (OPENING.ribbonToS - OPENING.ribbonFromS))
-  return u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2
-}
-/** Opacité du ruban d'ouverture : plein jusqu'à mi-plongée, puis s'efface (le ruban de la course prend le relais). */
+/** Opacité du ruban d'ouverture : présent dès la première image, s'efface pendant la plongée (le ruban de la course
+ * prend le relais). */
 export function openingRibbonAlpha(t: number): number {
   return 1 - smooth((t - OPENING.diveFromS - OPENING.diveS * 0.25) / (OPENING.diveS * 0.5))
 }
@@ -86,6 +79,10 @@ export const OPENING_FRAME_SHIFT = 0.17
 export function openingFrameShift(t: number): number {
   return OPENING_FRAME_SHIFT * (1 - openingDiveK(t))
 }
+/** Opacité du titre et des lieux : un fondu d'entrée, effacés au début de la plongée. */
+function titleAlpha(t: number): number {
+  return smooth((t - OPENING.titleFromS) / OPENING.titleInS) * (1 - smooth((t - OPENING.diveFromS) / 0.8))
+}
 
 // ─── Police ──────────────────────────────────────────────────────────────────
 
@@ -97,7 +94,7 @@ export function loadOpeningFont(): Promise<void> {
     fontPromise = (async () => {
       try {
         if ([...document.fonts].some(f => f.family.replace(/"/g, '') === 'Plus Jakarta Sans')) {
-          await document.fonts.load(`700 40px ${FONT}`)
+          await document.fonts.load(`800 40px ${FONT}`)
           return
         }
         const face = new FontFace('Plus Jakarta Sans', `url(${import.meta.env.BASE_URL}fonts/plus-jakarta-sans-latin.woff2)`,
@@ -115,44 +112,56 @@ export function loadOpeningFont(): Promise<void> {
 // ─── Lumière du matin ────────────────────────────────────────────────────────
 
 /**
- * Lumière douce et dorée du matin sur la carte, zone sombre à gauche pour le titre, voile de levée du début.
- * `t` : temps de l'ouverture (s). Tout s'atténue pendant la plongée : la course garde son image habituelle.
+ * Étalonnage de la carte : contraste renforcé, lumière de matin venue du haut à droite, légère brume de profondeur
+ * vers l'horizon, zone sombre à gauche pour le titre, vignette ; voile de levée du tout début. Couleurs gardées
+ * naturelles (pas de teinte orangée d'ensemble). `t` : temps de l'ouverture (s). Tout s'atténue pendant la plongée.
  */
 export function drawOpeningLight(ctx: CanvasRenderingContext2D, w: number, h: number, t: number): void {
   const strength = 1 - openingDiveK(t)
   if (strength > 0) {
     ctx.save()
-    // Lumière chaude, douce, de biais depuis le haut à droite (soleil du matin bas sur l'horizon).
+    // Contraste : l'image fondue sur elle-même en « soft-light ».
     ctx.globalCompositeOperation = 'soft-light'
-    ctx.globalAlpha = 0.55 * strength
-    ctx.fillStyle = '#ffcf94'
-    ctx.fillRect(0, 0, w, h)
+    ctx.globalAlpha = 0.5 * strength
+    ctx.drawImage(ctx.canvas, 0, 0, w, h)
+    // Lumière de matin, douce, depuis le haut à droite.
     ctx.globalCompositeOperation = 'screen'
     ctx.globalAlpha = strength
-    const sun = ctx.createRadialGradient(w * 0.9, -h * 0.15, 0, w * 0.9, -h * 0.15, w * 0.85)
-    sun.addColorStop(0, 'rgba(255,222,170,0.42)')
-    sun.addColorStop(0.45, 'rgba(255,205,140,0.16)')
-    sun.addColorStop(1, 'rgba(255,200,130,0)')
+    const sun = ctx.createRadialGradient(w * 0.95, -h * 0.1, 0, w * 0.95, -h * 0.1, w * 0.75)
+    sun.addColorStop(0, 'rgba(255,214,160,0.36)')
+    sun.addColorStop(0.5, 'rgba(255,205,150,0.1)')
+    sun.addColorStop(1, 'rgba(255,200,140,0)')
     ctx.fillStyle = sun
     ctx.fillRect(0, 0, w, h)
-    // Zone sombre et dégagée à gauche (titre), bords haut et bas légèrement assombris.
+    // Brume de profondeur : le haut de l'image (le lointain) un peu voilé, bleuté.
+    const haze = ctx.createLinearGradient(0, 0, 0, h * 0.4)
+    haze.addColorStop(0, 'rgba(170,190,210,0.16)')
+    haze.addColorStop(1, 'rgba(170,190,210,0)')
+    ctx.fillStyle = haze
+    ctx.fillRect(0, 0, w, h * 0.4)
+    // Zone sombre à gauche (titre), vignette haut, bas et coins.
     ctx.globalCompositeOperation = 'source-over'
-    const left = ctx.createLinearGradient(0, 0, w * 0.6, 0)
-    left.addColorStop(0, 'rgba(7,11,17,0.82)')
-    left.addColorStop(0.42, 'rgba(7,11,17,0.55)')
-    left.addColorStop(1, 'rgba(7,11,17,0)')
+    const left = ctx.createLinearGradient(0, 0, w * 0.62, 0)
+    left.addColorStop(0, 'rgba(6,9,14,0.86)')
+    left.addColorStop(0.45, 'rgba(6,9,14,0.6)')
+    left.addColorStop(1, 'rgba(6,9,14,0)')
     ctx.fillStyle = left
     ctx.fillRect(0, 0, w, h)
     const vert = ctx.createLinearGradient(0, 0, 0, h)
-    vert.addColorStop(0, 'rgba(7,11,17,0.35)')
-    vert.addColorStop(0.22, 'rgba(7,11,17,0)')
-    vert.addColorStop(0.8, 'rgba(7,11,17,0)')
-    vert.addColorStop(1, 'rgba(7,11,17,0.4)')
+    vert.addColorStop(0, 'rgba(6,9,14,0.3)')
+    vert.addColorStop(0.2, 'rgba(6,9,14,0)')
+    vert.addColorStop(0.78, 'rgba(6,9,14,0)')
+    vert.addColorStop(1, 'rgba(6,9,14,0.5)')
     ctx.fillStyle = vert
+    ctx.fillRect(0, 0, w, h)
+    const vig = ctx.createRadialGradient(w * 0.6, h * 0.5, h * 0.45, w * 0.6, h * 0.5, w * 0.75)
+    vig.addColorStop(0, 'rgba(6,9,14,0)')
+    vig.addColorStop(1, 'rgba(6,9,14,0.35)')
+    ctx.fillStyle = vig
     ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
-  // Levée du voile : la carte apparaît (bleu nuit très sombre, pas un noir plein).
+  // Levée du voile du tout début (bleu nuit très sombre, pas un noir plein).
   const veil = 1 - smooth(t / OPENING.mapInS)
   if (veil > 0) {
     ctx.save()
@@ -170,29 +179,13 @@ export interface OpeningPt { x: number; y: number; f: number; ok?: boolean }
 let glowCanvas: HTMLCanvasElement | null = null
 
 /**
- * Ruban d'ouverture : il se dessine du départ jusqu'à `head` (part du parcours), dégradé vert → orange → crème, avec
- * un halo lumineux (l'élément le plus lumineux de l'image) et une tête crème brillante.
+ * Ruban d'ouverture, FIXE : tout le parcours, dégradé vert → orange → crème, épais, avec un halo diffus qui le garde
+ * élément le plus lumineux de la carte sans l'écraser.
  */
-export function drawOpeningRibbon(
-  ctx: CanvasRenderingContext2D, w: number, h: number, pts: OpeningPt[], head: number, alpha: number,
-): void {
-  if (alpha <= 0 || head <= 0 || pts.length < 2) return
+export function drawOpeningRibbon(ctx: CanvasRenderingContext2D, w: number, h: number, path: OpeningPt[], alpha: number): void {
+  if (alpha <= 0 || path.length < 2) return
   const k = h / 1080
-  // Points visibles jusqu'à la tête (dernier point interpolé).
-  const path: OpeningPt[] = []
-  for (let i = 0; i < pts.length; i++) {
-    const p = pts[i]
-    if (p.f <= head) { path.push(p); continue }
-    const q = pts[i - 1]
-    if (q && p.f > q.f) {
-      const u = (head - q.f) / (p.f - q.f)
-      path.push({ x: q.x + (p.x - q.x) * u, y: q.y + (p.y - q.y) * u, f: head, ok: p.ok !== false && q.ok !== false })
-    }
-    break
-  }
-  if (path.length < 2) return
-
-  const CHUNKS = 90
+  const CHUNKS = 120
   const strokeRibbon = (c: CanvasRenderingContext2D, width: number, s = 1) => {
     c.lineCap = 'round'; c.lineJoin = 'round'; c.lineWidth = width
     let i = 0
@@ -211,6 +204,12 @@ export function drawOpeningRibbon(
       i = Math.max(i + 1, j)
     }
   }
+  const strokePlain = (width: number) => {
+    ctx.lineWidth = width
+    ctx.beginPath()
+    path.forEach((p, i) => (i === 0 || path[i - 1].ok === false ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
+    ctx.stroke()
+  }
 
   // Halo : ruban épais dessiné à demi-résolution, flouté, ajouté en mode « screen » (lumière).
   const gw = Math.round(w / 2), gh = Math.round(h / 2)
@@ -218,49 +217,75 @@ export function drawOpeningRibbon(
   if (glowCanvas.width !== gw || glowCanvas.height !== gh) { glowCanvas.width = gw; glowCanvas.height = gh }
   const g = glowCanvas.getContext('2d')!
   g.clearRect(0, 0, gw, gh)
-  g.filter = `blur(${Math.round(9 * k)}px)`
-  strokeRibbon(g, 16 * k, 0.5)
+  g.filter = `blur(${Math.round(10 * k)}px)`
+  strokeRibbon(g, 20 * k, 0.5)
   g.filter = 'none'
 
   ctx.save()
   ctx.globalAlpha = alpha
-  // Liseré sombre très léger : détache le ruban des toits clairs.
-  ctx.strokeStyle = 'rgba(10,14,12,0.38)'
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 11 * k
-  ctx.beginPath()
-  path.forEach((p, i) => (i === 0 || path[i - 1].ok === false ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
-  ctx.stroke()
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  // Liseré sombre léger : détache le ruban des toits clairs.
+  ctx.strokeStyle = 'rgba(8,12,10,0.4)'
+  strokePlain(13 * k)
   ctx.globalCompositeOperation = 'screen'
-  ctx.drawImage(glowCanvas, 0, 0, w, h)
-  ctx.globalAlpha = alpha * 0.5 // second passage plus léger : les croisements du parcours ne saturent pas en blanc
+  ctx.globalAlpha = alpha * 0.85
   ctx.drawImage(glowCanvas, 0, 0, w, h)
   ctx.globalAlpha = alpha
   ctx.globalCompositeOperation = 'source-over'
-  strokeRibbon(ctx, 6.5 * k)
+  strokeRibbon(ctx, 8 * k)
   // Filet clair au cœur du ruban : brillance.
-  ctx.globalAlpha = alpha * 0.45
+  ctx.globalAlpha = alpha * 0.5
   ctx.strokeStyle = '#fffaf0'
-  ctx.lineWidth = 1.8 * k
-  ctx.beginPath()
-  path.forEach((p, i) => (i === 0 || path[i - 1].ok === false ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)))
-  ctx.stroke()
+  strokePlain(2 * k)
+  ctx.restore()
+}
 
-  // Tête : point lumineux tant que le ruban se dessine.
-  const tip = path[path.length - 1]
-  const tipA = alpha * (1 - smooth((head - 0.985) / 0.015))
-  if (tipA > 0) {
-    ctx.globalAlpha = tipA
-    ctx.globalCompositeOperation = 'screen'
-    const r = 30 * k
-    const halo = ctx.createRadialGradient(tip.x, tip.y, 0, tip.x, tip.y, r)
-    halo.addColorStop(0, 'rgba(255,248,232,0.95)')
-    halo.addColorStop(0.3, `${ribbonColor(head).replace('rgb', 'rgba').replace(')', ',0.55)')}`)
-    halo.addColorStop(1, 'rgba(255,240,210,0)')
-    ctx.fillStyle = halo
-    ctx.beginPath(); ctx.arc(tip.x, tip.y, r, 0, Math.PI * 2); ctx.fill()
-    ctx.globalCompositeOperation = 'source-over'
-    ctx.fillStyle = '#fffaf0'
-    ctx.beginPath(); ctx.arc(tip.x, tip.y, 4.5 * k, 0, Math.PI * 2); ctx.fill()
+// ─── Lieux connus ────────────────────────────────────────────────────────────
+
+/** Lieu connu (point d'intérêt) à l'écran. */
+export interface OpeningPoi { x: number; y: number; name: string; ok?: boolean }
+
+/** Coupe un nom en deux lignes équilibrées au-delà de 14 caractères (« Citadelle / de Lille »). */
+function poiLines(name: string): string[] {
+  if (name.length <= 14 || !name.includes(' ')) return [name]
+  const words = name.split(' ')
+  let best = [name], bestD = Infinity
+  for (let i = 1; i < words.length; i++) {
+    const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ')
+    const d = Math.abs(a.length - b.length)
+    if (d < bestD) { bestD = d; best = [a, b] }
+  }
+  return best
+}
+
+/** Points d'intérêt : point blanc cerclé, tige, nom blanc au-dessus (étiquette flottante). Au plus 5, hors zone du
+ * titre et hors champ écartés. Pas de noms de rues sur l'ouverture. */
+function drawOpeningPois(ctx: CanvasRenderingContext2D, w: number, h: number, pois: OpeningPoi[], alpha: number): void {
+  if (alpha <= 0 || !pois.length) return
+  const k = h / 1080
+  const shown = pois.filter(p => p.ok !== false && p.x > w * 0.42 && p.x < w - 80 * k && p.y > 120 * k && p.y < h - 60 * k).slice(0, 5)
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'alphabetic'
+  const size = Math.round(21 * k)
+  ctx.font = `600 ${size}px ${FONT}`
+  for (const p of shown) {
+    const stem = 30 * k
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
+    ctx.lineWidth = 1.5 * k
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - stem); ctx.stroke()
+    ctx.fillStyle = '#ffffff'
+    ctx.beginPath(); ctx.arc(p.x, p.y, 5 * k, 0, Math.PI * 2); ctx.fill()
+    ctx.strokeStyle = 'rgba(10,14,18,0.7)'
+    ctx.lineWidth = 2 * k
+    ctx.stroke()
+    const lines = poiLines(p.name)
+    ctx.shadowColor = 'rgba(0,0,0,0.85)'
+    ctx.shadowBlur = 8 * k
+    ctx.fillStyle = '#ffffff'
+    lines.forEach((l, i) => ctx.fillText(l, p.x, p.y - stem - 8 * k - (lines.length - 1 - i) * size * 1.15))
+    ctx.shadowColor = 'transparent'
   }
   ctx.restore()
 }
@@ -268,7 +293,7 @@ export function drawOpeningRibbon(
 // ─── Titre ───────────────────────────────────────────────────────────────────
 
 export interface OpeningText {
-  /** Titre secondaire : « SEMI-MARATHON ». */
+  /** Première ligne du titre : « SEMI-MARATHON ». */
   kicker: string
   /** Élément principal : « LILLE ». */
   main: string
@@ -276,9 +301,9 @@ export interface OpeningText {
   year: string
   /** « 17 SEPTEMBRE 2026 ». */
   date: string
-  /** « 21,1 KM ». */
+  /** « 21,1 km ». */
   km: string
-  /** « D+ 50 M ». */
+  /** « D+ 50 m ». */
   gain: string
 }
 
@@ -297,199 +322,213 @@ export function openingText(o: {
     title = title.replace(new RegExp(`(\\s+(de|du|d')\\s*)?(^|\\s)${esc}(?=\\s|$)`, 'i'), ' ')
   }
   title = title.replace(/\s+/g, ' ').replace(/^[\s·–-]+|[\s·–-]+$/g, '').trim()
-  const km = formatBannerDistance(o.distanceM) // « 21,1 KM » pour un semi, « 42,195 KM » pour un marathon
-  const gain = `D+ ${Math.round(o.elevGainM / 10) * 10} M`
   const up = (s: string) => s.toLocaleUpperCase('fr-FR')
   return {
     kicker: place ? up(title) : '',
     main: up(place || title || 'Sillonphane'),
     year,
     date: up(o.date ?? ''),
-    km, gain,
+    // « 21,1 km » pour un semi, « 42,195 km » pour un marathon.
+    km: formatBannerDistance(o.distanceM).replace(/ KM$/, ' km'),
+    gain: `D+ ${Math.round(o.elevGainM / 10) * 10} m`,
   }
 }
 
+// Logo Sillonphane : le tracé et les couleurs d'AppLogoIcon.tsx (sillon au dégradé, deux points), sans son fond noir.
 const LOGO_D = 'M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60'
-let logoCache: { path: Path2D; length: number } | null = null
-function logoPath(): { path: Path2D; length: number } {
-  if (!logoCache) {
-    const el = document.createElementNS('http://www.w3.org/2000/svg', 'path')
-    el.setAttribute('d', LOGO_D)
-    logoCache = { path: new Path2D(LOGO_D), length: el.getTotalLength() }
-  }
-  return logoCache
-}
+let logoPath: Path2D | null = null
 
-/** Sigle Sillonphane (le « S » du site) dans un carré de `size` px, coin haut gauche (x, y), tracé à `reveal`. */
-function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, reveal: number, alpha: number) {
-  if (alpha <= 0) return
-  const { path, length } = logoPath()
-  // Le tracé occupe x 122..234, y 60..232 du repère 320 : on le cadre sur ce rectangle.
-  const s = size / 172
+/** Logo Sillonphane, hauteur `size` px, coin haut gauche (x, y). */
+function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  if (!logoPath) logoPath = new Path2D(LOGO_D)
+  // Le tracé (trait de 29 compris) occupe x 107..249, y 45..247 du repère 320 : on le cadre sur ce rectangle.
+  const s = size / 202
   ctx.save()
-  ctx.globalAlpha = alpha
-  ctx.translate(x - 122 * s + (size - 112 * s) / 2, y - 60 * s)
+  ctx.translate(x - 107 * s, y - 45 * s)
   ctx.scale(s, s)
   const grad = ctx.createLinearGradient(0, 232, 0, 60)
-  grad.addColorStop(0, '#3E9E68')
-  grad.addColorStop(0.32, '#3E9E68')
-  grad.addColorStop(0.62, '#E07F3C')
-  grad.addColorStop(0.86, '#F6EFE2')
-  grad.addColorStop(1, '#F6EFE2')
+  grad.addColorStop(0, '#2F5C45')
+  grad.addColorStop(0.5, '#D97A3D')
+  grad.addColorStop(1, '#F4EDE0')
   ctx.strokeStyle = grad
-  ctx.lineWidth = 30
+  ctx.lineWidth = 29
   ctx.lineCap = 'round'
-  ctx.setLineDash([length])
-  ctx.lineDashOffset = length * (1 - clamp01(reveal))
-  ctx.stroke(path)
+  ctx.stroke(logoPath)
+  ctx.fillStyle = '#2F5C45'
+  ctx.strokeStyle = '#F4EDE0'
+  ctx.lineWidth = 3
+  ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke()
+  ctx.fillStyle = '#F4EDE0'
+  ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fill()
   ctx.restore()
 }
 
-/** Texte espacé (letter-spacing) aligné à gauche ; renvoie sa largeur. */
-function spaced(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, spacingPx: number): number {
-  ctx.letterSpacing = `${spacingPx}px`
-  ctx.fillText(text, x, y)
-  const wd = ctx.measureText(text).width
-  ctx.letterSpacing = '0px'
+/** Pictogramme coureur (badge de distance), tenant dans un carré de `s` px centré en (cx, cy). */
+function drawRunnerIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number) {
+  ctx.save()
+  ctx.translate(cx - s / 2, cy - s / 2)
+  ctx.scale(s / 24, s / 24)
+  ctx.strokeStyle = '#ffffff'; ctx.fillStyle = '#ffffff'
+  ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'
+  ctx.beginPath(); ctx.arc(15, 4, 2.4, 0, Math.PI * 2); ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(8, 10); ctx.lineTo(12, 8); ctx.lineTo(15, 9.5); ctx.lineTo(17, 13) // bras arrière, épaule, bras avant
+  ctx.moveTo(12.5, 8.5); ctx.lineTo(10.5, 14) // buste
+  ctx.lineTo(14, 17); ctx.lineTo(13, 22) // jambe avant
+  ctx.moveTo(10.5, 14); ctx.lineTo(8, 18); ctx.lineTo(4, 18) // jambe arrière
+  ctx.stroke()
+  ctx.restore()
+}
+/** Pictogramme dénivelé (deux sommets), tenant dans un carré de `s` px centré en (cx, cy). */
+function drawMountainIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number) {
+  ctx.save()
+  ctx.translate(cx - s / 2, cy - s / 2)
+  ctx.scale(s / 24, s / 24)
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(2, 19); ctx.lineTo(9, 7); ctx.lineTo(13, 13); ctx.lineTo(15.5, 10); ctx.lineTo(22, 19); ctx.closePath()
+  ctx.stroke()
+  ctx.beginPath(); ctx.moveTo(7, 10.5); ctx.lineTo(9, 12); ctx.lineTo(11, 10.5); ctx.stroke()
+  ctx.restore()
+}
+
+/** Badge arrondi (icône + texte) ; renvoie sa largeur. */
+function drawBadge(
+  ctx: CanvasRenderingContext2D, x: number, y: number, hgt: number, text: string,
+  icon: (c: CanvasRenderingContext2D, cx: number, cy: number, s: number) => void, accent: boolean,
+): number {
+  const k = hgt / 56
+  const size = Math.round(25 * k)
+  ctx.font = `600 ${size}px ${FONT}`
+  const iconS = 26 * k, padX = 20 * k, gap = 12 * k
+  const wd = padX + iconS + gap + ctx.measureText(text).width + padX
+  ctx.beginPath()
+  ctx.roundRect(x, y, wd, hgt, hgt / 2)
+  if (accent) {
+    const g = ctx.createLinearGradient(x, 0, x + wd, 0)
+    g.addColorStop(0, '#d9262c'); g.addColorStop(1, '#e8492c')
+    ctx.fillStyle = g
+    ctx.fill()
+  } else {
+    ctx.fillStyle = 'rgba(14,18,24,0.55)'
+    ctx.fill()
+    ctx.strokeStyle = 'rgba(255,255,255,0.45)'
+    ctx.lineWidth = 1.5 * k
+    ctx.stroke()
+  }
+  icon(ctx, x + padX + iconS / 2, y + hgt / 2, iconS)
+  ctx.fillStyle = '#ffffff'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(text, x + padX + iconS + gap, y + hgt / 2 + 1 * k)
+  ctx.textBaseline = 'alphabetic'
   return wd
 }
 
+/** Filet au dégradé signature (vert → orange, fondu au bout). */
+function drawSignatureLine(ctx: CanvasRenderingContext2D, x: number, y: number, wd: number, hgt: number) {
+  const g = ctx.createLinearGradient(x, 0, x + wd, 0)
+  g.addColorStop(0, rgb(GREEN)); g.addColorStop(0.6, rgb(ORANGE)); g.addColorStop(1, 'rgba(224,127,60,0)')
+  ctx.fillStyle = g
+  ctx.fillRect(x, y, wd, hgt)
+}
+
 /**
- * Bloc titre à gauche : date, filet au dégradé signature, SEMI-MARATHON, LILLE 2026, distance et D+, puis sigle et
- * adresse du site, discrets. Chaque ligne entre en fondu avec une légère montée, décalée de la précédente ; le bloc
- * s'efface au début de la plongée. `t` : temps de l'ouverture (s).
+ * Bloc titre à gauche, façon affiche : date en capitales espacées, filet, SEMI-MARATHON et LILLE 2026 en très grand
+ * (l'année orange doré), filet au dégradé signature, badges distance et D+, logo Sillonphane et adresse du site.
+ * Un seul fondu d'entrée ; effacé au début de la plongée. `t` : temps de l'ouverture (s).
  */
 export function drawOpeningTitle(ctx: CanvasRenderingContext2D, w: number, h: number, txt: OpeningText, t: number): void {
-  const out = 1 - smooth((t - OPENING.diveFromS) / 0.9)
-  const tt = t - OPENING.titleFromS
-  if (out <= 0 || tt <= 0) return
+  const a = titleAlpha(t)
+  if (a <= 0) return
   const k = h / 1080
-  const x = Math.round(118 * k)
+  const x = Math.round(96 * k)
   const maxW = w * 0.4
-  /** Opacité et montée d'une ligne qui entre à `delay` s. */
-  const enter = (delay: number, dur = 1.1) => {
-    const u = easeOut((tt - delay) / dur)
-    return { a: u * out, dy: (1 - u) * 22 * k }
-  }
 
   ctx.save()
+  ctx.globalAlpha = a
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
-  ctx.shadowColor = 'rgba(0,0,0,0.35)'
-  ctx.shadowBlur = 18 * k
 
-  // Tailles : l'élément principal se réduit pour tenir dans maxW.
-  let mainSize = 150 * k
+  // Tailles : le titre se réduit pour tenir dans maxW (même taille pour ses deux lignes).
   const mainText = txt.year ? `${txt.main} ${txt.year}` : txt.main
-  ctx.font = `800 ${mainSize}px ${FONT}`
-  ctx.letterSpacing = `${-1.5 * k}px`
-  while (ctx.measureText(mainText).width > maxW && mainSize > 60 * k) {
-    mainSize -= 4 * k
-    ctx.font = `800 ${mainSize}px ${FONT}`
+  let size = 124 * k
+  const fits = () => {
+    ctx.font = `800 ${size}px ${FONT}`
+    ctx.letterSpacing = `${-2 * k}px`
+    return Math.max(ctx.measureText(mainText).width, txt.kicker ? ctx.measureText(txt.kicker).width : 0) <= maxW
   }
+  while (!fits() && size > 56 * k) size -= 3 * k
   ctx.letterSpacing = '0px'
-  let kickerSize = 58 * k
-  ctx.font = `700 ${kickerSize}px ${FONT}`
-  while (txt.kicker && ctx.measureText(txt.kicker).width + txt.kicker.length * 3 * k > maxW && kickerSize > 28 * k) {
-    kickerSize -= 2 * k
-    ctx.font = `700 ${kickerSize}px ${FONT}`
-  }
 
-  // Bloc centré verticalement un peu au-dessus du milieu.
-  const blockH = 22 * k + 34 * k + (txt.kicker ? kickerSize * 1.05 : 0) + mainSize * 0.92 + 70 * k
-  let y = Math.round(h * 0.47 - blockH / 2)
-
-  // Date (très secondaire).
+  let y = Math.round(h * 0.14)
+  // Date : petite, capitales espacées, discrète.
   if (txt.date) {
-    const e = enter(0)
-    ctx.globalAlpha = e.a * 0.8
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `500 ${Math.round(22 * k)}px ${FONT}`
-    spaced(ctx, txt.date, x, y + 22 * k + e.dy, 9 * k)
-  }
-  y += 22 * k + 22 * k
-  // Filet au dégradé signature, qui se déroule.
-  {
-    const u = easeOut((tt - 0.25) / 1.3)
-    const lw = 150 * k * u
-    if (lw > 0) {
-      ctx.globalAlpha = out
-      ctx.shadowColor = 'transparent'
-      const g = ctx.createLinearGradient(x, 0, x + 150 * k, 0)
-      g.addColorStop(0, rgb(GREEN)); g.addColorStop(0.5, rgb(ORANGE)); g.addColorStop(1, rgb(CREAM))
-      ctx.fillStyle = g
-      ctx.fillRect(x, y, lw, 3 * k)
-      ctx.shadowColor = 'rgba(0,0,0,0.35)'
-    }
-  }
-  y += 12 * k
-
-  // SEMI-MARATHON (titre secondaire).
-  if (txt.kicker) {
-    const e = enter(0.35)
-    y += kickerSize
-    ctx.globalAlpha = e.a * 0.92
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `700 ${kickerSize}px ${FONT}`
-    spaced(ctx, txt.kicker, x, y + e.dy, 3 * k)
-    y += kickerSize * 0.05
-  }
-
-  // LILLE 2026 (élément principal) : l'année au dégradé orange → crème.
-  {
-    const e = enter(0.6, 1.3)
-    y += mainSize * 0.9
-    ctx.globalAlpha = e.a
-    ctx.font = `800 ${mainSize}px ${FONT}`
-    ctx.letterSpacing = `${-1.5 * k}px`
-    ctx.fillStyle = '#ffffff'
-    const mainW = ctx.measureText(`${txt.main} `).width
-    ctx.fillText(`${txt.main} `, x, y + e.dy)
-    if (txt.year) {
-      const g = ctx.createLinearGradient(0, y - mainSize * 0.75, 0, y)
-      g.addColorStop(0, rgb(CREAM)); g.addColorStop(0.55, '#f2b46a'); g.addColorStop(1, rgb(ORANGE))
-      ctx.fillStyle = g
-      ctx.fillText(txt.year, x + mainW, y + e.dy)
-    }
+    ctx.fillStyle = 'rgba(235,238,242,0.88)'
+    ctx.font = `500 ${Math.round(27 * k)}px ${FONT}`
+    ctx.letterSpacing = `${9 * k}px`
+    ctx.fillText(txt.date, x, y)
     ctx.letterSpacing = '0px'
   }
+  y += 22 * k
+  drawSignatureLine(ctx, x, y, 150 * k, 3 * k)
+  y += 22 * k
 
-  // 21,1 KM | D+ 50 M (informations).
-  {
-    const e = enter(1.05)
-    y += 64 * k
-    const size = Math.round(28 * k)
-    ctx.globalAlpha = e.a * 0.92
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `600 ${size}px ${FONT}`
-    let cx = x + spaced(ctx, txt.km, x, y + e.dy, 5 * k) + 24 * k
-    ctx.globalAlpha = e.a * 0.45
-    ctx.fillRect(cx, y + e.dy - size * 0.78, 1.5 * k, size * 0.95)
-    cx += 24 * k
-    ctx.globalAlpha = e.a * 0.92
-    spaced(ctx, txt.gain, cx, y + e.dy, 5 * k)
+  // SEMI-MARATHON / LILLE 2026 : très grand, blanc, gras ; l'année orange doré, un peu lumineuse.
+  ctx.shadowColor = 'rgba(0,0,0,0.45)'
+  ctx.shadowBlur = 22 * k
+  ctx.font = `800 ${size}px ${FONT}`
+  ctx.letterSpacing = `${-2 * k}px`
+  ctx.fillStyle = '#ffffff'
+  if (txt.kicker) {
+    y += size * 0.86
+    ctx.fillText(txt.kicker, x, y)
+    y += size * 0.12
   }
+  y += size * 0.86
+  const mainW = ctx.measureText(`${txt.main} `).width
+  ctx.fillText(`${txt.main} `, x, y)
+  if (txt.year) {
+    const g = ctx.createLinearGradient(0, y - size * 0.72, 0, y)
+    g.addColorStop(0, '#ffcf5a'); g.addColorStop(1, '#f07a2a')
+    ctx.fillStyle = g
+    ctx.shadowColor = 'rgba(255,150,50,0.45)'
+    ctx.shadowBlur = 26 * k
+    ctx.fillText(txt.year, x + mainW, y)
+  }
+  ctx.letterSpacing = '0px'
+  ctx.shadowColor = 'transparent'
+  y += 34 * k
+  drawSignatureLine(ctx, x, y, Math.min(maxW, 440 * k), 3 * k)
 
-  // Sigle + adresse du site (très secondaires), en bas du bloc.
-  {
-    const e = enter(1.5)
-    const size = 46 * k
-    const ly = Math.round(h * 0.82)
-    drawLogo(ctx, x, ly - size + e.dy, size, (tt - 1.5) / 1.1, e.a * 0.95)
-    ctx.globalAlpha = e.a * 0.72
-    ctx.fillStyle = '#ffffff'
-    ctx.font = `500 ${Math.round(20 * k)}px ${FONT}`
-    spaced(ctx, 'sillonphane.fr/running', x + size + 14 * k, ly - size * 0.32 + e.dy, 1.5 * k)
-  }
+  // Badges distance (accent rouge orangé) et D+ (sombre, contour discret).
+  y += 30 * k
+  const bh = 56 * k
+  const bw = drawBadge(ctx, x, y, bh, txt.km, drawRunnerIcon, true)
+  drawBadge(ctx, x + bw + 16 * k, y, bh, txt.gain, drawMountainIcon, false)
+  y += bh
+
+  // Logo Sillonphane (assez grand, discret) et adresse du site.
+  y += 58 * k
+  const logoH = 112 * k
+  ctx.globalAlpha = a * 0.95
+  drawLogo(ctx, x + 6 * k, y, logoH)
+  y += logoH + 44 * k
+  ctx.globalAlpha = a * 0.8
+  ctx.fillStyle = '#e8eaee'
+  ctx.font = `500 ${Math.round(25 * k)}px ${FONT}`
+  ctx.fillText('sillonphane.fr/running', x, y)
   ctx.restore()
 }
 
-/** Ouverture complète par-dessus l'image de la carte : lumière, ruban (points à l'écran), titre. */
+/** Ouverture complète par-dessus l'image de la carte : étalonnage et lumière, ruban fixe, lieux connus, titre. */
 export function drawOpening(
   ctx: CanvasRenderingContext2D, w: number, h: number, t: number, ribbon: OpeningPt[], txt: OpeningText,
+  pois: OpeningPoi[] = [],
 ): void {
   if (t >= OPENING_S) return
   drawOpeningLight(ctx, w, h, t)
-  drawOpeningRibbon(ctx, w, h, ribbon, openingRibbonHead(t), openingRibbonAlpha(t))
+  drawOpeningRibbon(ctx, w, h, ribbon, openingRibbonAlpha(t))
+  drawOpeningPois(ctx, w, h, pois, titleAlpha(t))
   drawOpeningTitle(ctx, w, h, txt, t)
 }

@@ -2125,6 +2125,12 @@ async function exportFilm3dImpl(
     title: opts.eventCartouche?.title ?? opts.title, place: opts.eventCartouche?.place,
     date: opts.trailDate, distanceM: SHOWN_M, elevGainM,
   })
+  // Lieux connus (points d'intérêt du film), posés au sol, pour l'ouverture.
+  const openingPois = scenePanels.filter(p => p.style === 'poi').map(p => {
+    const [px, pz] = cov.project(p.lon, p.lat)
+    return { name: p.name, pos: new THREE.Vector3(px, meshHeightAt(px, pz), pz) }
+  })
+  const _poiV = new THREE.Vector3()
   let simElapsed = 0
   let lastOverlay: Overlay = { distanceM: 0, profileT: 0 }
   while (simElapsed < RENDER_FROM) { simElapsed += SIM_DT; lastOverlay = simStep(simElapsed) }
@@ -2256,7 +2262,11 @@ async function exportFilm3dImpl(
         const p = ribbonScreenAt(i)
         pts.push({ x: p.x, y: p.y, f: i / RIBBON_SEGMENTS, ok: p.z < 1 })
       }
-      drawOpening(ctx2d, OUT_W, OUT_H, simElapsed, pts, openingTxt)
+      const pois = openingPois.map(p => {
+        _poiV.copy(p.pos).project(camera)
+        return { name: p.name, x: (_poiV.x + 1) / 2 * OUT_W, y: (1 - _poiV.y) / 2 * OUT_H, ok: _poiV.z < 1 }
+      })
+      drawOpening(ctx2d, OUT_W, OUT_H, simElapsed, pts, openingTxt, pois)
     }
 
     if (useWC && encoder) {
