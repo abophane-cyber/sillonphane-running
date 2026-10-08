@@ -319,7 +319,7 @@ function drawPoiIcon(ctx: CanvasRenderingContext2D, icon: string | undefined, cx
 }
 
 /**
- * Lieux sur la carte. Points d'intérêt (`type` 'poi' ou absent, au plus 5) : rond blanc cerclé de noir sur le lieu, tige,
+ * Lieux sur la carte. Points d'intérêt (`type` 'poi' ou absent, au plus 5) : rond blanc cerclé de noir sur le lieu, tige fine,
  * étiquette sombre arrondie avec pictogramme (`icon`) et nom en blanc, relevée si elle chevauche une autre. Quartiers et
  * communes (`type` 'district', au plus 6) : capitales gris foncé espacées, auréolées de clair. Hors champ et zone du
  * titre écartés. Pas de noms de rues sur l'ouverture.
@@ -350,24 +350,50 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
   ctx.font = `700 ${size}px ${FONT}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
-  const placed: { x0: number; x1: number; y0: number; y1: number }[] = []
-  for (const p of pois.filter(q => q.type !== 'district' && inView(q)).slice(0, 5)) {
+  // Placement : pour chaque lieu, première position libre parmi des tiges de plus en plus longues et une étiquette
+  // centrée, à gauche ou à droite de sa tige. Libre = l'étiquette ne touche ni une autre étiquette ni une autre tige, et
+  // sa tige ne traverse aucune étiquette déjà posée, et l'étiquette ne couvre le repère d'aucun autre lieu.
+  type Box = { x0: number; x1: number; y0: number; y1: number }
+  type Stem = { x: number; y0: number; y1: number }
+  const boxes: Box[] = [], stems: Stem[] = []
+  const overlap = (a: Box, b: Box) => a.x0 < b.x1 && a.x1 > b.x0 && a.y0 < b.y1 && a.y1 > b.y0
+  const crosses = (s: Stem, b: Box) => s.x > b.x0 - 3 * k && s.x < b.x1 + 3 * k && s.y0 < b.y1 && s.y1 > b.y0
+  const layout: { p: OpeningPoi; lines: string[]; box: Box; stem: Stem }[] = []
+  const padX = 11 * k, padY = 7 * k, lineH = size * 1.1, iconS = 27 * k, gap = 9 * k
+  const shown = pois.filter(q => q.type !== 'district' && inView(q)).slice(0, 5)
+  const coversPoint = (b: Box, self: OpeningPoi) =>
+    shown.some(q => q !== self && q.x > b.x0 - 10 * k && q.x < b.x1 + 10 * k && q.y > b.y0 - 10 * k && q.y < b.y1 + 10 * k)
+  for (const p of shown) {
     const lines = poiLines(p.name)
-    const padX = 11 * k, padY = 7 * k, lineH = size * 1.1, iconS = 27 * k, gap = 9 * k
     const textW = Math.max(...lines.map(l => ctx.measureText(l).width))
     const bw = padX + iconS + gap + textW + padX, bh = Math.max(iconS, lines.length * lineH) + padY * 2
-    let stem = 30 * k
-    const rectAt = (s: number) => ({ x0: p.x - bw / 2, x1: p.x + bw / 2, y1: p.y - s, y0: p.y - s - bh })
-    const hits = (r: ReturnType<typeof rectAt>) => placed.some(q => r.x0 < q.x1 && r.x1 > q.x0 && r.y0 < q.y1 && r.y1 > q.y0)
-    for (let i = 0; i < 4 && hits(rectAt(stem)); i++) stem += bh + 6 * k
-    const r = rectAt(stem)
-    placed.push(r)
-    ctx.strokeStyle = '#1d262c'
-    ctx.lineWidth = 2 * k
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, r.y1); ctx.stroke()
+    let chosen: { box: Box; stem: Stem } | null = null
+    for (let i = 0; i < 5 && !chosen; i++) {
+      const len = 24 * k + i * (bh + 6 * k)
+      for (const dx of [-bw / 2, -bw + 16 * k, -16 * k]) {
+        const box = { x0: p.x + dx, x1: p.x + dx + bw, y1: p.y - len, y0: p.y - len - bh }
+        const stem = { x: p.x, y0: box.y1, y1: p.y }
+        if (boxes.some(b => overlap(box, b)) || stems.some(s => crosses(s, box)) || boxes.some(b => crosses(stem, b)) ||
+          coversPoint(box, p)) continue
+        chosen = { box, stem }
+        break
+      }
+    }
+    if (!chosen) {
+      const box = { x0: p.x - bw / 2, x1: p.x + bw / 2, y1: p.y - 24 * k, y0: p.y - 24 * k - bh }
+      chosen = { box, stem: { x: p.x, y0: box.y1, y1: p.y } }
+    }
+    boxes.push(chosen.box); stems.push(chosen.stem)
+    layout.push({ p, lines, ...chosen })
+  }
+  // Tiges discrètes (fines, à demi transparentes), puis étiquettes, puis repères.
+  ctx.strokeStyle = 'rgba(29,38,44,0.5)'
+  ctx.lineWidth = 1.2 * k
+  for (const { stem } of layout) { ctx.beginPath(); ctx.moveTo(stem.x, stem.y1); ctx.lineTo(stem.x, stem.y0); ctx.stroke() }
+  for (const { p, lines, box: r } of layout) {
     ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 10 * k; ctx.shadowOffsetY = 3 * k
     ctx.fillStyle = 'rgba(29,38,44,0.94)'
-    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, bw, bh, 9 * k); ctx.fill()
+    ctx.beginPath(); ctx.roundRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0, 9 * k); ctx.fill()
     ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
     ctx.strokeStyle = 'rgba(255,255,255,0.55)'
     ctx.lineWidth = 1.5 * k
@@ -376,9 +402,11 @@ export function drawPoiLabels(ctx: CanvasRenderingContext2D, w: number, h: numbe
     ctx.fillStyle = '#ffffff'
     const ty = (r.y0 + r.y1) / 2 - ((lines.length - 1) * lineH) / 2 + size * 0.36
     lines.forEach((l, i) => ctx.fillText(l, r.x0 + padX + iconS + gap, ty + i * lineH))
+  }
+  for (const { p } of layout) {
     ctx.fillStyle = '#ffffff'
     ctx.beginPath(); ctx.arc(p.x, p.y, 6.5 * k, 0, Math.PI * 2); ctx.fill()
-    ctx.strokeStyle = '#1d262c'; ctx.lineWidth = 3 * k
+    ctx.strokeStyle = '#1d262c'; ctx.lineWidth = 2.5 * k
     ctx.stroke()
   }
   ctx.restore()
