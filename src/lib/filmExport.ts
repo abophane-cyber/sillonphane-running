@@ -100,6 +100,13 @@ export interface FilmExportOptions {
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+/** Zoom du film à partir du zoom de l'aperçu. Ordinateur : l'aperçu est zoomé en px CSS, agrandis par l'écran
+ * (Windows à 125 %, zoom du navigateur) ; le film, lui, est en px réels -> + log2(devicePixelRatio), pour qu'il
+ * montre la carte à la même échelle que l'aperçu en plein écran. */
+function filmZoom(zoomRaw: number): number {
+  if (IS_MOBILE) return zoomRaw + 1
+  return zoomRaw + Math.min(1, Math.max(0, Math.log2(window.devicePixelRatio || 1)))
+}
 const OUT_W   = IS_MOBILE ? 1280 : 1920
 const OUT_H   = IS_MOBILE ?  720 : 1080
 
@@ -992,7 +999,7 @@ function buildFilm2dTileUrls(
  */
 export function prefetchFilm2dTiles(points: GpxPoint[], zoomRaw: number, withCharacters: boolean, signal: AbortSignal): Promise<void> {
   if (points.length < 2) return Promise.resolve()
-  const zoom = IS_MOBILE ? zoomRaw + 1 : zoomRaw
+  const zoom = filmZoom(zoomRaw)
   const urls = buildFilm2dTileUrls(points, zoom, withCharacters && HIKER3D_ENABLED, true)
   // Contrôleur propre, que exportFilm coupe à son lancement : il redemande les mêmes URLs, à pleine concurrence ;
   // ce qui est déjà téléchargé reste en cache.
@@ -1029,7 +1036,7 @@ export async function exportFilm(opts: FilmExportOptions): Promise<Blob> {
 async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void): Promise<Blob> {
   const { points, distances, totalDistance, durationS = 30, zoom: zoomRaw, fps = 30, onProgress, signal } = opts
   // Sur smartphone, vue rapprochée : altitude divisée par 2 (+1 niveau de zoom)
-  const zoom = IS_MOBILE ? zoomRaw + 1 : zoomRaw
+  const zoom = filmZoom(zoomRaw)
   if (points.length < 2) return new Blob()
   await loadOpeningFont() // police des étiquettes de POI (mapLabels.ts), avant leur pré-rendu
   // Tracé lissé (bruit GPS) pour le ruban dessiné et la position du randonneur — mêmes distances
