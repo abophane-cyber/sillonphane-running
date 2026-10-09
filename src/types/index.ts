@@ -249,11 +249,11 @@ export type PosterBackground = 'sat' | 'plan-nuit' | 'clair' | 'uni'
 /** Ruban de l'affiche : dégradé vertical du logo, vert · orange · crème le long du parcours (un tiers chacun), ou
  * couleur unie « #RRGGBB ». */
 export type PosterRibbon = 'logo' | 'trois-couleurs' | string
-/** Style de l'affiche : éditorial (papier clair, titres à empattements), sportif (fond sombre, titres bâton),
- * souvenir (grande photo en tête). */
-export type PosterStyle = 'editorial' | 'sportif' | 'souvenir'
+/** Style de l'affiche : souvenir (grande photo noir et blanc), éditorial (photo fondue dans le papier),
+ * cinématique (modèle 4). */
+export type PosterStyle = 'editorial' | 'souvenir' | 'cinematique'
 /** Fond (papier) de l'affiche. */
-export type PosterFond = 'blanc-casse' | 'papier' | 'lin' | 'gris-clair' | 'nuit' | 'noir'
+export type PosterFond = 'blanc-casse' | 'creme' | 'papier' | 'lin' | 'gris-clair' | 'nuit' | 'noir'
 /** Format : A3 et A4 (tirage, sans signature), carré (réseaux, signé). */
 export type PosterFormat = 'a3' | 'a4' | 'carre'
 /** Éléments de l'affiche que l'utilisateur peut masquer. */

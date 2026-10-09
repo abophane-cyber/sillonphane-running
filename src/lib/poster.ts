@@ -1,7 +1,7 @@
 // Affiche de course (remplace l'album pour Running) : une page par course, dessinée sur un canvas à n'importe quelle
-// taille (aperçu, A3/A4 pour le tirage, carré pour les réseaux). Trois styles : éditorial (papier clair, titres à
-// empattements, carte et photos côte à côte), sportif (même mise en page, fond sombre, titres bâton) et souvenir
-// (grande photo en noir et blanc portant le tracé). Maquette d'origine : maquettes/affiche-course.html.
+// taille (aperçu, A3/A4 pour le tirage, carré pour les réseaux). Trois modèles : souvenir (grande photo en noir et
+// blanc portant le tracé), éditorial (photo qui se dissout dans le papier, carte et photo côte à côte) et cinématique
+// (modèle 4, lib/posterCinematique.ts). Maquette d'origine : maquettes/affiche-course.html.
 import type {
   GpxPoint, VoyageTrack, PosterSettings, PosterBackground, PosterInfo, PosterRibbon, PosterStyle, PosterFond, PosterFormat,
 } from '../types'
@@ -11,10 +11,12 @@ import {
   parseEventName, type Borne, type RaceAnalysis,
 } from './raceSplits'
 import { BASEMAP_TILE_URL, IGN_TILE_URL } from './tileSources'
+import { drawCinematique } from './posterCinematique'
 
 /** Unités de dessin : l'affiche est conçue à 720 de large (hauteur selon le format) puis mise à l'échelle. */
 export const POSTER_W = 720
-export const POSTER_MAX_PHOTOS = 2
+/** 3 photos au plus : le modèle 4 en utilise trois (en-tête + deux à droite) ; les modèles 1 à 3 les deux premières. */
+export const POSTER_MAX_PHOTOS = 3
 
 export const POSTER_FORMATS: { id: PosterFormat; label: string; sub: string; ratio: number; exportW: number; print: boolean }[] = [
   { id: 'a3', label: 'A3', sub: '29,7 × 42 cm', ratio: Math.SQRT2, exportW: 3508, print: true },
@@ -29,22 +31,24 @@ export function posterHeight(s: PosterSettings): number {
   return Math.round(POSTER_W * posterFormat(s).ratio)
 }
 
-/** Libellés provisoires « 1er / 2e / 3e modèle », dans l'ordre des modèles de référence : souvenir (grande photo
- * en noir et blanc), éditorial (photo qui se dissout dans le papier), sportif (en attente du 3e modèle). */
+/** Modèles dans l'ordre de l'écran : 1 = éditorial (photo qui se dissout dans le papier), 2 = cinématique
+ * (lib/posterCinematique.ts), 3 = souvenir (grande photo en noir et blanc). L'ancien modèle « sportif » a été retiré :
+ * une affiche enregistrée avec lui passe au modèle 1 (posterStyle). */
 export const POSTER_STYLES: { id: PosterStyle; label: string }[] = [
-  { id: 'souvenir', label: '1er modèle' },
-  { id: 'editorial', label: '2e modèle' },
-  { id: 'sportif', label: '3e modèle' },
+  { id: 'editorial', label: 'Modèle 1' },
+  { id: 'cinematique', label: 'Modèle 2 — Cinématique' },
+  { id: 'souvenir', label: 'Modèle 3' },
 ]
 /** Réglages par défaut de chaque style (le choix d'un style les rétablit). */
 const STYLE_DEFAULTS: Record<PosterStyle, { fond: PosterFond; background: PosterBackground; ribbon: PosterRibbon }> = {
   editorial: { fond: 'blanc-casse', background: 'plan-nuit', ribbon: 'logo' },
-  sportif: { fond: 'blanc-casse', background: 'plan-nuit', ribbon: 'logo' },
   souvenir: { fond: 'blanc-casse', background: 'plan-nuit', ribbon: '#FFFFFF' },
+  cinematique: { fond: 'creme', background: 'plan-nuit', ribbon: '#F15A35' },
 }
 
 export const POSTER_FONDS: { id: PosterFond; label: string; color: string; texture?: 'grain' | 'lin' }[] = [
   { id: 'blanc-casse', label: 'Blanc cassé', color: '#F6F2EA' },
+  { id: 'creme', label: 'Crème chaud', color: '#F5F0E6' },
   { id: 'papier', label: 'Papier', color: '#F0E9DA', texture: 'grain' },
   { id: 'lin', label: 'Lin', color: '#ECE6DA', texture: 'lin' },
   { id: 'gris-clair', label: 'Gris clair', color: '#E4E4E1' },
@@ -63,6 +67,7 @@ export const POSTER_BACKGROUNDS: { id: PosterBackground; label: string }[] = [
 export const POSTER_RIBBONS: { id: PosterRibbon; label: string }[] = [
   { id: 'logo', label: 'Couleurs du logo' },
   { id: 'trois-couleurs', label: 'Vert · orange · crème' },
+  { id: '#F15A35', label: 'Terracotta' },
   { id: '#EC6A2C', label: 'Orange' },
   { id: '#F2A27A', label: 'Pêche' },
   { id: '#2F5C45', label: 'Vert foncé' },
@@ -224,7 +229,7 @@ export function resolvePoster(data: PosterData, s: PosterSettings) {
     show: (k: PosterInfo) => !hidden.has(k),
   }
 }
-type Resolved = ReturnType<typeof resolvePoster>
+export type Resolved = ReturnType<typeof resolvePoster>
 
 /** Temps de passage affichés : 4 au plus, puis l'arrivée (pas de 1, 2, 5 ou 10 km selon la distance). */
 function posterSplits(data: PosterData, finishS: number | undefined, officialKm: number) {
@@ -250,8 +255,8 @@ function posterSplits(data: PosterData, finishS: number | undefined, officialKm:
 
 // ── Polices et tuiles ────────────────────────────────────────────────────────
 
-const SERIF = '"PosterSerif", "Playfair Display", Georgia, serif'
-const SANS = '"PosterSans", "Plus Jakarta Sans", system-ui, sans-serif'
+export const SERIF = '"PosterSerif", "Playfair Display", Georgia, serif'
+export const SANS = '"PosterSans", "Plus Jakarta Sans", system-ui, sans-serif'
 let fontsReady: Promise<void> | null = null
 function loadFonts(): Promise<void> {
   if (!fontsReady) {
@@ -326,7 +331,7 @@ function luminance(hex: string): number {
   return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255)
 }
 
-interface Theme { light: boolean; fg: string; bg: string; accent: string }
+export interface Theme { light: boolean; fg: string; bg: string; accent: string }
 /** Couleurs du texte selon le fond : encre sur papier clair, crème sur papier foncé ; accent orange. */
 function makeTheme(paper: string): Theme {
   const light = luminance(paper) > 0.4
@@ -335,7 +340,7 @@ function makeTheme(paper: string): Theme {
 
 // ── Outils de dessin ─────────────────────────────────────────────────────────
 
-function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+export function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath()
   ctx.moveTo(x + r, y)
   ctx.arcTo(x + w, y, x + w, y + h, r)
@@ -345,12 +350,12 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath()
 }
 
-function setSpacing(ctx: CanvasRenderingContext2D, px: number) {
+export function setSpacing(ctx: CanvasRenderingContext2D, px: number) {
   if ('letterSpacing' in ctx) (ctx as CanvasRenderingContext2D & { letterSpacing: string }).letterSpacing = `${px}px`
 }
 
 /** Plus grande taille de police (≤ `max`) pour que `text` tienne dans `width`. */
-function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: number, family: string, max: number, min: number, width: number) {
+export function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: number, family: string, max: number, min: number, width: number) {
   let size = max
   for (; size > min; size -= 1) {
     ctx.font = `${weight} ${size}px ${family}`
@@ -361,7 +366,7 @@ function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: number, fa
 }
 
 /** Générateur pseudo-aléatoire reproductible : la texture du papier est la même à l'aperçu et à l'export. */
-function rng(seed: number) {
+export function rng(seed: number) {
   return () => (seed = (seed * 16807) % 2147483647) / 2147483647
 }
 
@@ -425,7 +430,7 @@ function coverCanvas(img: HTMLImageElement, W: number, H: number, bw: boolean): 
   return c
 }
 
-function drawPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number, k: number, radius: number, bw = false) {
+export function drawPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number, k: number, radius: number, bw = false) {
   ctx.save()
   roundRect(ctx, x, y, w, h, radius)
   ctx.clip()
@@ -433,7 +438,7 @@ function drawPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: numb
   ctx.restore()
 }
 
-interface MapOptions {
+export interface MapOptions {
   bg: PosterBackground
   ribbon: PosterRibbon
   theme: Theme
@@ -441,14 +446,10 @@ interface MapOptions {
   /** Fond = cette photo (noir et blanc) au lieu des tuiles de carte (style souvenir). */
   photo?: HTMLImageElement
   radius: number
-  /** Bords fondus dans le papier : part (0 à 1) de la largeur ou de la hauteur, de chaque côté. */
-  fade?: { left?: number; right?: number; top?: number; bottom?: number }
-  /** Contour estompé (en unités) : rectangle collé à gauche, côté droit arrondi, bords haut, droit et bas flous. */
-  softEdge?: number
 }
 
 /** Carte (fond + ruban + bornes) dans le rectangle (x, y, w, h) en unités, `k` = pixels par unité. */
-async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o: MapOptions,
+export async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o: MapOptions,
   x: number, y: number, w: number, h: number, k: number, isLive: () => boolean): Promise<boolean> {
   const { points, distances, total } = data
   const W = Math.max(1, Math.round(w * k)), H = Math.max(1, Math.round(h * k))
@@ -550,44 +551,6 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o: MapOp
     m.fillText(o.bg === 'sat' ? 'Vues aériennes © IGN' : 'Plan © IGN', W - 8 * k, H - 7 * k)
   }
 
-  // Bords qui se dissolvent dans le papier (3e modèle) : part de la largeur / hauteur fondue de chaque côté.
-  if (o.fade) {
-    m.globalCompositeOperation = 'destination-in'
-    const f = o.fade
-    const hz = m.createLinearGradient(0, 0, W, 0)
-    hz.addColorStop(0, `rgba(0,0,0,${f.left ? 0 : 1})`); hz.addColorStop(f.left ?? 0, 'rgba(0,0,0,1)')
-    hz.addColorStop(1 - (f.right ?? 0), 'rgba(0,0,0,1)'); hz.addColorStop(1, `rgba(0,0,0,${f.right ? 0 : 1})`)
-    m.fillStyle = hz; m.fillRect(0, 0, W, H)
-    const vt = m.createLinearGradient(0, 0, 0, H)
-    vt.addColorStop(0, `rgba(0,0,0,${f.top ? 0 : 1})`); vt.addColorStop(f.top ?? 0, 'rgba(0,0,0,1)')
-    vt.addColorStop(1 - (f.bottom ?? 0), 'rgba(0,0,0,1)'); vt.addColorStop(1, `rgba(0,0,0,${f.bottom ? 0 : 1})`)
-    m.fillStyle = vt; m.fillRect(0, 0, W, H)
-    m.globalCompositeOperation = 'source-over'
-  }
-  // Contour estompé (3e modèle) : carte pleine dans un grand rectangle collé au bord gauche, côté droit largement
-  // arrondi, bords haut, droit et bas flous. Masque = la forme floutée par une ombre portée (shadowBlur, pris en
-  // charge partout, contrairement à ctx.filter), décalée hors du cadre pour ne garder que l'ombre.
-  if (o.softEdge) {
-    const f = o.softEdge * k, cr = Math.min(W, H) * 0.32
-    const mask = document.createElement('canvas')
-    mask.width = W; mask.height = H
-    const g = mask.getContext('2d')!
-    const off = W + 2 * f + 100
-    g.shadowColor = '#000'; g.shadowBlur = f; g.shadowOffsetX = off
-    g.fillStyle = '#000'
-    const x0 = -off - f * 2, y0 = f * 0.9, x1 = -off + W - f * 0.9, y1 = H - f * 0.9
-    g.beginPath()
-    g.moveTo(x0, y0)
-    g.lineTo(x1 - cr, y0); g.arcTo(x1, y0, x1, y0 + cr, cr)
-    g.lineTo(x1, y1 - cr); g.arcTo(x1, y1, x1 - cr, y1, cr)
-    g.lineTo(x0, y1)
-    g.closePath()
-    g.fill()
-    m.globalCompositeOperation = 'destination-in'
-    m.drawImage(mask, 0, 0)
-    m.globalCompositeOperation = 'source-over'
-  }
-
   ctx.save()
   roundRect(ctx, x, y, w, h, o.radius)
   ctx.clip()
@@ -596,7 +559,7 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o: MapOp
   return true
 }
 
-function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, r: Resolved, theme: Theme, x: number, y: number, w: number, h: number) {
+export function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, r: Resolved, theme: Theme, x: number, y: number, w: number, h: number) {
   const { points, distances, total } = data
   const fg = (a: number) => `rgba(${theme.fg},${a})`
   ctx.textBaseline = 'alphabetic'
@@ -645,7 +608,7 @@ function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, r: Resolve
 // ── Mises en page ────────────────────────────────────────────────────────────
 
 /** Découpe `text` en lignes (au plus `maxLines`) à la plus grande taille ≤ `max` qui tient dans `width`. */
-function wrapFit(ctx: CanvasRenderingContext2D, text: string, weight: number, family: string, max: number, min: number,
+export function wrapFit(ctx: CanvasRenderingContext2D, text: string, weight: number, family: string, max: number, min: number,
   width: number, maxLines: number): { size: number; lines: string[] } {
   const words = text.split(/\s+/).filter(Boolean)
   for (let size = max; size >= min; size -= 1) {
@@ -680,14 +643,13 @@ function drawFadingPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x
   ctx.drawImage(c, x, y, w, h)
 }
 
-/** Éditorial et sportif : en-tête (nom, course, distance · date · ville), carte et photos, temps, profil.
+/** Éditorial : en-tête (nom, course, distance · date · ville), carte et photos, temps, profil.
  * Éditorial (2e modèle) : la 1re photo, collée en haut à droite, se dissout dans le papier derrière le titre ; carte
  * presque carrée à gauche, 2e photo à droite calée sur le bas de la carte. Sportif : carte et colonne de photos. */
 async function drawClassic(ctx: CanvasRenderingContext2D, data: PosterData, r: Resolved, theme: Theme,
   photos: HTMLImageElement[], k: number, isLive: () => boolean, signature: boolean): Promise<boolean> {
   const fg = (a: number) => `rgba(${theme.fg},${a})`
-  // Le 3e modèle (« sportif ») a sa propre mise en page (drawModel3) ; en carré, il reprend celle du 2e modèle.
-  const sport = false
+  const sport = false // variante « titres bâton » du 3e modèle, retiré
   const editorial = !sport
   const fam = sport ? SANS : SERIF, tw = sport ? 800 : 700
   const sq = r.format.id === 'carre'
@@ -697,7 +659,7 @@ async function drawClassic(ctx: CanvasRenderingContext2D, data: PosterData, r: R
   const showMap = r.show('map'), shownPhotos = r.show('photos') ? photos : []
   // Éditorial : 1re photo en tête (fondue), la 2e à côté de la carte.
   const headPhoto = editorial && !sq ? shownPhotos[0] : undefined
-  const midPhotos = headPhoto ? shownPhotos.slice(1) : shownPhotos
+  const midPhotos = headPhoto ? shownPhotos.slice(1, 2) : shownPhotos.slice(0, 2)
 
   // Bas de l'affiche, de bas en haut : pied, profil, notes, temps de passage, temps → le milieu prend le reste.
   const plan = (useSplits: boolean, useNotes: boolean, profileH: number) => {
@@ -949,114 +911,6 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
   return true
 }
 
-/** 3e modèle : 1re photo en fond de toute la moitié haute, fondue dans le papier ; nom, course et sous-titre
- * par-dessus ; carte collée au bord gauche aux bords dissous ; à droite le temps officiel, dossard, classement, allure,
- * puis la 2e photo ; profil sur toute la largeur. Pas de place pour les temps de passage. */
-async function drawModel3(ctx: CanvasRenderingContext2D, data: PosterData, r: Resolved, theme: Theme,
-  photos: HTMLImageElement[], k: number, isLive: () => boolean, signature: boolean): Promise<boolean> {
-  const fg = (a: number) => `rgba(${theme.fg},${a})`
-  const H = r.H, L = 34, R = POSTER_W - 34, CW = R - L
-  const finishS = r.chronoS
-  const shown = r.show('photos') ? photos : []
-
-  // Photo de fond, moitié haute
-  if (shown[0]) {
-    // Nette sur toute la largeur jusqu'à la moitié de l'affiche, puis fondue dans le papier.
-    drawFadingPhoto(ctx, shown[0], 0, 0, POSTER_W, H * 0.56, k, 1, 0, 0.76)
-    // Voile couleur papier, seulement derrière le texte (coin haut gauche clair, comme une brume).
-    const pc = theme.bg.startsWith('#') ? theme.bg : '#F6F2EA'
-    const rgb = [1, 3, 5].map(i => parseInt(pc.slice(i, i + 2), 16)).join(',')
-    const veil = ctx.createRadialGradient(POSTER_W * 0.12, H * 0.12, 0, POSTER_W * 0.12, H * 0.12, POSTER_W * 0.78)
-    veil.addColorStop(0, `rgba(${rgb},0.9)`); veil.addColorStop(0.55, `rgba(${rgb},0.7)`); veil.addColorStop(1, `rgba(${rgb},0)`)
-    ctx.fillStyle = veil
-    ctx.fillRect(0, 0, POSTER_W, H * 0.6)
-  }
-
-  // En-tête
-  ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'
-  let y = 44
-  const kicker = [finishS ? 'FINISHER' : 'PARCOURS', r.city.toUpperCase(), r.dateISO.slice(0, 4)].filter(Boolean).join('  /  ')
-  ctx.fillStyle = theme.accent; ctx.font = `700 11px ${SANS}`; setSpacing(ctx, 3.5)
-  ctx.fillText(kicker, L, y)
-  setSpacing(ctx, 0)
-  y += 14
-  ctx.fillStyle = fg(1)
-  if (r.name) {
-    const ns = fitFont(ctx, r.name, 700, SERIF, 70, 26, CW * 0.8)
-    y += ns * 0.86
-    ctx.fillText(r.name, L, y)
-    y += 18
-    ctx.fillStyle = theme.accent; ctx.fillRect(L, y, 46, 2.5)
-    y += 8
-    const t = wrapFit(ctx, r.title, 700, SERIF, 50, 20, CW * 0.84, 2)
-    ctx.fillStyle = fg(1)
-    t.lines.forEach((line, i) => { y += i ? t.size * 1.0 : t.size * 0.9; ctx.fillText(line, L, y) })
-  } else {
-    const t = wrapFit(ctx, r.title, 700, SERIF, 58, 22, CW * 0.82, 2)
-    t.lines.forEach((line, i) => { y += i ? t.size * 1.0 : t.size * 0.86; ctx.fillText(line, L, y) })
-    y += 12; ctx.fillStyle = theme.accent; ctx.fillRect(L, y, 62, 2.5); y += 2
-  }
-  y += 26
-  ctx.font = `16px ${SANS}`; ctx.fillStyle = fg(0.8)
-  ctx.fillText([r.distance, r.dateText, r.city].filter(Boolean).join(' · '), L, y)
-
-  // Profil en bas, sur toute la largeur
-  const footer = signature ? 46 : 30
-  const profH = r.show('profile') ? 92 : 0
-  const profY = H - footer - profH
-  const blockBottom = profH ? profY - 22 : H - footer - 10
-
-  // Carte collée au bord gauche, bords dissous dans le papier
-  const mapTop = Math.max(y + 22, H * 0.3)
-  const mapW = Math.round(POSTER_W * 0.6)
-  if (r.show('map')) {
-    const mapOpts: MapOptions = {
-      bg: r.background, ribbon: r.ribbon, theme, bornes: r.show('bornes'), radius: 0,
-      softEdge: 26,
-    }
-    if (!await drawMap(ctx, data, mapOpts, 0, mapTop, mapW, blockBottom - mapTop, k, isLive)) return false
-  }
-
-  // Colonne de droite : temps, chiffres, 2e photo
-  const cx = POSTER_W * 0.61, colW = R - cx
-  let ty = H * 0.55
-  ctx.textAlign = 'left'
-  ctx.fillStyle = theme.accent; ctx.font = `700 11px ${SANS}`; setSpacing(ctx, 3.5)
-  ctx.fillText((finishS ? r.chronoLabel : 'Distance').toUpperCase(), cx, ty)
-  setSpacing(ctx, 0)
-  const big = finishS ? formatElapsed(finishS) : r.distance
-  const bs = fitFont(ctx, big, 700, SERIF, 66, 30, colW)
-  ctx.fillStyle = fg(1)
-  ty += 10 + bs * 0.82
-  ctx.fillText(big, cx, ty)
-  ty += 16
-  ctx.strokeStyle = fg(0.2); ctx.lineWidth = 1
-  ctx.beginPath(); ctx.moveTo(cx, ty); ctx.lineTo(R, ty); ctx.stroke()
-  const facts: [string, string][] = []
-  if (r.show('bib') && r.bib) facts.push(['Dossard', r.bib])
-  if (r.show('rank') && r.rank) facts.push(['Classement', r.rank])
-  if (r.pace) facts.push(['Allure moyenne', r.pace])
-  facts.forEach(([label, value]) => {
-    ty += 24
-    ctx.font = `14px ${SANS}`; ctx.fillStyle = fg(0.7); ctx.fillText(label, cx, ty)
-    ctx.font = `700 15px ${SANS}`; ctx.fillStyle = fg(1); ctx.fillText(value, cx + 112, ty)
-  })
-  if (shown[1]) {
-    const pTop = Math.max(ty + 22, H * 0.695)
-    if (blockBottom - pTop > 60) drawPhoto(ctx, shown[1], cx, pTop, colW, blockBottom - pTop, k, 6)
-  }
-
-  if (profH) drawProfile(ctx, data, r, theme, L, profY, CW, profH)
-
-  if (signature) {
-    ctx.textAlign = 'left'; ctx.font = `13px ${SANS}`; ctx.fillStyle = fg(0.65)
-    ctx.fillText('Une course. Des souvenirs. Toujours plus loin.', L, H - 22)
-    ctx.textAlign = 'right'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = fg(0.9)
-    ctx.fillText('Sillonphane', R, H - 22)
-  }
-  return true
-}
-
 /**
  * Dessine l'affiche sur `canvas`, à `widthPx` pixels de large (hauteur selon le format). `isLive` permet d'abandonner
  * un dessin devenu inutile (réglage modifié pendant le chargement des tuiles). Renvoie false s'il a été abandonné.
@@ -1078,9 +932,9 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
 
   const ok = r.style === 'souvenir'
     ? await drawSouvenir(ctx, data, r, theme, photos, k, isLive, signature)
-    : r.style === 'sportif' && r.format.id !== 'carre'
-      ? await drawModel3(ctx, data, r, theme, photos, k, isLive, signature)
-      : await drawClassic(ctx, data, r, theme, photos, k, isLive, signature)
+    : r.style === 'cinematique'
+      ? await drawCinematique(ctx, data, r, theme, photos, k, isLive, signature)
+    : await drawClassic(ctx, data, r, theme, photos, k, isLive, signature)
   if (!ok || !isLive()) return false
   canvas.width = work.width; canvas.height = work.height
   canvas.getContext('2d')!.drawImage(work, 0, 0)

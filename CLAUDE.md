@@ -40,10 +40,12 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
 - **Affiche de course** (remplace l'album : pas de livre pour une seule course) : une page par course. Écran
   d'édition en 9 sections (01 la course, 02 votre nom, 03 vos performances, 04 vos photos (2 max), 05 éléments à
   afficher | 06 style, 07 fond, 08 couleur du parcours, 09 format & export), réglages de part et d'autre de l'aperçu.
-  Trois modèles (libellés provisoires « 1er / 2e / 3e modèle ») : 1er = grande photo noir et blanc portant le tracé
-  blanc, ville et date à gauche, dossard, temps, distance et nom à droite ; 2e = 1re photo collée en haut à droite
-  qui se dissout dans le papier, carte presque carrée et 2e photo ; 3e = 1re photo en fond de la moitié haute, carte
-  collée au bord gauche aux bords dissous, temps et chiffres à droite. Fonds : blanc cassé, papier (grain), lin,
+  Trois modèles : Modèle 1 = 1re photo collée en haut à droite qui se dissout dans le papier, carte presque carrée et
+  2e photo ; Modèle 2 — Cinématique (`src/lib/posterCinematique.ts`) = papier crème chaud #F5F0E6, accents terracotta
+  #F15A35, photo principale en haut à droite fondue vers la gauche et le bas (masques « to left, black 45 % » et « to
+  bottom, black 35 % »), carte sombre à gauche (≈ 60 %), une ou deux photos empilées à droite, temps très grand ;
+  Modèle 3 = grande photo noir et blanc portant le tracé blanc, ville et date à gauche, dossard, temps, distance et nom
+  à droite. 3 photos au plus. Fonds : blanc cassé, crème chaud, papier (grain), lin,
   gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème ou couleur unie. Chaque élément se
   masque (le classement peut ne pas être flatteur). Formats : A3, A4 (tirage, JPEG 300 dpi, sans signature) et carré
   1080 px (réseaux, avec « Sillonphane » et la phrase « Une course. Des souvenirs. Toujours plus loin. »).
