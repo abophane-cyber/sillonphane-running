@@ -2466,7 +2466,7 @@ function drawOverlays(
   ctx.font = "500 12px system-ui, sans-serif"
   ctx.fillStyle = 'rgba(255,255,255,0.66)'
   ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 4
-  ctx.fillText('© IGN · Esri, Maxar · AWS Terrain Tiles', 16, OUT_H - 12)
+  ctx.fillText('© IGN · © OpenStreetMap · Esri, Maxar · AWS Terrain Tiles', 16, OUT_H - 12)
   ctx.restore()
 
   if (o.hudAlpha <= 0) return

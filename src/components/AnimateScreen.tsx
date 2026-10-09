@@ -228,9 +228,9 @@ export function AnimateScreen({
           endDelayMsRef={endDelayMsRef}
           startDelayMsRef={startDelayMsRef}
         />
-        {/* Source du fond (Plan IGN, licence Etalab 2.0 : citer « © IGN »). Coin bas-droit : l'échelle et les +/− occupent le bas-gauche. Élément DOM,
+        {/* Sources : fond Plan IGN (Etalab 2.0, « © IGN ») et noms de lieux OpenStreetMap (ODbL, « © OpenStreetMap »). Coin bas-droit : l'échelle et les +/− occupent le bas-gauche. Élément DOM,
             hors des canvas : les films incrustent leur propre mention (filmExport.ts). */}
-        <div className="map-credit" aria-label="Source du fond de carte : IGN">© IGN</div>
+        <div className="map-credit" aria-label="Sources : fond de carte IGN, noms de lieux OpenStreetMap">© IGN · © OpenStreetMap</div>
         {wizardStep > 0 && !wizardDone && (
           <PanelWizard
             startName={startName}

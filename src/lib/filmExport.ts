@@ -857,7 +857,7 @@ export function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: nu
   ctx.restore()
 }
 
-// Source du fond de carte (Plan IGN, licence Etalab 2.0 : « © IGN » obligatoire), incrustée sur CHAQUE image des
+// Sources (Plan IGN, licence Etalab 2.0 : « © IGN » ; noms de lieux OpenStreetMap, ODbL : « © OpenStreetMap »), incrustées sur CHAQUE image des
 // films 2D, juste avant l'encodage. Bas GAUCHE, discrète, même facture que les
 // crédits du film 3D (drawOverlays, filmExport3d.ts) : le bas-droit porte l'adresse de fin (drawEndAddress), le
 // le haut-gauche le profil — rien d'autre n'occupe ce coin.
@@ -950,7 +950,7 @@ export function drawMapCredit(ctx: CanvasRenderingContext2D, cw: number, ch: num
   ctx.font = `500 ${Math.max(11, Math.round(ch * 0.012))}px system-ui, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.72)'
   ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 4
-  ctx.fillText('© IGN', Math.round(ch * 0.015), ch - Math.round(ch * 0.011))
+  ctx.fillText('© IGN · © OpenStreetMap', Math.round(ch * 0.015), ch - Math.round(ch * 0.011))
   ctx.restore()
 }
 
