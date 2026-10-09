@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Voyage, VoyageTrack, VoyageFilm, ComposedAlbumPage } from '../types'
 import {
-  getAllVoyages, saveVoyage, deleteVoyage, createVoyage,
+  getAllVoyages, saveVoyage, deleteVoyage, createVoyage, FILMS_CHANGED_EVENT,
   removeTrackFromVoyage, removeFilmFromVoyage, removePhotoFromVoyage, markFilmSeen,
   addTrackToVoyage, addFilmToVoyage, getFilmBlob, getPhotoBlob, saveTrackAlbumPages, repairOrphanedPhotos,
   getBackupStatus,
@@ -679,6 +679,19 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focus
       setLoading(false)
       setBackupStatus(getBackupStatus())
     })
+  }, [])
+
+  // Film fini pendant qu'on est sur Mes sillons (rendu en arrière-plan) : rechargement, pour qu'il apparaisse.
+  useEffect(() => {
+    const onFilm = () => {
+      getAllVoyages().then(async v => {
+        const repaired = await Promise.all(v.map(repairOrphanedPhotos))
+        setVoyages(repaired.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+        setSelected(prev => (prev ? repaired.find(x => x.id === prev.id) ?? prev : prev))
+      })
+    }
+    window.addEventListener(FILMS_CHANGED_EVENT, onFilm)
+    return () => window.removeEventListener(FILMS_CHANGED_EVENT, onFilm)
   }, [])
 
   // Retour d'un « Voir le film » : ouvre le sillon ciblé et retient le tracé à mettre en avant.

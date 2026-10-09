@@ -375,6 +375,9 @@ export async function listCoverPdfCacheVersions(): Promise<Record<string, string
 
 // ── Films ─────────────────────────────────────────────────────────────────────
 
+/** Événement (window) envoyé quand un film est rangé dans un sillon ; `detail` : id du sillon. */
+export const FILMS_CHANGED_EVENT = 'sillon-films-changed'
+
 export async function addFilmToVoyage(
   voyageId: string,
   meta: Omit<VoyageFilm, 'id' | 'createdAt'>,
@@ -390,6 +393,8 @@ export async function addFilmToVoyage(
     }
     voyage.films.push(film)
     await saveVoyage(voyage)
+    // Mes sillons déjà ouvert (film fini pendant qu'on y est) : la page se recharge (cf. VoyagesPage).
+    window.dispatchEvent(new CustomEvent(FILMS_CHANGED_EVENT, { detail: voyageId }))
     return film
   })
 }
