@@ -29,7 +29,7 @@ import {
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
 import { PLACE_HOLD_S, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from './mapLabels'
-import { FIN_FILM_S } from './filmEssai'
+import { FIN_FILM_S, isPromoFilm } from './filmEssai'
 
 export interface FilmExportOptions {
   points:            GpxPoint[]
@@ -815,7 +815,8 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
   const addrW = ctx.measureText(SITE_ADDRESS).width
   ctx.font = `500 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.6)'
-  ctx.fillText('Film personnel non officiel  ·  ', cw - padX - addrW, valY - ch * 0.055)
+  // Films des utilisateurs : mention « non officiel » (noms d'épreuves) ; pas sur nos films promotionnels (?promo).
+  if (!isPromoFilm()) ctx.fillText('Film personnel non officiel  ·  ', cw - padX - addrW, valY - ch * 0.055)
   ctx.restore()
 }
 
