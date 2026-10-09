@@ -793,8 +793,19 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
     ctx.fillRect(sepX, valY - ch * 0.036, Math.max(1.5, ch * 0.0018), ch * 0.064)
   }
 
+  // Films des utilisateurs : « Pour usage non commercial » (noms d'épreuves, cf. conditions d'utilisation), doré, à gauche
+  // du filet, centré sur les chiffres ; pas sur nos films promotionnels (?promo).
+  const usage = isPromoFilm() ? '' : 'Pour usage non commercial'
+  let usageW = 0
+  if (usage) {
+    ctx.font = `600 ${Math.round(ch * 0.019)}px Arial, Helvetica, sans-serif`
+    usageW = ctx.measureText(usage).width + gap
+    ctx.textAlign = 'right'; ctx.fillStyle = GOLD
+    ctx.fillText(usage, (stats.length ? sepX - gap * 0.5 : cw - padX), (valY + labY) / 2 - ch * 0.006)
+  }
+
   // Intitulé (italique, ajusté à la place restante) et date dorée au-dessus.
-  const maxTitleW = (stats.length ? sepX - gap * 0.5 : cw - padX) - padX
+  const maxTitleW = (stats.length ? sepX - gap * 0.5 : cw - padX) - padX - usageW
   let ts = Math.round(ch * 0.044)
   do { ctx.font = `italic ${ts}px Georgia, "Times New Roman", serif`; ts -= 2 } while (ctx.measureText(card.title).width > maxTitleW && ts > 14)
   ctx.textAlign = 'left'; ctx.fillStyle = '#fff'
@@ -806,22 +817,11 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
   ctx.fillText(dateLine, padX, baseY - ts - ch * 0.012)
   ctx.letterSpacing = '0px'
 
-  // Adresse du site, discrète, en haut à droite du bandeau, précédée de la mention « film personnel non officiel » (le
-  // titre peut porter le nom d'une épreuve, marque de son organisateur : cf. conditions d'utilisation).
+  // Adresse du site, discrète, en haut à droite du bandeau.
   ctx.textAlign = 'right'
   ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.7)'
   ctx.fillText(SITE_ADDRESS, cw - padX, valY - ch * 0.055)
-  const addrW = ctx.measureText(SITE_ADDRESS).width
-  // Films des utilisateurs : mention « non officiel » (noms d'épreuves), en capitales dorées comme la date, bien lisible ;
-  // pas sur nos films promotionnels (?promo).
-  if (!isPromoFilm()) {
-    ctx.font = `700 ${Math.round(ch * 0.017)}px Arial, Helvetica, sans-serif`
-    ctx.fillStyle = GOLD
-    ctx.letterSpacing = `${ch * 0.003}px`
-    ctx.fillText('FILM PERSONNEL NON OFFICIEL', cw - padX - addrW - ch * 0.025, valY - ch * 0.055)
-    ctx.letterSpacing = '0px'
-  }
   ctx.restore()
 }
 
