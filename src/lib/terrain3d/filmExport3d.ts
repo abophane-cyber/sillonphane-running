@@ -2169,7 +2169,8 @@ async function exportFilm3dImpl(
   const motionStartFrame = Math.round((PHASE1_END - RENDER_FROM) * fps)
   const openingTxt = openingText({
     title: opts.eventCartouche?.title ?? opts.title, place: opts.eventCartouche?.place,
-    date: opts.trailDate, distanceM: SHOWN_M, elevGainM,
+    // Date du widget « Épreuve » (carton de fin) si elle est saisie, sinon celle du tracé.
+    date: opts.endCard?.date || opts.trailDate, distanceM: SHOWN_M, elevGainM,
   })
   // Lieux connus (points d'intérêt du film), posés au sol, pour l'ouverture.
   const openingPois = scenePanels.filter(p => p.style === 'poi').map(p => {

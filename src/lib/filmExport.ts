@@ -1371,7 +1371,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const timeAt = (pr: number) => ({ elapsedS: clock.elapsedAtM(pr * totalDistance), timeLabel: clock.label })
   const openingTxt = openingText({
     title: opts.eventCartouche?.title ?? opts.title, place: opts.eventCartouche?.place,
-    date: opts.trailDate, distanceM: shownM, elevGainM: opts.elevGain,
+    // Date du widget « Épreuve » (carton de fin) si elle est saisie, sinon celle du tracé.
+    date: opts.endCard?.date || opts.trailDate, distanceM: shownM, elevGainM: opts.elevGain,
   })
 
   // ── PARAMÈTRES CAMÉRA ────────────────────────────────────────────────────
