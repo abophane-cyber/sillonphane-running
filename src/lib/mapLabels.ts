@@ -423,7 +423,7 @@ function backgroundLuma(bg: { src: CanvasImageSource; scale: number }, glyphs: {
 }
 
 /** Nom de place en cercle, centré sur la place (point du parcours, fixe sur la carte comme les noms de rue) :
- * texte continu tout autour (« - PLACE - DU GÉNÉRAL DE GAULLE »), à l'intérieur d'un fin anneau.
+ * « PLACE » en haut, « DU GÉNÉRAL DE GAULLE » en bas dans le sens de la lecture, tirets entre les deux, à l'intérieur d'un fin anneau.
  * Même teinte adaptative que les rues (blanc sur fond sombre, noir sur fond clair). */
 function drawPlaceCircle(
   ctx: CanvasRenderingContext2D, label: StreetLabel, place: { top: string; bottom: string }, pts: (Pt | null)[],
@@ -450,24 +450,39 @@ function drawPlaceCircle(
   ctx.save()
   ctx.font = `700 ${size}px ${LABEL_FONT}`
   const sp = 0.07 * size
-  // Texte continu tout autour du cercle, sens horaire : « - PLACE - DU GÉNÉRAL DE GAULLE » ; « PLACE DE LA GARE »
-  // reste d'un seul tenant (« - PLACE DE LA GARE »). Le premier mot est centré en haut.
-  const sep = ' - '
-  const head = place.top === 'PLACE' ? `PLACE${sep}` : `${place.top} `
-  const text = `${head}${place.bottom}${sep}`
-  const ws = [...text].map(ch => ctx.measureText(ch).width + sp)
-  const total = ws.reduce((x, y) => x + y, 0)
-  // Rayon : le texte fait exactement le tour (cercle le plus serré possible).
-  const r = Math.max(2.2 * size, total / (2 * Math.PI))
-  const firstW = ws.slice(0, place.top === 'PLACE' ? 5 : place.top.length).reduce((x, y) => x + y, 0) - sp
+  // Tout le tour du cercle : `top` en haut (sens horaire), `bottom` en bas dans le sens de la lecture (sens
+  // antihoraire, lettres droites), un tiret dans chacun des deux intervalles. Cercle le plus serré possible.
+  const widthsOf = (t: string) => [...t].map(ch => ctx.measureText(ch).width + sp)
+  const topW = widthsOf(place.top), botW = widthsOf(place.bottom)
+  const sum = (w: number[]) => w.reduce((x, y) => x + y, 0) - sp
+  const dashW = ctx.measureText('-').width + 4 * sp + size
+  const r = Math.max(2.2 * size, (sum(topW) + sum(botW) + 2 * dashW) / (2 * Math.PI))
   const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
+  // Haut : de gauche à droite dans le sens horaire, centré sur -90° ; lettres tournées vers l'extérieur.
   {
-    let s = -firstW / 2
-    ;[...text].forEach((ch, i) => {
-      const th = -Math.PI / 2 + (s + (ws[i] - sp) / 2) / r
+    let s = -sum(topW) / 2
+    ;[...place.top].forEach((ch, i) => {
+      const th = -Math.PI / 2 + (s + (topW[i] - sp) / 2) / r
       glyphs.push({ ch, x: cx + r * Math.cos(th), y: cy + r * Math.sin(th), ang: th + Math.PI / 2 })
-      s += ws[i] * (2 * Math.PI * r) / total
+      s += topW[i]
     })
+  }
+  // Bas : de gauche à droite dans le sens antihoraire, centré sur +90° ; lettres droites (pied vers l'extérieur).
+  {
+    let s = -sum(botW) / 2
+    ;[...place.bottom].forEach((ch, i) => {
+      const th = Math.PI / 2 - (s + (botW[i] - sp) / 2) / r
+      glyphs.push({ ch, x: cx + r * Math.cos(th), y: cy + r * Math.sin(th), ang: th - Math.PI / 2 })
+      s += botW[i]
+    })
+  }
+  // Tirets : au milieu des intervalles gauche et droit.
+  {
+    const t1 = -Math.PI / 2 + sum(topW) / 2 / r, t2 = Math.PI / 2 - sum(botW) / 2 / r
+    const tR = (t1 + t2) / 2, tL = Math.PI - tR
+    for (const th of [tR, tL]) {
+      glyphs.push({ ch: '-', x: cx + r * Math.cos(th), y: cy + r * Math.sin(th), ang: th + Math.PI / 2 })
+    }
   }
   if (label.fix.dark === undefined && bg !== null) {
     const l = backgroundLuma(bg ?? { src: ctx.canvas, scale: 1 }, glyphs, size)
