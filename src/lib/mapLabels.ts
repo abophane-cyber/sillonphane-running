@@ -339,13 +339,34 @@ export function drawStreetAlongPath(
       }
       return boxOf(ps, pad)
     }
-    let sAt = -1
-    for (let n = 0; n <= 12 && sAt < 0; n++) {
+    // Virage sous le nom : somme des changements de cap (degrés) entre s ± (textW / 2 + size). Dans un virage, les
+    // lettres se tassent et se tordent à l'intérieur de la courbe (« BD VAUBAN » illisible) : on cherche une partie droite.
+    const turnAt = (s: number) => {
+      const lo = s - textW / 2 - size, hi = s + textW / 2 + size
+      let sum = 0
+      for (let i = i0 + 1; i < i1; i++) {
+        const d = cum[i - i0]
+        if (d < lo || d > hi) continue
+        const a = pts[i - 1]!, b = pts[i]!, c = pts[i + 1]!
+        const ux = b.x - a.x, uy = b.y - a.y, vx = c.x - b.x, vy = c.y - b.y
+        if (Math.hypot(ux, uy) < 1e-3 || Math.hypot(vx, vy) < 1e-3) continue
+        sum += Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy))
+      }
+      return (sum * 180) / Math.PI
+    }
+    // Candidats du milieu vers les bords : le premier libre et presque droit (≤ 15°) ; à défaut le plus droit des
+    // libres s'il reste lisible (≤ 35°) ; sinon réessai à l'image suivante.
+    let sAt = -1, bestTurn = 35
+    for (let n = 0; n <= 12; n++) {
       for (const sgn of n ? [1, -1] : [1]) {
         const s = total / 2 + sgn * n * 0.08 * total
         if (s - textW / 2 < 0 || s + textW / 2 > total) continue
-        if (!avoid.length || !boxesHit(footprint(s), avoid)) { sAt = s; break }
+        if (avoid.length && boxesHit(footprint(s), avoid)) continue
+        const turn = turnAt(s)
+        if (turn <= 15) { sAt = s; bestTurn = -1; break }
+        if (turn <= bestTurn) { sAt = s; bestTurn = turn }
       }
+      if (bestTurn < 0) break
     }
     if (sAt < 0) { ctx.restore(); return null }
     label.fix = { at: idxAt(sAt), size, flip: pts[i1]!.x < pts[i0]!.x }
