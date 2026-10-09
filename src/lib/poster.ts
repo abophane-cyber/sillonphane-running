@@ -124,6 +124,13 @@ export function buildPosterData(track: VoyageTrack): PosterData {
   }
 }
 
+/** Style de ruban de l'affiche ; un style retiré (« éclatant ») encore enregistré devient le plus proche,
+ * vert · orange · crème. */
+export function posterRibbon(s: PosterSettings): PosterRibbon {
+  const r = s.ribbon as string | undefined
+  return r === 'logo' || r === 'trois-couleurs' ? r : r ? 'trois-couleurs' : 'logo'
+}
+
 /** Réglages effectifs : saisie de l'utilisateur, sinon valeurs tirées du tracé. */
 export function resolvePoster(data: PosterData, s: PosterSettings) {
   const hidden = new Set(s.hidden ?? [])
@@ -139,7 +146,7 @@ export function resolvePoster(data: PosterData, s: PosterSettings) {
     rank: (s.rank ?? '').trim(),
     background: s.background ?? 'sat',
     paper: s.paper ?? defaultPaper(s.background ?? 'sat'),
-    ribbon: s.ribbon ?? 'logo',
+    ribbon: posterRibbon(s),
     show: (k: PosterInfo) => !hidden.has(k),
   }
 }
@@ -220,12 +227,7 @@ function logoColorAt(f: number): string {
   return x <= 0.5 ? mixHex(LOGO_FOREST, LOGO_TERRACOTTA, x / 0.5) : mixHex(LOGO_TERRACOTTA, LOGO_CREAM, (x - 0.5) / 0.5)
 }
 
-/** Ruban « éclatant » (1re photo de référence) : couleurs vives le long du parcours, vert, orange et crème à parts
- * égales (un tiers chacune), le jaune au milieu du fondu vert → orange. Positions = part de la distance parcourue. */
-const BRIGHT_STOPS: [number, string][] = [
-  [0, '#3DB54A'], [0.28, '#3DB54A'], [0.33, '#E8C531'], [0.38, '#F07D1A'], [0.62, '#F07D1A'], [0.72, '#F7EBD3'], [1, '#F7EBD3'],
-]
-/** Ruban « vert · orange · crème » (2e photo de référence) : les trois couleurs définies pour le ruban, vives, à parts
+/** Ruban « vert · orange · crème » : les trois couleurs définies pour le ruban, vives, le long du parcours et à parts
  * égales — un tiers du parcours chacune, avec un fondu court centré sur chaque limite (1/3 et 2/3). */
 const THREE_STOPS: [number, string][] = [
   [0, '#3DB54A'], [0.28, '#3DB54A'], [0.38, '#F07D1A'], [0.62, '#F07D1A'], [0.72, '#F7EBD3'], [1, '#F7EBD3'],
@@ -242,14 +244,8 @@ function colorAtStops(stops: [number, string][], f: number): string {
 
 export const POSTER_RIBBONS: { id: PosterRibbon; label: string }[] = [
   { id: 'logo', label: 'Comme le logo' },
-  { id: 'eclatant', label: 'Éclatant' },
   { id: 'trois-couleurs', label: 'Vert · orange · crème' },
 ]
-
-/** Couleurs du ruban le long du parcours (styles autres que « Comme le logo »). */
-function alongStopsFor(ribbon: PosterRibbon): [number, string][] {
-  return ribbon === 'eclatant' ? BRIGHT_STOPS : THREE_STOPS
-}
 
 interface Theme { light: boolean; fg: string; bg: string; mapBg: string; outline: string; accent: string }
 
@@ -344,12 +340,12 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
   }
 
   // Ruban, sur un liseré sombre. « Comme le logo » : une seule ligne peinte comme le sillon du logo, dégradé vertical
-  // sur l'emprise du tracé (vert forêt en bas, terracotta au milieu, crème en haut). « Éclatant » et « Vert · orange ·
-  // crème » : les couleurs suivent le parcours, du départ à l'arrivée.
+  // sur l'emprise du tracé (vert forêt en bas, terracotta au milieu, crème en haut). « Vert · orange · crème » :
+  // les couleurs suivent le parcours, du départ à l'arrivée.
   const ys = points.map(py)
   const yBottom = Math.max(...ys), yTop = Math.min(...ys)
   const heightAt = (y: number) => (yBottom - y) / Math.max(1, yBottom - yTop) // 0 = bas, 1 = haut
-  const alongStops = alongStopsFor(ribbon)
+  const alongStops = THREE_STOPS
   /** Couleur du ruban au point (x, y) situé à `m` mètres du départ (bornes). */
   const ribbonColor = (y: number, atM: number) =>
     ribbon === 'logo' ? logoColorAt(heightAt(y)) : colorAtStops(alongStops, atM / total)
@@ -577,7 +573,7 @@ function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, ribbon: Po
   const X = (d: number) => x + d / total * w
   const Y = (e: number) => base - (e - lo) / (hi - lo) * (base - top)
   const grad = ctx.createLinearGradient(x, 0, x + w, 0)
-  ;(ribbon === 'logo' ? LOGO_STOPS : alongStopsFor(ribbon)).forEach(([at, c]) => grad.addColorStop(at, c))
+  ;(ribbon === 'logo' ? LOGO_STOPS : THREE_STOPS).forEach(([at, c]) => grad.addColorStop(at, c))
   ctx.beginPath()
   ctx.moveTo(x, base)
   sm.forEach((e, i) => ctx.lineTo(X(distances[i]), Y(e)))

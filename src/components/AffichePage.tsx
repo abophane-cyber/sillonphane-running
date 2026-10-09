@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Voyage, VoyageTrack, VoyagePhoto, PosterSettings, PosterInfo } from '../types'
 import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster } from '../lib/voyageDB'
 import {
-  buildPosterData, drawPoster, exportPoster, defaultPaper, POSTER_BACKGROUNDS, POSTER_INFOS, POSTER_MAX_PHOTOS, POSTER_PAPERS, POSTER_RIBBONS,
+  buildPosterData, drawPoster, exportPoster, defaultPaper, POSTER_BACKGROUNDS, POSTER_INFOS, POSTER_MAX_PHOTOS, POSTER_PAPERS, POSTER_RIBBONS, posterRibbon,
   POSTER_PRINT_PX, POSTER_SOCIAL_PX, POSTER_W, type PosterData,
 } from '../lib/poster'
 import { saveFileWithPicker, sanitizeFilename } from '../lib/saveFile'
@@ -269,7 +269,7 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
           <p className="affiche__label">Ruban</p>
           <div className="affiche__seg" role="group" aria-label="Ruban">
             {POSTER_RIBBONS.map(rb => (
-              <button key={rb.id} type="button" aria-pressed={(settings.ribbon ?? 'logo') === rb.id} onClick={() => set({ ribbon: rb.id })}>
+              <button key={rb.id} type="button" aria-pressed={posterRibbon(settings) === rb.id} onClick={() => set({ ribbon: rb.id })}>
                 {rb.label}
               </button>
             ))}
