@@ -2406,6 +2406,11 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .pwiz-race-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; }
 .pwiz-input--time, .pwiz-input--speed { flex: 0 0 96px; padding: 6px 9px; text-align: right; }
 .pwiz-race-hint { font-size: 12px; opacity: .7; }
+.pwiz-mark-warn {
+  display: block; margin-top: 6px; padding: 7px 10px; font-size: 13px; font-weight: 600; line-height: 1.4; opacity: 1;
+  color: #7a3e00; background: #fff4e0; border: 1px solid #f0b55a; border-left: 4px solid #e08a00; border-radius: 6px;
+}
+.pwiz-mark-warn a { color: #a14a00; font-weight: 700; }
 .pwiz-race-total { margin: 2px 0 0; font-size: 13px; font-weight: 600; }
 .pwiz-section-label {
   font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;

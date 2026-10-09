@@ -253,7 +253,7 @@ export function PanelWizard({
             onChange={e => onFilmTitleChange(e.target.value)}
           />
           {/* Noms d'épreuves : souvent des marques (cf. conditions d'utilisation, public/legal.html#conditions). */}
-          <span className="pwiz-race-hint">
+          <span className="pwiz-race-hint pwiz-mark-warn">⚠️ 
             Film personnel. Le nom officiel d'une épreuve est une marque de son organisateur : voir
             les <a href={`${import.meta.env.BASE_URL}legal.html#conditions`} target="_blank" rel="noopener">conditions d'utilisation</a>.
           </span>
