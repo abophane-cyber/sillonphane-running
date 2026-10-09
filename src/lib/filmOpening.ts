@@ -46,13 +46,15 @@ const smooth = (x: number) => { const u = clamp01(x); return u * u * (3 - 2 * u)
 /** Durées de l'ouverture (s) : la carte apparaît avec le ruban déjà en place, le titre entre d'un seul fondu, plan
  * tenu (lent rapprochement), puis plongée de la caméra vers le départ (titre, lieux et ruban d'ouverture s'effacent). */
 export const OPENING = {
-  /** Levée du voile sombre du tout début. */
+  /** Page sombre du tout début : le ruban seul, sans la carte ni le titre. */
+  blackS: 1.5,
+  /** Levée du voile sombre, après la page sombre. */
   mapInS: 0.8,
   /** Fondu d'entrée du titre. */
-  titleFromS: 0.4,
+  titleFromS: 1.5 + 0.4,
   titleInS: 1.0,
   /** Début de la plongée vers le départ (fin du plan d'ensemble). */
-  diveFromS: 3.8,
+  diveFromS: 1.5 + 3.8,
   /** Durée de la plongée. */
   diveS: 3.2,
 } as const
@@ -161,8 +163,8 @@ export function drawOpeningLight(ctx: CanvasRenderingContext2D, w: number, h: nu
     ctx.fillRect(0, 0, w, h)
     ctx.restore()
   }
-  // Levée du voile du tout début (bleu nuit très sombre, pas un noir plein).
-  const veil = 1 - smooth(t / OPENING.mapInS)
+  // Page sombre du début (bleu nuit très sombre, pas un noir plein), puis levée du voile.
+  const veil = 1 - smooth((t - OPENING.blackS) / OPENING.mapInS)
   if (veil > 0) {
     ctx.save()
     ctx.fillStyle = `rgba(6,9,14,${veil})`
