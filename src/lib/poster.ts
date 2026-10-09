@@ -443,6 +443,8 @@ interface MapOptions {
   radius: number
   /** Bords fondus dans le papier : part (0 à 1) de la largeur ou de la hauteur, de chaque côté. */
   fade?: { left?: number; right?: number; top?: number; bottom?: number }
+  /** Fondu arrondi : centre (cx, cy en part du cadre), nette jusqu'à r0, dissoute à r1 (part du plus grand côté). */
+  fadeRadial?: { cx: number; cy: number; r0: number; r1: number }
 }
 
 /** Carte (fond + ruban + bornes) dans le rectangle (x, y, w, h) en unités, `k` = pixels par unité. */
@@ -560,6 +562,15 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o: MapOp
     vt.addColorStop(0, `rgba(0,0,0,${f.top ? 0 : 1})`); vt.addColorStop(f.top ?? 0, 'rgba(0,0,0,1)')
     vt.addColorStop(1 - (f.bottom ?? 0), 'rgba(0,0,0,1)'); vt.addColorStop(1, `rgba(0,0,0,${f.bottom ? 0 : 1})`)
     m.fillStyle = vt; m.fillRect(0, 0, W, H)
+    m.globalCompositeOperation = 'source-over'
+  }
+  // Fondu arrondi (3e modèle) : carte nette autour d'un centre, dissoute en cercle vers les bords.
+  if (o.fadeRadial) {
+    const f = o.fadeRadial, R0 = Math.max(W, H)
+    m.globalCompositeOperation = 'destination-in'
+    const rg = m.createRadialGradient(f.cx * W, f.cy * H, f.r0 * R0, f.cx * W, f.cy * H, f.r1 * R0)
+    rg.addColorStop(0, 'rgba(0,0,0,1)'); rg.addColorStop(1, 'rgba(0,0,0,0)')
+    m.fillStyle = rg; m.fillRect(0, 0, W, H)
     m.globalCompositeOperation = 'source-over'
   }
 
@@ -936,18 +947,15 @@ async function drawModel3(ctx: CanvasRenderingContext2D, data: PosterData, r: Re
 
   // Photo de fond, moitié haute
   if (shown[0]) {
-    drawFadingPhoto(ctx, shown[0], 0, 0, POSTER_W, H * 0.56, k, 0.3, 0.62, 0.6)
-    // Voile couleur papier derrière le texte (coin haut gauche clair, comme une brume) : l'en-tête reste lisible.
-    const veil = ctx.createLinearGradient(0, 0, POSTER_W * 0.78, 0)
+    // Nette sur toute la largeur jusqu'à la moitié de l'affiche, puis fondue dans le papier.
+    drawFadingPhoto(ctx, shown[0], 0, 0, POSTER_W, H * 0.56, k, 1, 0, 0.76)
+    // Voile couleur papier, seulement derrière le texte (coin haut gauche clair, comme une brume).
     const pc = theme.bg.startsWith('#') ? theme.bg : '#F6F2EA'
     const rgb = [1, 3, 5].map(i => parseInt(pc.slice(i, i + 2), 16)).join(',')
-    veil.addColorStop(0, `rgba(${rgb},0.88)`); veil.addColorStop(0.5, `rgba(${rgb},0.62)`); veil.addColorStop(1, `rgba(${rgb},0)`)
+    const veil = ctx.createRadialGradient(POSTER_W * 0.12, H * 0.12, 0, POSTER_W * 0.12, H * 0.12, POSTER_W * 0.78)
+    veil.addColorStop(0, `rgba(${rgb},0.9)`); veil.addColorStop(0.55, `rgba(${rgb},0.7)`); veil.addColorStop(1, `rgba(${rgb},0)`)
     ctx.fillStyle = veil
-    ctx.fillRect(0, 0, POSTER_W, H * 0.4)
-    const veilV = ctx.createLinearGradient(0, H * 0.36, 0, H * 0.46)
-    veilV.addColorStop(0, `rgba(${rgb},0.5)`); veilV.addColorStop(1, `rgba(${rgb},0)`)
-    ctx.fillStyle = veilV
-    ctx.fillRect(0, H * 0.36, POSTER_W * 0.6, H * 0.1)
+    ctx.fillRect(0, 0, POSTER_W, H * 0.6)
   }
 
   // En-tête
@@ -960,13 +968,13 @@ async function drawModel3(ctx: CanvasRenderingContext2D, data: PosterData, r: Re
   y += 14
   ctx.fillStyle = fg(1)
   if (r.name) {
-    const ns = fitFont(ctx, r.name, 700, SERIF, 60, 26, CW * 0.8)
+    const ns = fitFont(ctx, r.name, 700, SERIF, 70, 26, CW * 0.8)
     y += ns * 0.86
     ctx.fillText(r.name, L, y)
-    y += 16
+    y += 18
     ctx.fillStyle = theme.accent; ctx.fillRect(L, y, 46, 2.5)
     y += 8
-    const t = wrapFit(ctx, r.title, 700, SERIF, 46, 20, CW * 0.82, 2)
+    const t = wrapFit(ctx, r.title, 700, SERIF, 50, 20, CW * 0.84, 2)
     ctx.fillStyle = fg(1)
     t.lines.forEach((line, i) => { y += i ? t.size * 1.0 : t.size * 0.9; ctx.fillText(line, L, y) })
   } else {
@@ -990,14 +998,14 @@ async function drawModel3(ctx: CanvasRenderingContext2D, data: PosterData, r: Re
   if (r.show('map')) {
     const mapOpts: MapOptions = {
       bg: r.background, ribbon: r.ribbon, theme, bornes: r.show('bornes'), radius: 0,
-      fade: { right: 0.16, top: 0.1, bottom: 0.1 },
+      fadeRadial: { cx: 0.3, cy: 0.56, r0: 0.34, r1: 0.64 },
     }
     if (!await drawMap(ctx, data, mapOpts, 0, mapTop, mapW, blockBottom - mapTop, k, isLive)) return false
   }
 
   // Colonne de droite : temps, chiffres, 2e photo
   const cx = POSTER_W * 0.61, colW = R - cx
-  let ty = H * 0.535
+  let ty = H * 0.55
   ctx.textAlign = 'left'
   ctx.fillStyle = theme.accent; ctx.font = `700 11px ${SANS}`; setSpacing(ctx, 3.5)
   ctx.fillText((finishS ? r.chronoLabel : 'Distance').toUpperCase(), cx, ty)
