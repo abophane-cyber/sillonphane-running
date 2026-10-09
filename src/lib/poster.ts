@@ -2,7 +2,7 @@
 // choix (vues aériennes IGN assombries, Plan IGN nuit ou clair, uni), bornes, temps, temps de passage, profil et
 // jusqu'à deux photos. Dessinée sur un canvas, à n'importe quelle taille : aperçu à l'écran, image pour les réseaux ou
 // fichier 30 × 40 cm à 300 dpi pour le tirage. Maquette d'origine : maquettes/affiche-course.html.
-import type { GpxPoint, VoyageTrack, PosterSettings, PosterBackground, PosterInfo } from '../types'
+import type { GpxPoint, VoyageTrack, PosterSettings, PosterBackground, PosterInfo, PosterRibbon } from '../types'
 import { parseGpx, parseKml, buildDistanceArray } from './gpx'
 import {
   analyzeRace, computeBornes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, hasRealTimes,
@@ -139,6 +139,7 @@ export function resolvePoster(data: PosterData, s: PosterSettings) {
     rank: (s.rank ?? '').trim(),
     background: s.background ?? 'sat',
     paper: s.paper ?? defaultPaper(s.background ?? 'sat'),
+    ribbon: s.ribbon ?? 'logo',
     show: (k: PosterInfo) => !hidden.has(k),
   }
 }
@@ -219,6 +220,37 @@ function logoColorAt(f: number): string {
   return x <= 0.5 ? mixHex(LOGO_FOREST, LOGO_TERRACOTTA, x / 0.5) : mixHex(LOGO_TERRACOTTA, LOGO_CREAM, (x - 0.5) / 0.5)
 }
 
+/** Ruban « éclatant » (1re photo de référence) : couleurs vives le long du parcours — vert bref au départ, jaune,
+ * longue partie orange, crème vers l'arrivée. Positions = part de la distance parcourue. */
+const BRIGHT_STOPS: [number, string][] = [
+  [0, '#3DB54A'], [0.06, '#3DB54A'], [0.14, '#E8C531'], [0.22, '#F07D1A'], [0.5, '#F07D1A'], [0.8, '#F7EBD3'], [1, '#F7EBD3'],
+]
+/** Ruban « vert · orange · crème » (2e photo de référence) : les trois couleurs définies pour le ruban, vives — long
+ * vert au départ, fondu vers l'orange, orange qui s'éclaircit en crème vers l'arrivée. */
+const THREE_STOPS: [number, string][] = [
+  [0, '#3DB54A'], [0.2, '#3DB54A'], [0.35, '#F07D1A'], [0.6, '#F07D1A'], [0.85, '#F7EBD3'], [1, '#F7EBD3'],
+]
+
+function colorAtStops(stops: [number, string][], f: number): string {
+  const x = Math.max(0, Math.min(1, f))
+  for (let i = 1; i < stops.length; i++) {
+    const [a, ca] = stops[i - 1], [b, cb] = stops[i]
+    if (x <= b) return mixHex(ca, cb, b > a ? (x - a) / (b - a) : 0)
+  }
+  return stops[stops.length - 1][1]
+}
+
+export const POSTER_RIBBONS: { id: PosterRibbon; label: string }[] = [
+  { id: 'logo', label: 'Comme le logo' },
+  { id: 'eclatant', label: 'Éclatant' },
+  { id: 'trois-couleurs', label: 'Vert · orange · crème' },
+]
+
+/** Couleurs du ruban le long du parcours (styles autres que « Comme le logo »). */
+function alongStopsFor(ribbon: PosterRibbon): [number, string][] {
+  return ribbon === 'eclatant' ? BRIGHT_STOPS : THREE_STOPS
+}
+
 interface Theme { light: boolean; fg: string; bg: string; mapBg: string; outline: string; accent: string }
 
 /** Luminance relative (0 = noir, 1 = blanc) d'une couleur « #RRGGBB ». */
@@ -269,7 +301,7 @@ const wy = (lat: number, z: number) => {
 }
 
 /** Carte (fond + ruban + bornes) dans le rectangle (x, y, w, h) en unités, `k` = pixels par unité. */
-async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: PosterBackground, theme: Theme,
+async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: PosterBackground, ribbon: PosterRibbon, theme: Theme,
   x: number, y: number, w: number, h: number, k: number, isLive: () => boolean) {
   const { points, distances, total } = data
   const W = Math.round(w * k), H = Math.round(h * k), PAD = 34 * k
@@ -311,30 +343,34 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     m.globalCompositeOperation = 'source-over'
   }
 
-  // Ruban : une seule ligne peinte comme le sillon du logo — dégradé vertical sur l'emprise du tracé, vert forêt en
-  // bas, terracotta au milieu, crème en haut — posée sur un liseré sombre (le carré noir du logo).
+  // Ruban, sur un liseré sombre. « Comme le logo » : une seule ligne peinte comme le sillon du logo, dégradé vertical
+  // sur l'emprise du tracé (vert forêt en bas, terracotta au milieu, crème en haut). « Éclatant » et « Vert · orange ·
+  // crème » : les couleurs suivent le parcours, du départ à l'arrivée.
   const ys = points.map(py)
   const yBottom = Math.max(...ys), yTop = Math.min(...ys)
   const heightAt = (y: number) => (yBottom - y) / Math.max(1, yBottom - yTop) // 0 = bas, 1 = haut
-  const grad = m.createLinearGradient(0, yBottom, 0, yTop)
-  LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
+  const alongStops = alongStopsFor(ribbon)
+  /** Couleur du ruban au point (x, y) situé à `m` mètres du départ (bornes). */
+  const ribbonColor = (y: number, atM: number) =>
+    ribbon === 'logo' ? logoColorAt(heightAt(y)) : colorAtStops(alongStops, atM / total)
   m.lineJoin = 'round'; m.lineCap = 'round'
   const trace = () => { m.beginPath(); points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p)))) }
-  // Carte sombre (vues aériennes, plan nuit, uni sur papier foncé) : le ruban rayonne — traits larges et transparents
-  // de son propre dégradé, ajoutés en lumière (« lighter »), sous le trait net. Couleurs du logo inchangées.
-  const darkMap = bg === 'sat' || bg === 'plan-nuit' || (bg === 'uni' && !theme.light)
-  if (darkMap) {
-    m.globalCompositeOperation = 'lighter'
-    m.strokeStyle = grad
-    for (const [w, a] of [[26, 0.07], [18, 0.1], [12, 0.16]] as const) {
-      trace(); m.globalAlpha = a; m.lineWidth = w * k; m.stroke()
-    }
-    m.globalAlpha = 1
-    m.globalCompositeOperation = 'source-over'
+  trace(); m.strokeStyle = theme.outline; m.lineWidth = 10 * k; m.stroke()
+  m.lineWidth = 6 * k
+  if (ribbon === 'logo') {
+    const grad = m.createLinearGradient(0, yBottom, 0, yTop)
+    LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
+    trace(); m.strokeStyle = grad; m.stroke()
   } else {
-    trace(); m.strokeStyle = theme.outline; m.lineWidth = 10 * k; m.stroke()
+    const STEP = Math.max(1, Math.round(points.length / 400))
+    for (let i = 0; i < points.length - 1; i += STEP) {
+      m.strokeStyle = colorAtStops(alongStops, distances[i] / total)
+      m.beginPath()
+      m.moveTo(px(points[i]), py(points[i]))
+      for (let j = i + 1; j <= Math.min(points.length - 1, i + STEP); j++) m.lineTo(px(points[j]), py(points[j]))
+      m.stroke()
+    }
   }
-  trace(); m.strokeStyle = grad; m.lineWidth = 6 * k; m.stroke()
 
   // Bornes tous les 5 km (le semi n'est pas repris : la borne des 20 km suffit), départ et arrivée.
   const fg = (a: number) => `rgba(${theme.fg},${a})`
@@ -343,7 +379,7 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     const bx = px(b), by = py(b)
     m.beginPath(); m.arc(bx, by, 12 * k, 0, Math.PI * 2)
     m.fillStyle = theme.bg; m.fill()
-    m.lineWidth = 2 * k; m.strokeStyle = logoColorAt(heightAt(by)); m.stroke()
+    m.lineWidth = 2 * k; m.strokeStyle = ribbonColor(by, b.km * 1000); m.stroke()
     m.fillStyle = fg(1); m.font = `800 ${11 * k}px ${SANS}`
     m.fillText(String(b.km), bx, by + 0.5 * k)
   }
@@ -443,7 +479,7 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
   // Carte et photos
   const photoW = photos.length ? 200 : 0
   const mapW = CW - (photoW ? photoW + 12 : 0)
-  await drawMap(ctx, data, r.background, theme, L, mapTop, mapW, mapBottom - mapTop, k, isLive)
+  await drawMap(ctx, data, r.background, r.ribbon, theme, L, mapTop, mapW, mapBottom - mapTop, k, isLive)
   if (!isLive()) return false
   if (photos.length) {
     const gap = 12, ph = (mapBottom - mapTop - gap * (photos.length - 1)) / photos.length
@@ -513,7 +549,7 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
   }
 
   // Profil d'altitude
-  if (profileY != null) drawProfile(ctx, data, theme, L, profileY, CW, 74)
+  if (profileY != null) drawProfile(ctx, data, r.ribbon, theme, L, profileY, CW, 74)
 
   // Signature : sur l'aperçu et l'image pour les réseaux, jamais sur le tirage.
   if (signature) {
@@ -527,7 +563,7 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
   return true
 }
 
-function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, theme: Theme, x: number, y: number, w: number, h: number) {
+function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, ribbon: PosterRibbon, theme: Theme, x: number, y: number, w: number, h: number) {
   const { points, distances, total } = data
   const fg = (a: number) => `rgba(${theme.fg},${a})`
   const top = y + 6, base = y + h - 14
@@ -541,7 +577,7 @@ function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, theme: The
   const X = (d: number) => x + d / total * w
   const Y = (e: number) => base - (e - lo) / (hi - lo) * (base - top)
   const grad = ctx.createLinearGradient(x, 0, x + w, 0)
-  LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
+  ;(ribbon === 'logo' ? LOGO_STOPS : alongStopsFor(ribbon)).forEach(([at, c]) => grad.addColorStop(at, c))
   ctx.beginPath()
   ctx.moveTo(x, base)
   sm.forEach((e, i) => ctx.lineTo(X(distances[i]), Y(e)))

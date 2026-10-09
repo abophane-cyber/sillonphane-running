@@ -246,6 +246,9 @@ export interface VoyageTrack {
 
 /** Fond de l'affiche : vues aériennes IGN assombries, Plan IGN de nuit, Plan IGN clair, uni. */
 export type PosterBackground = 'sat' | 'plan-nuit' | 'clair' | 'uni'
+/** Style du ruban de l'affiche : dégradé vertical du logo, ou couleurs le long du parcours (« éclatant » : vert, jaune,
+ * orange, crème ; « trois couleurs » : vert, orange, crème). */
+export type PosterRibbon = 'logo' | 'eclatant' | 'trois-couleurs'
 /** Informations de l'affiche que l'utilisateur peut masquer. */
 export type PosterInfo = 'bib' | 'rank' | 'pace' | 'splits' | 'notes' | 'profile'
 
@@ -261,6 +264,8 @@ export interface PosterSettings {
   background?: PosterBackground
   /** Couleur du papier « #RRGGBB » ; absente = selon le fond (crème avec le Plan clair, vert nuit sinon). */
   paper?: string
+  /** Style du ruban ; absent = « Comme le logo ». */
+  ribbon?: PosterRibbon
   hidden?: PosterInfo[]
   /** 0 à 2 photos (arrivée, médaille), prises parmi les photos du sillon. */
   photoIds?: string[]
