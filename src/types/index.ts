@@ -259,6 +259,8 @@ export interface PosterSettings {
   bib?: string
   rank?: string
   background?: PosterBackground
+  /** Couleur du papier « #RRGGBB » ; absente = selon le fond (crème avec le Plan clair, vert nuit sinon). */
+  paper?: string
   hidden?: PosterInfo[]
   /** 0 à 2 photos (arrivée, médaille), prises parmi les photos du sillon. */
   photoIds?: string[]

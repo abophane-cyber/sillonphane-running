@@ -26,6 +26,20 @@ export const POSTER_BACKGROUNDS: { id: PosterBackground; label: string }[] = [
   { id: 'clair', label: 'Plan clair' },
   { id: 'uni', label: 'Uni' },
 ]
+/** Couleurs de papier proposées (le sélecteur de couleur permet aussi une teinte libre). */
+export const POSTER_PAPERS: { color: string; label: string }[] = [
+  { color: '#121714', label: 'Vert nuit' },
+  { color: '#0E0E0E', label: 'Noir' },
+  { color: '#25282D', label: 'Anthracite' },
+  { color: '#15213A', label: 'Bleu nuit' },
+  { color: '#3B1A1C', label: 'Bordeaux' },
+  { color: '#F4EFE5', label: 'Crème' },
+  { color: '#FFFFFF', label: 'Blanc' },
+]
+/** Papier par défaut : crème avec le Plan clair, vert nuit sinon. */
+export function defaultPaper(background: PosterBackground): string {
+  return background === 'clair' ? '#F4EFE5' : '#121714'
+}
 export const POSTER_INFOS: { id: PosterInfo; label: string; needsTimes?: boolean }[] = [
   { id: 'bib', label: 'Dossard' },
   { id: 'rank', label: 'Classement' },
@@ -125,6 +139,7 @@ export function resolvePoster(data: PosterData, s: PosterSettings) {
     bib: (s.bib ?? data.defaults.bib).trim(),
     rank: (s.rank ?? '').trim(),
     background: s.background ?? 'sat',
+    paper: s.paper ?? defaultPaper(s.background ?? 'sat'),
     show: (k: PosterInfo) => !hidden.has(k),
   }
 }
@@ -192,11 +207,31 @@ function loadTile(url: string): Promise<HTMLImageElement | null> {
 // ── Dessin ───────────────────────────────────────────────────────────────────
 
 interface Theme { fg: string; bg: string; mapBg: string; outline: string; accent: string }
-const THEMES: Record<PosterBackground, Theme> = {
-  'sat': { fg: '244,237,224', bg: '#121714', mapBg: '#1b221d', outline: 'rgba(10,16,12,0.75)', accent: '#D97A3D' },
-  'plan-nuit': { fg: '244,237,224', bg: '#121714', mapBg: '#1b221d', outline: 'rgba(10,16,12,0.75)', accent: '#D97A3D' },
-  'clair': { fg: '25,24,23', bg: '#F4EFE5', mapBg: '#E9E3D6', outline: 'rgba(25,24,23,0.55)', accent: '#C15C3D' },
-  'uni': { fg: '244,237,224', bg: '#121714', mapBg: '#18201b', outline: 'rgba(10,16,12,0.75)', accent: '#D97A3D' },
+
+/** Luminance relative (0 = noir, 1 = blanc) d'une couleur « #RRGGBB ». */
+function luminance(hex: string): number {
+  const n = parseInt(hex.slice(1, 7), 16)
+  const lin = (c: number) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+  return 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255)
+}
+
+function mixHex(a: string, b: string, t: number): string {
+  const pa = parseInt(a.slice(1, 7), 16), pb = parseInt(b.slice(1, 7), 16)
+  const c = [16, 8, 0].map(sh => Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t))
+  return `rgb(${c.join(',')})`
+}
+
+/** Couleurs de l'affiche selon la couleur du papier : texte crème sur papier foncé, encre sur papier clair. */
+function makeTheme(paper: string, background: PosterBackground): Theme {
+  const light = luminance(paper) > 0.4
+  return {
+    fg: light ? '25,24,23' : '244,237,224',
+    bg: paper,
+    // Fond uni : le papier, à peine assombri ou éclairci pour détacher la carte.
+    mapBg: background === 'uni' ? mixHex(paper, light ? '#000000' : '#ffffff', 0.05) : light ? '#E9E3D6' : '#1b221d',
+    outline: light ? 'rgba(25,24,23,0.55)' : 'rgba(10,16,12,0.75)',
+    accent: light ? '#C15C3D' : '#D97A3D',
+  }
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -335,10 +370,10 @@ function fitFont(ctx: CanvasRenderingContext2D, text: string, weight: number, fa
  * dessin devenu inutile (réglage modifié pendant le chargement des tuiles). Renvoie false s'il a été abandonné.
  */
 export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, data: PosterData, settings: PosterSettings,
-  photos: HTMLImageElement[], isLive: () => boolean = () => true): Promise<boolean> {
+  photos: HTMLImageElement[], isLive: () => boolean = () => true, signature = true): Promise<boolean> {
   await loadFonts()
   const r = resolvePoster(data, settings)
-  const theme = THEMES[r.background]
+  const theme = makeTheme(r.paper, r.background)
   const fg = (a: number) => `rgba(${theme.fg},${a})`
   const k = widthPx / POSTER_W
 
@@ -455,9 +490,11 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
   // Profil d'altitude
   if (profileY != null) drawProfile(ctx, data, theme, L, profileY, CW, 74)
 
-  // Pied
-  ctx.textAlign = 'right'; ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = fg(0.7)
-  ctx.fillText('Sillonphane', R, footY)
+  // Signature : sur l'aperçu et l'image pour les réseaux, jamais sur le tirage.
+  if (signature) {
+    ctx.textAlign = 'right'; ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = fg(0.7)
+    ctx.fillText('Sillonphane', R, footY)
+  }
 
   if (!isLive()) return false
   canvas.width = work.width; canvas.height = work.height
@@ -502,9 +539,10 @@ function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, theme: The
 }
 
 /** Rend l'affiche en JPEG à la taille demandée (tirage ou réseaux). */
-export async function exportPoster(data: PosterData, settings: PosterSettings, photos: HTMLImageElement[], widthPx: number): Promise<Blob> {
+export async function exportPoster(data: PosterData, settings: PosterSettings, photos: HTMLImageElement[], widthPx: number,
+  signature: boolean): Promise<Blob> {
   const canvas = document.createElement('canvas')
-  await drawPoster(canvas, widthPx, data, settings, photos)
+  await drawPoster(canvas, widthPx, data, settings, photos, () => true, signature)
   return new Promise((resolve, reject) =>
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Export de l\'affiche impossible'))), 'image/jpeg', 0.92))
 }

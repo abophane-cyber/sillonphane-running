@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Voyage, VoyageTrack, VoyagePhoto, PosterSettings, PosterInfo } from '../types'
 import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster } from '../lib/voyageDB'
 import {
-  buildPosterData, drawPoster, exportPoster, POSTER_BACKGROUNDS, POSTER_INFOS, POSTER_MAX_PHOTOS,
+  buildPosterData, drawPoster, exportPoster, defaultPaper, POSTER_BACKGROUNDS, POSTER_INFOS, POSTER_MAX_PHOTOS, POSTER_PAPERS,
   POSTER_PRINT_PX, POSTER_SOCIAL_PX, POSTER_W, type PosterData,
 } from '../lib/poster'
 import { saveFileWithPicker, sanitizeFilename } from '../lib/saveFile'
@@ -191,7 +191,8 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
     setBusy(kind)
     try {
       const size = kind === 'print' ? POSTER_PRINT_PX : POSTER_SOCIAL_PX
-      const blob = await exportPoster(data, settings, photoImgs, size.w)
+      // Signature « Sillonphane » : sur l'image pour les réseaux seulement, pas sur le tirage.
+      const blob = await exportPoster(data, settings, photoImgs, size.w, kind === 'social')
       const title = settings.title ?? data.defaults.title
       const name = `${sanitizeFilename(title)} - affiche${kind === 'print' ? ' 30x40' : ''}.jpg`
       const result = await saveFileWithPicker(blob, name, { mimeType: 'image/jpeg', extension: '.jpg', description: 'Image JPEG' })
@@ -205,6 +206,7 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
   }
 
   const hasTimes = !!data.analysis
+  const paper = settings.paper ?? defaultPaper(settings.background ?? 'sat')
   const field = (label: string, key: 'title' | 'subtitle' | 'chrono' | 'bib' | 'rank', placeholder?: string) => (
     <label className="affiche__field">
       {label}
@@ -256,13 +258,30 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
         </section>
 
         <section className="affiche__card">
-          <h2>Fond</h2>
-          <div className="affiche__seg" role="group" aria-label="Fond">
+          <h2>Fond de carte</h2>
+          <div className="affiche__seg" role="group" aria-label="Fond de carte">
             {POSTER_BACKGROUNDS.map(b => (
               <button key={b.id} type="button" aria-pressed={(settings.background ?? 'sat') === b.id} onClick={() => set({ background: b.id })}>
                 {b.label}
               </button>
             ))}
+          </div>
+          <p className="affiche__label">Couleur de l'affiche</p>
+          <div className="affiche__papers" role="group" aria-label="Couleur de l'affiche">
+            {POSTER_PAPERS.map(p => (
+              <button
+                key={p.color}
+                type="button"
+                title={p.label}
+                aria-label={p.label}
+                aria-pressed={paper.toLowerCase() === p.color.toLowerCase()}
+                style={{ background: p.color }}
+                onClick={() => set({ paper: p.color })}
+              />
+            ))}
+            <label className="affiche__paper-custom" title="Autre couleur">
+              <input type="color" value={paper} onChange={e => set({ paper: e.target.value })} aria-label="Autre couleur" />
+            </label>
           </div>
         </section>
 
@@ -300,7 +319,7 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
               {busy === 'social' ? 'Préparation…' : 'Image pour les réseaux'}
             </button>
           </div>
-          <p className="affiche__hint">Le tirage chez nos partenaires, avec le code de réduction, vous est proposé juste après.</p>
+          <p className="affiche__hint">La signature « Sillonphane » n'apparaît que sur l'image pour les réseaux, pas sur le tirage. Le tirage chez nos partenaires, avec le code de réduction, vous est proposé juste après.</p>
         </section>
 
         <section className="affiche__card affiche__card--dossards">

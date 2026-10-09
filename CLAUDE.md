@@ -40,7 +40,8 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
 - **Affiche de course** (remplace l'album : pas de livre pour une seule course) : une page par course, titre
   personnel, distance · date · ville, tracé du ruban sur vues aériennes IGN assombries, bornes, temps officiel,
   dossard, classement, temps de passage tous les 5 km, meilleur et moins bon km, deux moitiés, profil ; photos
-  facultatives (0 ou 2 : arrivée, médaille). Chaque information se masque (le classement peut ne pas être
+  facultatives (0 ou 2 : arrivée, médaille). Couleur du papier au choix (vert nuit par défaut). Signature
+  « Sillonphane » sur l'image pour les réseaux seulement, jamais sur le tirage. Chaque information se masque (le classement peut ne pas être
   flatteur). Fond au choix : vues aériennes assombries, Plan IGN nuit, Plan IGN clair, uni. Formats : affiche 30 × 40 cm (impression), image carrée, story.
   Maquette : `maquettes/affiche-course.html` (non publiée). Dans l'appli : écran `src/components/AffichePage.tsx`
   (vue « album » de App.tsx), dessin sur canvas `src/lib/poster.ts` (aperçu et export JPEG 3543 × 4724 px), réglages
