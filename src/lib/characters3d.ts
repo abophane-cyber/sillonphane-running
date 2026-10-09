@@ -43,7 +43,10 @@ export const CHARACTERS: CharacterDef[] = [
   // Idem pour le coureur (dossard plus bas et plus grand) ; victoire reprise de la coureuse, déplacement des hanches
   // ramené à son échelle (armature en mètres, celle de la coureuse en centimètres).
   { id: 'coureur1', label: 'Coureur', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/coureur1.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/coureur1_idle.glb`, greetUrl: `${import.meta.env.BASE_URL}perso/models/coureur1_victoire.glb`, clipFps: 30, trimDuplicateLastFrame: true,
-    bib: { x: 0, y: 0.637, w: 0.095, h: 0.078, bone: 'mixamorigSpine1' }, cadence: 1.25 },
+    bib: { x: 0, y: 0.637, w: 0.095, h: 0.078, bone: 'mixamorigSpine1' },
+    // Même nombre de pas par seconde que la coureuse : son pas de jogging est plus court (0,408 contre 0,468 hauteur
+    // de corps), d'où 1,25 × 0,408 / 0,468.
+    cadence: 1.09 },
   // Départ : attente (respiration) ; marche ; fin : révérence (clip « s'assoit », sans pose finale).
   { id: 'randonneur1', label: 'Randonneur', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/randonneur1.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/randonneur1_idle.glb`, sitDownUrl: `${import.meta.env.BASE_URL}perso/models/randonneur1_salut.glb`, exactLoop: true, clipFps: 30, trimDuplicateLastFrame: true },
   { id: 'randonneuse1', label: 'Randonneuse', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/randonneuse1c.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/randonneuse1c_idle.glb`, lieDownUrl: `${import.meta.env.BASE_URL}perso/models/randonneuse1c_debout.glb`, trimDuplicateLastFrame: true },
