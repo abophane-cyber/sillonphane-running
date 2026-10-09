@@ -48,10 +48,10 @@ const STYLE_DEFAULTS: Record<PosterStyle, { fond: PosterFond; background: Poster
 
 export const POSTER_FONDS: { id: PosterFond; label: string; color: string; texture?: 'grain' | 'lin' }[] = [
   { id: 'blanc-casse', label: 'Blanc cassé', color: '#F6F2EA' },
-  { id: 'creme', label: 'Crème chaud', color: '#F5F0E6' },
-  { id: 'papier', label: 'Papier', color: '#F0E9DA', texture: 'grain' },
-  { id: 'lin', label: 'Lin', color: '#ECE6DA', texture: 'lin' },
-  { id: 'gris-clair', label: 'Gris clair', color: '#E4E4E1' },
+  { id: 'creme', label: 'Crème chaud', color: '#F1E3C6' },
+  { id: 'papier', label: 'Papier', color: '#E8DBC0', texture: 'grain' },
+  { id: 'lin', label: 'Lin', color: '#DED6C6', texture: 'lin' },
+  { id: 'gris-clair', label: 'Gris clair', color: '#DCDFE0' },
   { id: 'nuit', label: 'Vert nuit', color: '#121714' },
   { id: 'noir', label: 'Noir', color: '#101010' },
 ]
@@ -376,8 +376,8 @@ function paintPaper(ctx: CanvasRenderingContext2D, W: number, H: number, fond: {
   ctx.fillRect(0, 0, W, H)
   if (fond.texture === 'grain') {
     const rand = rng(7)
-    for (let i = 0; i < 9000; i++) {
-      ctx.fillStyle = rand() < 0.5 ? `rgba(70,55,30,${0.03 + rand() * 0.05})` : `rgba(255,255,255,${0.05 + rand() * 0.08})`
+    for (let i = 0; i < 14000; i++) {
+      ctx.fillStyle = rand() < 0.5 ? `rgba(70,55,30,${0.06 + rand() * 0.1})` : `rgba(255,255,255,${0.1 + rand() * 0.15})`
       const s = 0.5 + rand() * 1.1
       ctx.fillRect(rand() * W, rand() * H, s, s)
     }
@@ -385,11 +385,11 @@ function paintPaper(ctx: CanvasRenderingContext2D, W: number, H: number, fond: {
     const rand = rng(11)
     ctx.lineWidth = 0.5
     for (let y = 0; y < H; y += 1.7) {
-      ctx.strokeStyle = `rgba(80,65,40,${0.02 + rand() * 0.04})`
+      ctx.strokeStyle = `rgba(80,65,40,${0.05 + rand() * 0.07})`
       ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y + (rand() - 0.5)); ctx.stroke()
     }
     for (let x = 0; x < W; x += 1.7) {
-      ctx.strokeStyle = `rgba(80,65,40,${0.015 + rand() * 0.035})`
+      ctx.strokeStyle = `rgba(80,65,40,${0.04 + rand() * 0.06})`
       ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + (rand() - 0.5), H); ctx.stroke()
     }
   }

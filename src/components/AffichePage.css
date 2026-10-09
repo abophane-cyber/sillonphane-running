@@ -87,10 +87,10 @@
 .aff-fond { display: block; height: 40px; border-radius: 5px; border: 1.5px solid var(--color-border); }
 .aff-fonds button[aria-pressed="true"] { color: var(--aff-accent); }
 .aff-fonds button[aria-pressed="true"] .aff-fond { border-color: var(--aff-accent); }
-.aff-fond--grain { background-image: radial-gradient(rgba(70,55,30,.18) .6px, transparent .8px), radial-gradient(rgba(255,255,255,.4) .6px, transparent .8px);
+.aff-fond--grain { background-image: radial-gradient(rgba(70,55,30,.35) .7px, transparent .9px), radial-gradient(rgba(255,255,255,.55) .7px, transparent .9px);
   background-size: 5px 5px, 7px 7px; background-position: 0 0, 2px 3px; }
-.aff-fond--lin { background-image: repeating-linear-gradient(0deg, rgba(80,65,40,.08) 0 1px, transparent 1px 3px),
-  repeating-linear-gradient(90deg, rgba(80,65,40,.07) 0 1px, transparent 1px 3px); }
+.aff-fond--lin { background-image: repeating-linear-gradient(0deg, rgba(80,65,40,.16) 0 1px, transparent 1px 3px),
+  repeating-linear-gradient(90deg, rgba(80,65,40,.13) 0 1px, transparent 1px 3px); }
 
 /* 08 Couleur du parcours */
 .aff-colors { display: flex; flex-wrap: wrap; gap: 10px; }
