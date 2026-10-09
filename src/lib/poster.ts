@@ -623,22 +623,19 @@ function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
   ctx.restore()
 }
 
-/** Pied de l'affiche, sur tous les formats (tirage et réseaux) : logo et « Sillonphane » à droite, adresse du site en
- * filigrane dessous (comme à la fin des films), phrase à gauche si `tagline`. Occupe les 44 dernières unités. */
+/** Pied de l'affiche (aperçu et image pour les réseaux) : logo et « Sillonphane.fr » à droite, phrase à gauche si
+ * `tagline`. Occupe les 44 dernières unités. */
 export function drawSocialFooter(ctx: CanvasRenderingContext2D, theme: Theme, L: number, R: number, H: number, tagline = false) {
   const fg = (a: number) => `rgba(${theme.fg},${a})`
   ctx.textBaseline = 'alphabetic'
   if (tagline) {
     ctx.textAlign = 'left'; ctx.font = `13px ${SANS}`; ctx.fillStyle = fg(0.65)
-    ctx.fillText('Une course. Des souvenirs. Toujours plus loin.', L, H - 24)
+    ctx.fillText('Une course. Des souvenirs. Toujours plus loin.', L, H - 20)
   }
   ctx.textAlign = 'right'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = fg(0.92)
-  ctx.fillText('Sillonphane', R, H - 24)
-  const ww = ctx.measureText('Sillonphane').width
-  drawLogo(ctx, R - ww - 27, H - 42, 21)
-  ctx.font = `600 8.5px ${SANS}`; ctx.fillStyle = fg(0.5); setSpacing(ctx, 1.2)
-  ctx.fillText('SILLONPHANE.FR/RUNNING', R, H - 10)
-  setSpacing(ctx, 0)
+  ctx.fillText('Sillonphane.fr', R, H - 20)
+  const ww = ctx.measureText('Sillonphane.fr').width
+  drawLogo(ctx, R - ww - 27, H - 37, 21)
 }
 
 // ── Mises en page ────────────────────────────────────────────────────────────
@@ -944,7 +941,7 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
 /**
  * Dessine l'affiche sur `canvas`, à `widthPx` pixels de large (hauteur selon le format). `isLive` permet d'abandonner
  * un dessin devenu inutile (réglage modifié pendant le chargement des tuiles). Renvoie false s'il a été abandonné.
- * `signature` : pied avec logo, « Sillonphane » et adresse du site — à l'aperçu sur tous les formats ; retiré du
+ * `signature` : pied avec le logo et « Sillonphane.fr » — à l'aperçu sur tous les formats ; retiré du
  * fichier pour l'impression (exportPoster).
  */
 export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, data: PosterData, settings: PosterSettings,

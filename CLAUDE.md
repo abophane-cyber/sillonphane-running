@@ -47,10 +47,8 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
   gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème ou couleur unie. Chaque élément se
   masque (le classement peut ne pas être flatteur). Formats : A3, A4 et carré (30 × 30 cm), chacun téléchargeable
   pour l'impression (JPEG 300 dpi, sans logo ni marque ; seulement « sillonphane.fr/running » en tout petit dans la
-  marge du bas) ou pour les réseaux (1080 px de large, avec logo, « Sillonphane »
-  et adresse sillonphane.fr/running en filigrane en bas, aussi visibles à l'aperçu ; encadré d'explication sous
-  l'aperçu) ; phrase « Une
-  course. Des souvenirs. Toujours plus loin. » sur le Modèle 1).
+  marge du bas) ou pour les réseaux (1080 px de large, avec le logo et « Sillonphane.fr » en bas, aussi visibles à
+  l'aperçu ; encadré d'explication sous l'aperçu) ; phrase « Une course. Des souvenirs. Toujours plus loin. » sur le Modèle 1).
   Maquette : `maquettes/affiche-course.html` (non publiée). Dans l'appli : écran `src/components/AffichePage.tsx`
   (vue « album » de App.tsx), dessin sur canvas `src/lib/poster.ts`, réglages dans `VoyageTrack.poster`. Le code de
   l'album (AlbumPage…) reste dans le dépôt, sans être affiché.

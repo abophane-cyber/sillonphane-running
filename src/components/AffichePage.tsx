@@ -352,8 +352,8 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
             code de réduction, vous est proposé juste après.
           </p>
           <p>
-            <strong>Pour les réseaux</strong> : image de {POSTER_SOCIAL_W} px de large, avec le logo et l'adresse
-            Sillonphane en bas.
+            <strong>Pour les réseaux</strong> : image de {POSTER_SOCIAL_W} px de large, avec le logo et « Sillonphane.fr »
+            en bas.
           </p>
           <p>
             <strong>Bientôt : Mes dossards.</strong> Au fil des courses, vos affiches se rangent dans vos dossards :

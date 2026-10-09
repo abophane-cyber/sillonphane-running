@@ -131,7 +131,7 @@ export async function drawOrigine(ctx: CanvasRenderingContext2D, data: PosterDat
 
   if (p.profileY != null) drawProfile(ctx, data, r, theme, L, p.profileY, CW, p.profileH)
 
-  // Pied : logo, « Sillonphane » et adresse du site (tous formats).
+  // Pied : logo et « Sillonphane.fr ».
   if (signature) drawSocialFooter(ctx, theme, L, R, H)
   return true
 }
