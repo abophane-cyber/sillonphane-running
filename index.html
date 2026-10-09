@@ -212,6 +212,8 @@
         --kb-s1: 1.14; --kb-x1: -2%;   --kb-y1: -1%;
       }
       .hero__ridges:nth-of-type(2) { --kb-s0: 1.05; --kb-x0: -1.5%; --kb-y0: 0%;  --kb-s1: 1.13; --kb-x1: 1.5%; --kb-y1: 1%; }
+      .hero__ridges:nth-of-type(3) { --kb-s0: 1.14; --kb-x0: 0%;   --kb-y0: -2%;  --kb-s1: 1.04; --kb-x1: 0%;   --kb-y1: 1%; }
+      .hero__ridges:nth-of-type(4) { --kb-s0: 1.05; --kb-x0: 1.5%; --kb-y0: 1%;   --kb-s1: 1.15; --kb-x1: -1.5%; --kb-y1: -1.5%; }
       /* Diaporama : la photo active apparaît en fondu ; le mouvement (is-kb) court aussi
          pendant son fondu de sortie pour ne jamais s'arrêter net. */
       .hero__ridges.is-on { opacity: 1; }
@@ -231,9 +233,9 @@
       .hero__scrim {
         position: absolute; inset: 0; z-index: 1; pointer-events: none;
         background:
-          radial-gradient(ellipse 70% 55% at 50% 48%, rgba(10,12,10,0.34) 0%, rgba(10,12,10,0) 100%),
-          linear-gradient(to bottom, rgba(10,12,10,0.28) 0%, rgba(10,12,10,0.10) 35%,
-                                     rgba(10,12,10,0.10) 65%, rgba(10,12,10,0.42) 100%);
+          radial-gradient(ellipse 70% 55% at 50% 50%, rgba(10,12,10,0.46) 0%, rgba(10,12,10,0) 100%),
+          linear-gradient(to bottom, rgba(10,12,10,0.30) 0%, rgba(10,12,10,0.16) 35%,
+                                     rgba(10,12,10,0.16) 65%, rgba(10,12,10,0.48) 100%);
       }
       /* Engagements, posés en bas de la photo du hero */
       .hero__pledge { position: absolute; left: 0; right: 0; bottom: 24px; z-index: 2; margin: 0; padding: 0 24px; color: #fff;
@@ -670,8 +672,10 @@
     <main>
       <!-- Hero : diaporama photo -->
       <section class="hero">
-        <img class="hero__ridges is-on is-kb" src="hero/running-1.jpg" alt="" aria-hidden="true" fetchpriority="high" style="object-position: 50% 40%;">
-        <img class="hero__ridges" data-src="hero/running-2.jpg" alt="" aria-hidden="true" style="object-position: 50% 45%;">
+        <img class="hero__ridges is-on is-kb" src="hero/running-1.jpg" alt="" aria-hidden="true" fetchpriority="high" style="object-position: 50% 55%;">
+        <img class="hero__ridges" data-src="hero/running-2.jpg" alt="" aria-hidden="true" style="object-position: 50% 50%;">
+        <img class="hero__ridges" data-src="hero/running-3.jpg" alt="" aria-hidden="true" style="object-position: 50% 40%;">
+        <img class="hero__ridges" data-src="hero/running-4.jpg" alt="" aria-hidden="true" style="object-position: 50% 45%;">
         <div class="hero__scrim"></div>
 
         <div class="hero__in">
