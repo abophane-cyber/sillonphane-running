@@ -169,8 +169,8 @@ export interface FilmExport3dOptions {
   startTimePlanned?: boolean
   /** Durée du survol lui-même (hors pauses intro/outro), en s. Défaut 35. */
   durationS?:     number
-  /** Film d'essai (?essai dans l'URL) : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes
-   *  du survol, sans plans de fin. */
+  /** Film d'essai (?essai dans l'URL) : les ESSAI_FILM_S premières secondes du survol seulement (sans ouverture ni
+   *  plans de fin). */
   essai?:         boolean
   /** Fin seule (?fin dans l'URL) : les FIN_FILM_S dernières secondes (arrivée et vue d'ensemble) ; ce qui précède est
    *  simulé sans image. */
@@ -1442,7 +1442,7 @@ async function exportFilm3dImpl(
   const LABEL_TILT_K = 1.5
   /** Hauteur apparente des étiquettes de POI (bulle + trait), en part de la distance caméra : ≈ leur taille du film 2D
    * en 1080p (champ vertical de 55° : l'image couvre 1,04 × la distance). */
-  const POI_ANGULAR_H = 0.08
+  const POI_ANGULAR_H = 0.14 // 0,08 (taille du 2D) : illisible, la caméra 3D est bien plus haute
   const panelBaseScales = [
     ...panelSprites.map(p => p.sprite),
     ...[departurePanel, arrivalPanel].filter((s): s is Label => s != null),
@@ -1572,11 +1572,11 @@ async function exportFilm3dImpl(
   const TOTAL_CYCLE = PHASE3_END + OVERVIEW_RISE_S + OVERVIEW_HOLD_S
   const WATERMARK_LEAD = 5 // adresse de fin sur les 5 dernières secondes (vue d'ensemble), comme le film 2D
   const END_CARD_LEAD = 8.5 // carton du bas : en fondu de 8,5 à 8 s avant la fin (pendant la montée vers la vue d'ensemble)
-  // Essai : l'ouverture, la pause sur le départ, puis les ESSAI_FILM_S premières secondes du survol (vitesse normale).
-  // Fin seule : les FIN_FILM_S dernières secondes, ce qui précède simulé sans image (cf. RENDER_FROM plus bas).
-  const RENDER_FROM = opts.fin ? Math.max(0, TOTAL_CYCLE - FIN_FILM_S) : 0
+  // Essai : les ESSAI_FILM_S premières secondes du survol seulement (vitesse normale), sans l'ouverture ni la pause sur
+  // le départ. Fin seule : les FIN_FILM_S dernières secondes. Ce qui précède est simulé sans image (cf. RENDER_FROM).
+  const RENDER_FROM = opts.fin ? Math.max(0, TOTAL_CYCLE - FIN_FILM_S) : opts.essai && !opts.openingOnly ? PHASE1_END : 0
   const FILM_S = opts.openingOnly ? PHASE0_END + 1 : opts.fin ? TOTAL_CYCLE - RENDER_FROM
-    : opts.essai ? Math.min(PHASE2_END, PHASE1_END + ESSAI_FILM_S) : TOTAL_CYCLE
+    : opts.essai ? Math.min(PHASE2_END, PHASE1_END + ESSAI_FILM_S) - RENDER_FROM : TOTAL_CYCLE
 
   const _oa = new THREE.Vector3()
   const _ob = new THREE.Vector3()
@@ -2267,7 +2267,8 @@ async function exportFilm3dImpl(
           const p = ribbonScreenAt((st.from + (st.to - st.from) * i / 40) * RIBBON_SEGMENTS)
           pts.push(p.z < 1 ? { x: p.x, y: p.y } : null)
         }
-        drawStreetAlongPath(ctx2d, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H })
+        // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran.
+        drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H })
       }
     }
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)

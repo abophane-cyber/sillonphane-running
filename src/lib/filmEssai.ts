@@ -1,5 +1,5 @@
-// Films d'essai : « ?essai » dans l'URL de l'appli -> films 2D et 3D réduits à l'ouverture puis aux ESSAI_FILM_S
-// premières secondes du parcours, à vitesse normale, sans plans de fin. Rangés dans Mes sillons comme les autres.
+// Films d'essai : « ?essai » dans l'URL de l'appli -> films 2D et 3D réduits aux ESSAI_FILM_S premières secondes
+// du parcours (sans l'ouverture), à vitesse normale, sans plans de fin. Rangés dans Mes sillons comme les autres.
 // Mémorisé pour l'onglet (le lien « Commencer » de la page d'accueil ne garde pas ?essai) ; « ?essai=0 » l'arrête.
 
 export const ESSAI_FILM_S = 15

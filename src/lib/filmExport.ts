@@ -90,7 +90,7 @@ export interface FilmExportOptions {
    *  tremblement caméra moins visible), ça donne un extrait fidèle au rendu normal. Le
    *  préchargement de tuiles est aussi limité à la portion du tracé concernée. */
   debugMaxFrames?: number
-  /** Film d'essai (?essai dans l'URL) : l'ouverture puis le début de la marche, sans dézoom de départ ni plans de fin. */
+  /** Film d'essai (?essai dans l'URL) : le début de la marche seulement, sans ouverture, dézoom de départ ni plans de fin. */
   essai?: boolean
   /** Fin seule (?fin dans l'URL) : les FIN_FILM_S dernières secondes (arrivée et vue d'ensemble) ; ce qui précède est
    *  calculé (caméra) mais ni dessiné ni encodé, sans ouverture ni bande-son. */
@@ -1529,8 +1529,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   console.log(`[film2d] mosaïque fond de carte : ${mapMosaic ? `${mapMosaic.canvas.width}×${mapMosaic.canvas.height}px (zoom ${mapMosaic.zoom})` : 'indisponible (tracé trop long ?), repli MapLibre'}`)
 
   // debugMaxFrames : ouverture sautée (on veut voir la carte/les panneaux tout de suite), et les timestamps de la
-  // boucle de marche ne tiennent plus compte de sa durée. Film d'essai : ouverture gardée, pour la juger vite.
-  const introFrames = (opts.debugMaxFrames && !opts.essai) || opts.fin ? 0 : INTRO_FRAMES
+  // boucle de marche ne tiennent plus compte de sa durée. Film d'essai : sans ouverture, 15 s de marche seulement.
+  const introFrames = opts.debugMaxFrames || opts.fin ? 0 : INTRO_FRAMES
   // Images avant la marche : écran-titre + dézoom de départ des randonneurs 3D.
   const preWalkFrames = introFrames + START_DEZOOM_FRAMES
   // Progression remontée à l'appelant, pondérée par coût réel par image et non par nombre brut
