@@ -1052,18 +1052,35 @@ async function exportFilm3dImpl(
     return keep
   })
 
-  // Paramètre de courbe (0..1) du point le plus proche de chaque panneau de localité — sert au
-  // ralenti près des panneaux (ci-dessous) et au déclenchement des sprites (plus bas).
-  const panelCurveParams: number[] = scenePanels.map(pnl => {
+  // Passages du tracé près de chaque panneau (paramètre de courbe 0..1 du point le plus proche de chaque passage), comme
+  // le film 2D : un tracé qui repasse devant un lieu (boucle, aller-retour) l'annonce dès le premier passage. Passage =
+  // points à moins de max(1,5 × la distance minimale, distance minimale + 150 m) ; deux passages à moins de 1 km de
+  // parcours n'en font qu'un. Le panneau reste posé au point le plus proche (panelAnchorParams).
+  const panelAnchorParams: number[] = []
+  const panelPasses: number[][] = scenePanels.map(pnl => {
     const [px, pz] = cov.project(pnl.lon, pnl.lat)
-    let bestI = 0, bestD = Infinity
-    for (let i = 0; i < trailPts.length; i++) {
-      const dx = trailPts[i].x - px, dz = trailPts[i].z - pz
-      const d = dx * dx + dz * dz
-      if (d < bestD) { bestD = d; bestI = i }
+    const dist = (i: number) => Math.hypot(trailPts[i].x - px, trailPts[i].z - pz)
+    let bestI = 0
+    for (let i = 1; i < trailPts.length; i++) if (dist(i) < dist(bestI)) bestI = i
+    panelAnchorParams.push(bestI / RESAMPLE_COUNT)
+    const thr = Math.max(dist(bestI) * 1.5, dist(bestI) + 150)
+    const gap = 1000 / Math.max(1, TRACK_M)
+    const passes: number[] = []
+    let passI = -1
+    for (let i = 0; i <= trailPts.length; i++) {
+      if (i < trailPts.length && dist(i) <= thr) { if (passI < 0 || dist(i) < dist(passI)) passI = i }
+      else if (passI >= 0) {
+        const t = passI / RESAMPLE_COUNT
+        if (!passes.length || t - passes[passes.length - 1] > gap) passes.push(t)
+        passI = -1
+      }
     }
-    return bestI / RESAMPLE_COUNT
+    return passes.length ? passes : [bestI / RESAMPLE_COUNT]
   })
+  /** Premier passage de chaque panneau : il apparaît à son approche (déclenchement des sprites, plus bas). */
+  const panelCurveParams: number[] = panelPasses.map(p => p[0])
+  /** Tous les passages (rapprochement caméra près des panneaux, cf. panelZoomK). */
+  const panelPassParams: number[] = panelPasses.flat()
 
   // Profil de vitesse le long du tracé, à DURÉE TOTALE CONSTANTE (la table normalise par le
   // coût cumulé) : le "coût de temps" de chaque pas de courbe est pondéré, puis on inverse le
@@ -1423,8 +1440,8 @@ async function exportFilm3dImpl(
   }
   const panelSprites: { sprite: Label; t: number; isCol: boolean }[] = scenePanels.map((pnl, idx) => {
     const panelT = panelCurveParams[idx]
-    const anchor = trailPts[Math.round(panelT * RESAMPLE_COUNT)]
-    const sprite = makeLocSprite(pnl.name, pnl.style, anchor, panelT, pnl.ele)
+    const anchor = trailPts[Math.round(panelAnchorParams[idx] * RESAMPLE_COUNT)]
+    const sprite = makeLocSprite(pnl.name, pnl.style, anchor, panelAnchorParams[idx], pnl.ele) // orienté au point posé
     return { sprite, t: panelT, isCol: pnl.style === 'col' }
   })
   function makeEndpointPanel(name: string, anchor: THREE.Vector3, t: number, colEle?: number, lieudit?: boolean): Label {
@@ -1637,7 +1654,7 @@ async function exportFilm3dImpl(
   const PANEL_ZOOM_OUT_M = 700
   function panelZoomK(t: number): number {
     let prox = 0
-    for (const pt of panelCurveParams) {
+    for (const pt of panelPassParams) {
       // Fenêtres élargies de camK : caméra haute = ruban rapide au sol, même durée d'approche.
       const dm = (t - pt) * TOTAL_DISTANCE_M / camK
       const u = dm <= 0 ? 1 + dm / PANEL_ZOOM_IN_M : 1 - dm / PANEL_ZOOM_OUT_M
