@@ -5,6 +5,8 @@ import { fetchHistoricalWeather, type WeatherInfo } from '../lib/meteo'
 
 interface Props {
   track: GpxTrack
+  /** Course prévue (heures fictives ou prévues) : pas de météo, celle du jour du GPX ne serait pas celle de la course. */
+  noWeather?: boolean
   manualDate?: string
   departureTime?: string
   arrivalTime?: string
@@ -24,7 +26,7 @@ function parseHour(time?: string): number | undefined {
   return isNaN(h) ? undefined : h
 }
 
-export function TitleScreen({ track, manualDate, departureTime, arrivalTime, customTitle, onTitleChange, startName: startNameProp, endName: endNameProp, onStartNameChange, onEndNameChange, onStart }: Props) {
+export function TitleScreen({ track, noWeather, manualDate, departureTime, arrivalTime, customTitle, onTitleChange, startName: startNameProp, endName: endNameProp, onStartNameChange, onEndNameChange, onStart }: Props) {
   const effectiveDate = manualDate
     ? new Date(manualDate + 'T12:00:00')
     : track.startTime ?? null
@@ -62,14 +64,14 @@ export function TitleScreen({ track, manualDate, departureTime, arrivalTime, cus
 
   useEffect(() => {
     setWeather(null)
-    if (effectiveDate) {
+    if (effectiveDate && !noWeather) {
       fetchHistoricalWeather(
         first.lat, first.lon, effectiveDate,
         effectiveDepHour,
         effectiveArrHour,
       ).then(w => setWeather(w))
     }
-  }, [track, manualDate, departureTime, arrivalTime]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [track, manualDate, departureTime, arrivalTime, noWeather]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="title-page">
