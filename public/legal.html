@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Confidentialité & Mentions légales — Sillonphane-Rando</title>
-  <meta name="description" content="Mentions légales et politique de confidentialité de Sillonphane-Rando : traitement local, pas de compte à créer, tout reste sur votre appareil." />
-  <link rel="canonical" href="https://sillonphane.fr/rando/legal.html" />
+  <title>Confidentialité, conditions &amp; mentions légales — Sillonphane-Running</title>
+  <meta name="description" content="Mentions légales et politique de confidentialité de Sillonphane-Running : traitement local, pas de compte à créer, tout reste sur votre appareil." />
+  <link rel="canonical" href="https://sillonphane.fr/running/legal.html" />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <style>
     @font-face {
@@ -75,7 +75,7 @@
 <body>
   <header class="hdr">
     <div class="wrap hdr__in">
-      <a class="hdr__brand" href="./">Sillonphane-<em>Rando</em></a>
+      <a class="hdr__brand" href="./">Sillonphane-<em>Running</em></a>
       <a class="hdr__back" href="./">← Accueil</a>
     </div>
   </header>
@@ -90,7 +90,7 @@
 
       <h3>1. Principe : traitement local</h3>
       <p>
-        Sillonphane-Rando fonctionne <strong>sans compte</strong>. Vos fichiers GPX/KML, vos photos et vos
+        Sillonphane-Running fonctionne <strong>sans compte</strong>. Vos fichiers GPX/KML, vos photos et vos
         albums ne sont <strong>jamais téléversés</strong> sur un serveur : ils sont traités et stockés
         sur votre appareil (IndexedDB et stockage local du navigateur). La fonction « Sauvegarder »
         produit un fichier que vous enregistrez vous-même, en local.
@@ -123,17 +123,22 @@
             <tr>
               <td>IGN / Géoplateforme (géocodage), Photon (Komoot), OpenStreetMap Nominatim hors de France</td>
               <td>coordonnées géographiques</td>
-              <td>noms de lieux et de cols (données © les contributeurs OpenStreetMap, ODbL)</td>
+              <td>noms des communes traversées et du lieu de départ (données © les contributeurs OpenStreetMap, ODbL)</td>
             </tr>
             <tr>
-              <td>Overpass API</td>
+              <td>IGN / Géoplateforme (BD TOPO)</td>
+              <td>emprise géographique du parcours</td>
+              <td>noms des rues et des places empruntées</td>
+            </tr>
+            <tr>
+              <td>Overpass API (OpenStreetMap)</td>
               <td>emprise géographique</td>
-              <td>points d'intérêt (refuges, sommets…)</td>
+              <td>localités et lieux connus le long du parcours (monuments, parcs…)</td>
             </tr>
             <tr>
               <td>Open-Meteo</td>
               <td>coordonnées et dates</td>
-              <td>météo de l'étape</td>
+              <td>météo du jour de la course</td>
             </tr>
             <tr>
               <td>Awin (réseau d'affiliation) puis WhiteWall</td>
@@ -144,7 +149,7 @@
         </table>
       </div>
       <p>
-        Le court texte d'ambiance affiché sur chaque page d'étape est <strong>rédigé localement</strong>
+        Le court texte d'ambiance affiché sur les pages de l'album est <strong>rédigé localement</strong>
         par l'application, à partir des seules données chiffrées de la trace (distance, dénivelé) :
         il ne donne lieu à aucune requête ni transmission.
       </p>
@@ -157,7 +162,7 @@
         passez commande après avoir cliqué dessus, Sillonphane perçoit une commission de la part de
         WhiteWall, <strong>sans aucun surcoût pour vous</strong>. Ce lien est identifié comme tel
         dans l'application et marqué <code>rel="sponsored"</code> conformément aux recommandations
-        en matière de publicité en ligne. En cliquant, vous quittez sillonphane.fr/rando : le traitement
+        en matière de publicité en ligne. En cliquant, vous quittez sillonphane.fr/running : le traitement
         de votre commande et des données associées relève de la politique de confidentialité
         d'Awin et de WhiteWall, pas de la nôtre. Le lien vers Flexilivre, à ce jour, n'est pas un
         lien d'affiliation.
@@ -185,11 +190,11 @@
 
       <h3>5. Cookies et traceurs</h3>
       <p>
-        Sillonphane-Rando (sillonphane.fr/rando) n'utilise <strong>lui-même aucun cookie, aucun traceur
+        Sillonphane-Running (sillonphane.fr/running) n'utilise <strong>lui-même aucun cookie, aucun traceur
         publicitaire, aucun bouton de réseau social tiers</strong>. Aucune mesure d'audience
         n'est effectuée. Seul un stockage technique local (IndexedDB, localStorage) est
         utilisé pour faire fonctionner l'application sur votre appareil. Aucun consentement
-        « cookies » n'est donc requis pour naviguer sur Sillonphane-Rando. Seule exception : si vous
+        « cookies » n'est donc requis pour naviguer sur Sillonphane-Running. Seule exception : si vous
         cliquez sur le lien d'affiliation WhiteWall décrit au point 2 bis, un cookie peut être posé
         par le partenaire une fois que vous avez quitté notre site.
       </p>
@@ -211,20 +216,14 @@
       </ul>
       <p>Vous pouvez également saisir la CNIL — <a href="https://www.cnil.fr" target="_blank" rel="noopener">www.cnil.fr</a>.</p>
 
-      <h3>8. Application Android</h3>
+      <h3>8. Enregistrement de votre course</h3>
       <p>
-        La version Android (APK) embarque les mêmes fichiers que la version web et suit la même
-        politique. Les positions GPS enregistrées en direct restent sur l'appareil ; elles ne sont
-        transmises qu'aux services cartographiques et météo ci-dessus, au moment de l'affichage.
-      </p>
-      <p>
-        L'application demande trois autorisations, au moment où elles servent : la
-        <strong>position</strong> (au démarrage d'un enregistrement, « tout le temps » pour que la
-        trace continue écran éteint), les <strong>notifications</strong> (pour afficher
-        l'enregistrement en cours) et l'<strong>installation d'applications</strong> (uniquement
-        pour installer une mise à jour, si vous l'acceptez). Elle ne demande ni l'accès à vos
-        photos (c'est vous qui choisissez celles à ajouter), ni contacts, ni micro, ni
-        caméra, et ne se connecte à aucun compte.
+        Si vous enregistrez votre course directement dans l'application, votre navigateur vous demande
+        l'autorisation d'accéder à votre <strong>position</strong>, au démarrage de l'enregistrement
+        seulement. Les positions enregistrées restent sur votre appareil ; elles ne sont transmises
+        qu'aux services cartographiques et météo ci-dessus, au moment de l'affichage. L'application
+        ne demande ni l'accès à vos photos (c'est vous qui choisissez celles à ajouter à l'album), ni
+        à vos contacts, à votre micro ou à votre caméra, et ne se connecte à aucun compte.
       </p>
 
       <h3>9. Modifications</h3>
@@ -239,9 +238,9 @@
 
       <h3>1. Le service</h3>
       <p>
-        Sillonphane-Running crée, à partir de la trace GPX ou KML d'une course (ou d'un enregistrement
-        Android), un <strong>film 2D ou 3D du parcours</strong> ; vos photos composent l'album. Le service
-        est accessible <strong>sans compte</strong>, depuis un navigateur ou l'application Android. Vos
+        Sillonphane-Running crée, à partir de la trace GPX ou KML d'une course (ou de son enregistrement
+        dans l'application), un <strong>film 2D ou 3D du parcours</strong> ; vos photos composent l'album.
+        Le service est accessible <strong>sans compte</strong>, depuis un navigateur. Vos
         traces, photos et films restent sur votre appareil (voir la politique de confidentialité).
       </p>
 
@@ -303,11 +302,11 @@
       <h2>Mentions légales</h2>
 
       <h3>Nom de domaine</h3>
-      <p>sillonphane.fr/rando (et sillonphane.com).</p>
+      <p>sillonphane.fr/running (et sillonphane.com).</p>
 
       <h3>Propriété intellectuelle</h3>
       <p>
-        Le nom « Sillonphane-Rando », le logo, les textes, l'interface et le code de l'application sont
+        Le nom « Sillonphane-Running », le logo, les textes, l'interface et le code de l'application sont
         la propriété de Sillonphane, sauf mention contraire. Les fonds cartographiques et données
         tierces restent la propriété de leurs fournisseurs respectifs (voir la section Confidentialité).
       </p>
@@ -341,14 +340,14 @@
         <p>Adresse : 50 rue de Lommelet, 59520 Marquette-lez-Lille, France.</p>
         <p>Contact : <a href="mailto:sillonphane@gmail.com">sillonphane@gmail.com</a></p>
       </div>
-      <p class="note">Le nom commercial « Sillonphane-Rando » est exploité par l'entreprise individuelle Sillonphane.</p>
+      <p class="note">Le nom commercial « Sillonphane-Running » est exploité par l'entreprise individuelle Sillonphane.</p>
     </section>
     <p class="back-bottom"><a class="hdr__back" href="./">← Accueil</a></p>
   </main>
 
   <footer class="foot">
     <div class="wrap foot__in">
-      <span class="foot__brand">Sillonphane-Rando</span>
+      <span class="foot__brand">Sillonphane-Running</span>
       <a href="./">Accueil</a>
       <a href="mailto:sillonphane@gmail.com">Contact</a>
       <small>© 2026 Sillonphane</small>
