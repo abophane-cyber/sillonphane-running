@@ -1551,9 +1551,9 @@ async function exportFilm3dImpl(
   const hasStartClock = startClock(opts.startTime, opts.startTimePlanned ?? true) != null
   const START_PAUSE = (hasStartClock ? START_CLOCK_SHOW_S + START_CLOCK_FADE_S : 1.5) + 0.5
   // Arrivée : pas de rapprochement caméra (demande 2026-09-28 : « juste un dézoom pour l'ensemble du tracé
-  // et image fixe »), mais une pause caméra fixe de 2 s sur l'arrivée avant la montée vers la vue
-  // d'ensemble (demande 2026-09-29).
-  const END_PAUSE = 2
+  // et image fixe »), mais une pause caméra fixe sur l'arrivée avant la montée vers la vue d'ensemble : 2 s
+  // (demande 2026-09-29), 2,5 s (2026-10-09).
+  const END_PAUSE = 2.5
   const ARRIVAL_PANEL_LEAD_S = 5 // le panneau d'arrivée apparaît 5 s avant que le ruban arrive au bout
   // Vue d'ensemble finale : après la pause d'arrivée, la caméra s'élève (zoom arrière à échelle
   // log) jusqu'à cadrer TOUT le tracé, puis tient ce plan. Les panneaux intermédiaires s'effacent.

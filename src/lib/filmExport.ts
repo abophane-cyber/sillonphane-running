@@ -813,10 +813,15 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
   ctx.fillStyle = 'rgba(255,255,255,0.7)'
   ctx.fillText(SITE_ADDRESS, cw - padX, valY - ch * 0.055)
   const addrW = ctx.measureText(SITE_ADDRESS).width
-  ctx.font = `500 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
-  ctx.fillStyle = 'rgba(255,255,255,0.6)'
-  // Films des utilisateurs : mention « non officiel » (noms d'épreuves) ; pas sur nos films promotionnels (?promo).
-  if (!isPromoFilm()) ctx.fillText('Film personnel non officiel  ·  ', cw - padX - addrW, valY - ch * 0.055)
+  // Films des utilisateurs : mention « non officiel » (noms d'épreuves), en capitales dorées comme la date, bien lisible ;
+  // pas sur nos films promotionnels (?promo).
+  if (!isPromoFilm()) {
+    ctx.font = `700 ${Math.round(ch * 0.017)}px Arial, Helvetica, sans-serif`
+    ctx.fillStyle = GOLD
+    ctx.letterSpacing = `${ch * 0.003}px`
+    ctx.fillText('FILM PERSONNEL NON OFFICIEL', cw - padX - addrW - ch * 0.025, valY - ch * 0.055)
+    ctx.letterSpacing = '0px'
+  }
   ctx.restore()
 }
 
@@ -1354,7 +1359,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // et une coupure nette entre les trois plans successifs.
   // Randonneurs 3D : ce plan revient — zoom sur l'arrivée puis maintien pendant le salut (cf. H3_END_HOLD_S).
   const END_ZOOM_FRAMES = hikers3d ? Math.round((HIKER3D_END_ZOOM_MS / 1000) * fps) : 0
-  const END_HOLD_FRAMES = hikers3d ? END_ZOOM_FRAMES + Math.round(H3_END_HOLD_S * fps) : 0
+  // Ruban seul : ruban complet tenu END_HOLD_RIBBON_S, caméra fixe, avant le dézoom vers la vue d'ensemble.
+  const END_HOLD_RIBBON_S = 2.5
+  const END_HOLD_FRAMES = hikers3d ? END_ZOOM_FRAMES + Math.round(H3_END_HOLD_S * fps) : Math.round(END_HOLD_RIBBON_S * fps)
   const EASE_OV = Math.round((hikers3d ? HIKER3D_OVERVIEW_MS / 1000 : 1.5) * fps)
   const HOLD_OV = Math.round((OVERVIEW_CLEAN_S + 5) * fps)
   // Distance annoncée (carton final) : le compteur s'y arrête, l'ouverture l'affiche (bornes : km mesuré).
@@ -1410,6 +1417,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const startTimeText = startClock(opts.startTime, opts.startTimePlanned ?? true, opts.points[0]?.time)
   /** Écart (px, taille de marche) entre le nom du lieu de départ et le haut de la pastille d'heure en dessous. */
   const START_TIME_DY = 16
+  /** Ville de départ et d'arrivée (ville organisatrice) : nom 1,35 × plus grand que les autres localités. */
+  const endK = (ev: unknown) => (ev === departureEvent || ev === arrivalEvent) && (ev as LocalityEvent).style === 'standard' ? 1.35 : 1
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
   const signY = (ev: unknown, y: number, scale: number) =>
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
@@ -1420,7 +1429,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     for (const ev of startEvents) {
       const pt = exportMap.project([ev.lon, ev.lat])
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, alpha, signScale())
+        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, alpha, signScale() * endK(ev))
     }
     // Heure de départ, sous le repère le plus proche du départ (ex. « Porte de Paris »), sinon sous le panneau de départ.
     const landmarks = localityEvents.filter(e => e.showFrame === 0)
@@ -1429,7 +1438,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const ev = landmarks.length ? landmarks.reduce((a, b) => (d2(b) < d2(a) ? b : a)) : departureEvent!
       const pt = exportMap.project([ev.lon, ev.lat])
       const s = signScale()
-      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 20 * s, timeAlpha * alpha)
+      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 30 * s, timeAlpha * alpha)
     }
   }
   /** Bornes et ravitaillements (cf. drawBorneLayer), à leur point lon/lat. */
@@ -1855,7 +1864,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const pt = project(ev.lon, ev.lat)
       // (Plus de masquage du panneau quand le randonneur passe devant : il reste affiché.)
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
-        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, 1), ev.style, ev.ele, signA)
+        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, 1), ev.style, ev.ele, signA, endK(ev))
       }
     }
 
@@ -1933,7 +1942,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const pt = exportMap.project([ev.lon, ev.lat])
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale())
+          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale() * endK(ev))
       }
 
       drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 1)
@@ -2054,7 +2063,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
           ctx.save()
           ctx.globalAlpha = a
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale())
+          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale() * endK(ev))
           ctx.restore()
         }
       }
