@@ -234,6 +234,9 @@ export function placeLines(name: string): { top: string; bottom: string } | null
   return { top: 'PLACE', bottom: words.join(' ') }
 }
 
+/** Durée minimale d'affichage d'un nom de place (s), plus longue que celle des rues : le cercle se lit moins vite. */
+export const PLACE_HOLD_S = 4
+
 /** Opacité d'un nom de rue selon la distance parcourue `m` : apparaît à l'approche (LEAD_M), reste affiché la rue
  * durant puis au moins `holdM` après son début, s'efface sur `fadeM`. */
 export function streetLabelAlpha(m: number, startM: number, endM: number, holdM: number, fadeM: number): number {

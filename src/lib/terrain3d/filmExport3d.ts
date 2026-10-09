@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S } from '../routeStreets'
-import { drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from '../mapLabels'
+import { PLACE_HOLD_S, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -2258,8 +2258,8 @@ async function exportFilm3dImpl(
     if (simElapsed >= PHASE1_END && simElapsed < PHASE3_END) {
       const m = headFrac * trackM, mps = trackM / DURATION
       for (const st of streetLabels3d) {
-        // Places (nom en cercle) : affichées dès le départ, fixes sur la carte ; rues : à l'approche.
-        const a = st.label.place ? 1 : streetLabelAlpha(m, st.from * trackM, st.to * trackM, CAPTION_HOLD_S * mps, 0.6 * mps)
+        // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
+        const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * mps, 0.6 * mps)
         if (a <= 0) continue
         // 41 points fixes de la rue (null derrière la caméra) : le nom y reste accroché (cf. drawStreetAlongPath).
         const pts: ({ x: number; y: number } | null)[] = []

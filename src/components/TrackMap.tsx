@@ -18,7 +18,7 @@ import {
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
 import { CAPTION_HOLD_S, type StreetRun } from '../lib/routeStreets'
-import { drawStreetAlongPath, poiIconFor, poiLines, streetLabel, streetLabelAlpha } from '../lib/mapLabels'
+import { PLACE_HOLD_S, drawStreetAlongPath, poiIconFor, poiLines, streetLabel, streetLabelAlpha } from '../lib/mapLabels'
 import { ANIM_SETTINGS } from '../hooks/useAnimationSettings'
 import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 import { makeStyle, EMPTY_FC } from '../lib/mapStyle'
@@ -828,8 +828,8 @@ export function TrackMap({
       ctx.clearRect(0, 0, w, h)
       if (!(progress > 0 && progress < 1)) return
       for (const st of streetLabels) {
-        // Places (nom en cercle) : affichées dès le départ, fixes sur la carte ; rues : à l'approche.
-        const a = st.label.place ? 1 : streetLabelAlpha(coveredM, st.startM, st.endM, CAPTION_HOLD_S * mps, 0.6 * mps)
+        // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
+        const a = streetLabelAlpha(coveredM, st.startM, st.endM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * mps, 0.6 * mps)
         if (a <= 0) continue
         const pts: { x: number; y: number }[] = []
         for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)

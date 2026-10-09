@@ -28,7 +28,7 @@ import {
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
-import { drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from './mapLabels'
+import { PLACE_HOLD_S, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from './mapLabels'
 import { FIN_FILM_S } from './filmEssai'
 
 export interface FilmExportOptions {
@@ -1312,8 +1312,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const filmMps = totalDistance / Math.max(1, walkS)
   const drawStreetLabels = (project: ProjectFn, m: number) => {
     for (const st of streetLabels) {
-      // Places (nom en cercle) : affichées dès le départ, fixes sur la carte ; rues : à l'approche.
-      const a = st.label.place ? 1 : streetLabelAlpha(m, st.startM, st.endM, CAPTION_HOLD_S * filmMps, 0.6 * filmMps)
+      // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
+      const a = streetLabelAlpha(m, st.startM, st.endM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * filmMps, 0.6 * filmMps)
       if (a <= 0) continue
       const pts: { x: number; y: number }[] = []
       for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
