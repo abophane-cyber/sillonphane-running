@@ -15,7 +15,8 @@ import { drawOrigine } from './posterOrigine'
 
 /** Unités de dessin : l'affiche est conçue à 720 de large (hauteur selon le format) puis mise à l'échelle. */
 export const POSTER_W = 720
-export const POSTER_MAX_PHOTOS = 2
+/** 3 photos au plus ; chaque modèle en prend ce que sa mise en page permet. */
+export const POSTER_MAX_PHOTOS = 3
 
 export const POSTER_FORMATS: { id: PosterFormat; label: string; sub: string; ratio: number; exportW: number; print: boolean }[] = [
   { id: 'a3', label: 'A3', sub: '29,7 × 42 cm', ratio: Math.SQRT2, exportW: 3508, print: true },
@@ -604,6 +605,42 @@ export function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, r: 
   }
 }
 
+/** Logo Sillonphane : le sillon du site sur son carré sombre, `size` unités de côté, coin haut gauche en (x, y). */
+function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
+  const s = size / 320
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.scale(s, s)
+  roundRect(ctx, 0, 0, 320, 320, 64)
+  ctx.fillStyle = '#191817'; ctx.fill()
+  const grad = ctx.createLinearGradient(0, 320, 0, 0)
+  grad.addColorStop(0, '#2F4839'); grad.addColorStop(0.5, '#C15C3D'); grad.addColorStop(1, '#F5F3EF')
+  ctx.strokeStyle = grad; ctx.lineWidth = 29; ctx.lineCap = 'round'
+  ctx.stroke(new Path2D('M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60'))
+  ctx.beginPath(); ctx.arc(220, 60, 10, 0, Math.PI * 2); ctx.fillStyle = '#2F4839'; ctx.fill()
+  ctx.lineWidth = 3; ctx.strokeStyle = '#F5F3EF'; ctx.stroke()
+  ctx.beginPath(); ctx.arc(138, 225, 10, 0, Math.PI * 2); ctx.fillStyle = '#F5F3EF'; ctx.fill()
+  ctx.restore()
+}
+
+/** Pied des images pour les réseaux (jamais sur le tirage) : logo et « Sillonphane » à droite, adresse du site en
+ * filigrane dessous (comme à la fin des films), phrase à gauche si `tagline`. Occupe les 44 dernières unités. */
+export function drawSocialFooter(ctx: CanvasRenderingContext2D, theme: Theme, L: number, R: number, H: number, tagline = false) {
+  const fg = (a: number) => `rgba(${theme.fg},${a})`
+  ctx.textBaseline = 'alphabetic'
+  if (tagline) {
+    ctx.textAlign = 'left'; ctx.font = `13px ${SANS}`; ctx.fillStyle = fg(0.65)
+    ctx.fillText('Une course. Des souvenirs. Toujours plus loin.', L, H - 24)
+  }
+  ctx.textAlign = 'right'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = fg(0.92)
+  ctx.fillText('Sillonphane', R, H - 24)
+  const ww = ctx.measureText('Sillonphane').width
+  drawLogo(ctx, R - ww - 27, H - 42, 21)
+  ctx.font = `600 8.5px ${SANS}`; ctx.fillStyle = fg(0.5); setSpacing(ctx, 1.2)
+  ctx.fillText('SILLONPHANE.FR/RUNNING', R, H - 10)
+  setSpacing(ctx, 0)
+}
+
 // ── Mises en page ────────────────────────────────────────────────────────────
 
 /** Découpe `text` en lignes (au plus `maxLines`) à la plus grande taille ≤ `max` qui tient dans `width`. */
@@ -658,7 +695,7 @@ async function drawClassic(ctx: CanvasRenderingContext2D, data: PosterData, r: R
   const showMap = r.show('map'), shownPhotos = r.show('photos') ? photos : []
   // Éditorial : 1re photo en tête (fondue), la 2e à côté de la carte.
   const headPhoto = editorial && !sq ? shownPhotos[0] : undefined
-  const midPhotos = headPhoto ? shownPhotos.slice(1, 2) : shownPhotos.slice(0, 2)
+  const midPhotos = headPhoto ? shownPhotos.slice(1, 3) : shownPhotos.slice(0, 3)
 
   // Bas de l'affiche, de bas en haut : pied, profil, notes, temps de passage, temps → le milieu prend le reste.
   const plan = (useSplits: boolean, useNotes: boolean, profileH: number) => {
@@ -737,8 +774,10 @@ async function drawClassic(ctx: CanvasRenderingContext2D, data: PosterData, r: R
       // Carte à gauche, photo(s) à droite calée(s) sur le bas de la carte
       const mw = Math.round(CW * 0.6), pw = CW - mw - gap
       if (!await drawMap(ctx, data, mapOpts, L, midTop, mw, midH, k, isLive)) return false
-      const ph = Math.min(midH, midH * 0.5)
-      midPhotos.forEach((img, i) => drawPhoto(ctx, img, R - pw, p.midBottom - ph - i * (ph + gap), pw, ph, k, rad))
+      // Une photo : calée sur le bas de la carte ; deux : empilées sur toute la hauteur de la carte.
+      const ph = midPhotos.length > 1 ? (midH - gap * (midPhotos.length - 1)) / midPhotos.length : midH * 0.5
+      const top0 = p.midBottom - ph * midPhotos.length - gap * (midPhotos.length - 1)
+      midPhotos.forEach((img, i) => drawPhoto(ctx, img, R - pw, top0 + i * (ph + gap), pw, ph, k, rad))
     } else if (showMap && midPhotos.length) {
       const pw = Math.round(CW * 0.34)
       if (!await drawMap(ctx, data, mapOpts, L, midTop, CW - pw - gap, midH, k, isLive)) return false
@@ -830,13 +869,8 @@ async function drawClassic(ctx: CanvasRenderingContext2D, data: PosterData, r: R
     drawProfile(ctx, data, r, theme, L, p.profileY, CW, p.profileH)
   }
 
-  // Pied : phrase et signature, sur l'image pour les réseaux seulement, jamais sur le tirage.
-  if (signature) {
-    ctx.textAlign = 'left'; ctx.font = `13px ${SANS}`; ctx.fillStyle = fg(0.65)
-    ctx.fillText('Une course. Des souvenirs. Toujours plus loin.', L, H - 22)
-    ctx.textAlign = 'right'; ctx.font = `700 15px ${SERIF}`; ctx.fillStyle = fg(0.9)
-    ctx.fillText('Sillonphane', R, H - 22)
-  }
+  // Pied : phrase, logo et adresse, sur l'image pour les réseaux seulement, jamais sur le tirage.
+  if (signature) drawSocialFooter(ctx, theme, L, R, H, true)
   return true
 }
 
@@ -903,10 +937,7 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
   }
   if (profH) drawProfile(ctx, data, r, theme, L, bottom + 18, CW, profH)
 
-  if (signature) {
-    ctx.textAlign = 'right'; ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = fg(0.7)
-    ctx.fillText('Sillonphane', R, H - 18)
-  }
+  if (signature) drawSocialFooter(ctx, theme, L, R, H)
   return true
 }
 

@@ -38,15 +38,16 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
   par l'utilisateur, jamais récupérés automatiquement).
 - **Fiche épreuve** : nom, date, heure de départ, points de contrôle, ravitaillements (saisie ou import du roadbook).
 - **Affiche de course** (remplace l'album : pas de livre pour une seule course) : une page par course. Écran
-  d'édition en 9 sections (01 la course, 02 votre nom, 03 vos performances, 04 vos photos (2 max), 05 éléments à
+  d'édition en 9 sections (01 la course, 02 votre nom, 03 vos performances, 04 vos photos (3 max), 05 éléments à
   afficher | 06 style, 07 fond, 08 couleur du parcours, 09 format & export), réglages de part et d'autre de l'aperçu.
   Trois modèles : Modèle 1 = 1re photo collée en haut à droite qui se dissout dans le papier, carte presque carrée et
   2e photo ; Modèle 2 = la première affiche, sombre (`src/lib/posterOrigine.ts`) : papier vert nuit, vues aériennes
   assombries, carte et colonne de photos, grand temps, temps de passage, profil ; Modèle 3 = grande photo noir et blanc
-  portant le tracé blanc, ville et date à gauche, dossard, temps, distance et nom à droite. 2 photos au plus. Fonds : blanc cassé, crème chaud, papier (grain), lin,
+  portant le tracé blanc, ville et date à gauche, dossard, temps, distance et nom à droite. 3 photos au plus (le Modèle 3 n'en prend qu'une). Fonds : blanc cassé, crème chaud, papier (grain), lin,
   gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème ou couleur unie. Chaque élément se
   masque (le classement peut ne pas être flatteur). Formats : A3, A4 (tirage, JPEG 300 dpi, sans signature) et carré
-  1080 px (réseaux, avec « Sillonphane » et la phrase « Une course. Des souvenirs. Toujours plus loin. »).
+  1080 px (réseaux : logo, « Sillonphane » et adresse sillonphane.fr/running en filigrane en bas ; phrase « Une
+  course. Des souvenirs. Toujours plus loin. » sur le Modèle 1).
   Maquette : `maquettes/affiche-course.html` (non publiée). Dans l'appli : écran `src/components/AffichePage.tsx`
   (vue « album » de App.tsx), dessin sur canvas `src/lib/poster.ts`, réglages dans `VoyageTrack.poster`. Le code de
   l'album (AlbumPage…) reste dans le dépôt, sans être affiché.

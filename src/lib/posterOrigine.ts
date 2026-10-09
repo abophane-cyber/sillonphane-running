@@ -4,7 +4,7 @@
 // reprise de la première version de lib/poster.ts (avant les modèles), sur le canvas de l'affiche actuel.
 import type { PosterData, Resolved, Theme, MapOptions } from './poster'
 import {
-  POSTER_W, SANS, SERIF, drawMap, drawPhoto, drawProfile, fitFont, posterSplits, setSpacing,
+  POSTER_W, SANS, SERIF, drawMap, drawPhoto, drawProfile, drawSocialFooter, fitFont, posterSplits, setSpacing,
 } from './poster'
 import { formatElapsed } from './raceSplits'
 
@@ -14,7 +14,7 @@ export async function drawOrigine(ctx: CanvasRenderingContext2D, data: PosterDat
   const H = r.H, L = 34, R = POSTER_W - 34, CW = R - L
   const finishS = r.chronoS
   const hasTimes = !!data.analysis
-  const shown = r.show('photos') ? photos.slice(0, 2) : []
+  const shown = r.show('photos') ? photos.slice(0, 3) : []
   const showMap = r.show('map')
 
   // En-tête : FINISHER (et le nom, s'il est saisi), titre, distance · date · ville
@@ -132,9 +132,6 @@ export async function drawOrigine(ctx: CanvasRenderingContext2D, data: PosterDat
   if (p.profileY != null) drawProfile(ctx, data, r, theme, L, p.profileY, CW, p.profileH)
 
   // Signature : sur l'image pour les réseaux seulement, jamais sur le tirage.
-  if (signature) {
-    ctx.textAlign = 'right'; ctx.font = `700 13px ${SERIF}`; ctx.fillStyle = fg(0.7)
-    ctx.fillText('Sillonphane', R, H - 22)
-  }
+  if (signature) drawSocialFooter(ctx, theme, L, R, H)
   return true
 }
