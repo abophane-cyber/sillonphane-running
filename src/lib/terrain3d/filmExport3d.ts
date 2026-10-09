@@ -2258,7 +2258,8 @@ async function exportFilm3dImpl(
     if (simElapsed >= PHASE1_END && simElapsed < PHASE3_END) {
       const m = headFrac * trackM, mps = trackM / DURATION
       for (const st of streetLabels3d) {
-        const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, CAPTION_HOLD_S * mps, 0.6 * mps)
+        // Places (nom en cercle) : affichées dès le départ, fixes sur la carte ; rues : à l'approche.
+        const a = st.label.place ? 1 : streetLabelAlpha(m, st.from * trackM, st.to * trackM, CAPTION_HOLD_S * mps, 0.6 * mps)
         if (a <= 0) continue
         // 41 points fixes de la rue (null derrière la caméra) : le nom y reste accroché (cf. drawStreetAlongPath).
         const pts: ({ x: number; y: number } | null)[] = []

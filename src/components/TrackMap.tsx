@@ -828,7 +828,8 @@ export function TrackMap({
       ctx.clearRect(0, 0, w, h)
       if (!(progress > 0 && progress < 1)) return
       for (const st of streetLabels) {
-        const a = streetLabelAlpha(coveredM, st.startM, st.endM, CAPTION_HOLD_S * mps, 0.6 * mps)
+        // Places (nom en cercle) : affichées dès le départ, fixes sur la carte ; rues : à l'approche.
+        const a = st.label.place ? 1 : streetLabelAlpha(coveredM, st.startM, st.endM, CAPTION_HOLD_S * mps, 0.6 * mps)
         if (a <= 0) continue
         const pts: { x: number; y: number }[] = []
         for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
