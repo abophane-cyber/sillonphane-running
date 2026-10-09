@@ -254,7 +254,7 @@ export type PosterRibbon = 'logo' | 'trois-couleurs' | string
 export type PosterStyle = 'editorial' | 'origine' | 'souvenir'
 /** Fond (papier) de l'affiche. */
 export type PosterFond = 'blanc-casse' | 'creme' | 'papier' | 'lin' | 'gris-clair' | 'nuit' | 'noir'
-/** Format : A3 et A4 (tirage, sans signature), carré (réseaux, signé). */
+/** Format : A3, A4 ou carré (30 × 30 cm), chacun téléchargeable pour l'impression ou pour les réseaux. */
 export type PosterFormat = 'a3' | 'a4' | 'carre'
 /** Éléments de l'affiche que l'utilisateur peut masquer. */
 export type PosterInfo = 'map' | 'bornes' | 'profile' | 'bib' | 'photos' | 'rank' | 'splits' | 'notes'

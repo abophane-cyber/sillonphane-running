@@ -45,8 +45,10 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
   assombries, carte et colonne de photos, grand temps, temps de passage, profil ; Modèle 3 = grande photo noir et blanc
   portant le tracé blanc, ville et date à gauche, dossard, temps, distance et nom à droite. 3 photos au plus (le Modèle 3 n'en prend qu'une). Fonds : blanc cassé, crème chaud, papier (grain), lin,
   gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème ou couleur unie. Chaque élément se
-  masque (le classement peut ne pas être flatteur). Formats : A3, A4 (tirage, JPEG 300 dpi) et carré
-  1080 px (réseaux). Sur tous les formats : logo, « Sillonphane » et adresse sillonphane.fr/running en filigrane en bas ; phrase « Une
+  masque (le classement peut ne pas être flatteur). Formats : A3, A4 et carré (30 × 30 cm), chacun téléchargeable
+  pour l'impression (JPEG 300 dpi, sans logo ni marque) ou pour les réseaux (1080 px de large, avec logo, « Sillonphane »
+  et adresse sillonphane.fr/running en filigrane en bas, aussi visibles à l'aperçu ; encadré d'explication sous
+  l'aperçu) ; phrase « Une
   course. Des souvenirs. Toujours plus loin. » sur le Modèle 1).
   Maquette : `maquettes/affiche-course.html` (non publiée). Dans l'appli : écran `src/components/AffichePage.tsx`
   (vue « album » de App.tsx), dessin sur canvas `src/lib/poster.ts`, réglages dans `VoyageTrack.poster`. Le code de

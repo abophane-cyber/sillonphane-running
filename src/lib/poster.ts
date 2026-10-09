@@ -21,7 +21,7 @@ export const POSTER_MAX_PHOTOS = 3
 export const POSTER_FORMATS: { id: PosterFormat; label: string; sub: string; ratio: number; exportW: number; print: boolean }[] = [
   { id: 'a3', label: 'A3', sub: '29,7 × 42 cm', ratio: Math.SQRT2, exportW: 3508, print: true },
   { id: 'a4', label: 'A4', sub: '21 × 29,7 cm', ratio: Math.SQRT2, exportW: 2480, print: true },
-  { id: 'carre', label: 'Carré', sub: '1080 × 1080 px', ratio: 1, exportW: 1080, print: false },
+  { id: 'carre', label: 'Carré', sub: '30 × 30 cm', ratio: 1, exportW: 3543, print: true },
 ]
 export function posterFormat(s: PosterSettings) {
   return POSTER_FORMATS.find(f => f.id === s.format) ?? POSTER_FORMATS[0]
@@ -944,7 +944,8 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
 /**
  * Dessine l'affiche sur `canvas`, à `widthPx` pixels de large (hauteur selon le format). `isLive` permet d'abandonner
  * un dessin devenu inutile (réglage modifié pendant le chargement des tuiles). Renvoie false s'il a été abandonné.
- * `signature` : pied avec logo, « Sillonphane » et adresse du site — sur tous les formats (tirage compris).
+ * `signature` : pied avec logo, « Sillonphane » et adresse du site — à l'aperçu sur tous les formats ; retiré du
+ * fichier pour l'impression (exportPoster).
  */
 export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, data: PosterData, settings: PosterSettings,
   photos: HTMLImageElement[], isLive: () => boolean = () => true, signature = true): Promise<boolean> {
@@ -971,10 +972,16 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
   return true
 }
 
-/** Rend l'affiche en JPEG au format choisi (A3/A4 à 300 dpi pour le tirage, carré 1080 px pour les réseaux). */
-export async function exportPoster(data: PosterData, settings: PosterSettings, photos: HTMLImageElement[]): Promise<Blob> {
+/** Largeur (px) de l'image pour les réseaux, quel que soit le format. */
+export const POSTER_SOCIAL_W = 1080
+
+/** Rend l'affiche en JPEG au format choisi, pour l'impression (300 dpi, sans le pied logo / marque / adresse, visible
+ * seulement à l'écran) ou pour les réseaux (1080 px de large, avec ce pied). */
+export async function exportPoster(data: PosterData, settings: PosterSettings, photos: HTMLImageElement[],
+  purpose: 'print' | 'social'): Promise<Blob> {
   const canvas = document.createElement('canvas')
-  await drawPoster(canvas, posterFormat(settings).exportW, data, settings, photos)
+  const format = posterFormat(settings)
+  await drawPoster(canvas, purpose === 'print' ? format.exportW : POSTER_SOCIAL_W, data, settings, photos, () => true, purpose === 'social')
   return new Promise((resolve, reject) =>
     canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Export de l\'affiche impossible'))), 'image/jpeg', 0.92))
 }

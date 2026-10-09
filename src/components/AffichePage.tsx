@@ -4,7 +4,7 @@ import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster } from '
 import {
   buildPosterData, computedPace, drawPoster, exportPoster, posterBackground, posterFond, posterFormat, posterHeight,
   posterRibbon, posterStyle, POSTER_BACKGROUNDS, POSTER_FONDS, POSTER_FORMATS, POSTER_INFOS, POSTER_MAX_PHOTOS,
-  POSTER_RIBBONS, POSTER_STYLES, POSTER_W, type PosterData,
+  POSTER_RIBBONS, POSTER_SOCIAL_W, POSTER_STYLES, POSTER_W, type PosterData,
 } from '../lib/poster'
 import { saveFileWithPicker, sanitizeFilename } from '../lib/saveFile'
 import { useHeaderBack } from '../hooks/useHeaderBack'
@@ -110,7 +110,7 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [photoImgs, setPhotoImgs] = useState<HTMLImageElement[]>([])
   const [pickFromSillon, setPickFromSillon] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState<'print' | 'social' | null>(null)
   const [printOffer, setPrintOffer] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const thumbRefs = useRef<Partial<Record<PosterStyle, HTMLCanvasElement | null>>>({})
@@ -219,20 +219,20 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
   }
 
   const format = posterFormat(settings)
-  async function download() {
+  async function download(purpose: 'print' | 'social') {
     if (!data) return
-    setBusy(true)
+    setBusy(purpose)
     try {
-      const blob = await exportPoster(data, settings, photoImgs)
+      const blob = await exportPoster(data, settings, photoImgs, purpose)
       const title = settings.title ?? data.defaults.title
-      const name = `${sanitizeFilename(title)} - affiche ${format.label}.jpg`
+      const name = `${sanitizeFilename(title)} - affiche ${format.label}${purpose === 'social' ? ' réseaux' : ''}.jpg`
       const result = await saveFileWithPicker(blob, name, { mimeType: 'image/jpeg', extension: '.jpg', description: 'Image JPEG' })
-      if (result === 'saved' && format.print) setPrintOffer(true)
+      if (result === 'saved' && purpose === 'print') setPrintOffer(true)
     } catch (e) {
       console.error('[affiche] export', e)
       alert('L\'affiche n\'a pas pu être enregistrée. Vérifiez la connexion (les fonds de carte viennent de l\'IGN), puis réessayez.')
     } finally {
-      setBusy(false)
+      setBusy(null)
     }
   }
 
@@ -344,6 +344,21 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
           style={{ aspectRatio: `${POSTER_W} / ${posterHeight(settings)}` }}
           aria-label="Aperçu de l'affiche"
         />
+        <div className="aff-box">
+          <p>
+            <strong>Pour l'impression</strong> ({format.label}, {format.sub}, haute qualité) : le logo et la marque
+            Sillonphane sont retirés du fichier, ils n'apparaissent qu'à l'écran. Le tirage chez nos partenaires, avec le
+            code de réduction, vous est proposé juste après.
+          </p>
+          <p>
+            <strong>Pour les réseaux</strong> : image de {POSTER_SOCIAL_W} px de large, avec le logo et l'adresse
+            Sillonphane en bas.
+          </p>
+          <p>
+            <strong>Bientôt : Mes dossards.</strong> Au fil des courses, vos affiches se rangent dans vos dossards :
+            un livre de vos courses, vos records sur 5 km, 10 km, semi et marathon, votre progression.
+          </p>
+        </div>
       </div>
 
       <aside className="affiche__panel affiche__panel--right">
@@ -424,18 +439,12 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
               </button>
             ))}
           </div>
-          <button type="button" className="aff-download" disabled={busy} onClick={download}>
-            {busy ? 'Préparation…' : '⤓  Télécharger l\'affiche'}
+          <button type="button" className="aff-download" disabled={!!busy} onClick={() => download('print')}>
+            {busy === 'print' ? 'Préparation…' : '⤓  Télécharger pour l\'impression'}
           </button>
-          <p className="aff-hint">
-            {format.print
-              ? 'Format haute qualité, prêt à imprimer. Le tirage chez nos partenaires, avec le code de réduction, vous est proposé juste après.'
-              : 'Pour les réseaux.'}
-          </p>
-          <p className="aff-hint aff-hint--dossards">
-            <strong>Bientôt : Mes dossards.</strong> Au fil des courses, vos affiches se rangent dans vos dossards :
-            un livre de vos courses, vos records sur 5 km, 10 km, semi et marathon, votre progression.
-          </p>
+          <button type="button" className="aff-download aff-download--ghost" disabled={!!busy} onClick={() => download('social')}>
+            {busy === 'social' ? 'Préparation…' : '⤓  Télécharger pour les réseaux'}
+          </button>
         </section>
       </aside>
 
