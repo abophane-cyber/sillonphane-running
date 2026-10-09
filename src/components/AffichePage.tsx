@@ -347,7 +347,8 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
         <div className="aff-box">
           <p>
             <strong>Pour l'impression</strong> ({format.label}, {format.sub}, haute qualité) : le logo et la marque
-            Sillonphane sont retirés du fichier, ils n'apparaissent qu'à l'écran. Le tirage chez nos partenaires, avec le
+            Sillonphane sont retirés du fichier ; seule l'adresse sillonphane.fr/running reste, toute petite, dans la marge
+            du bas. Le tirage chez nos partenaires, avec le
             code de réduction, vous est proposé juste après.
           </p>
           <p>

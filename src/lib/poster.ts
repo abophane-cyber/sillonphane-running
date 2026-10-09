@@ -967,6 +967,14 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
       ? await drawOrigine(ctx, data, r, theme, photos, k, isLive, signature)
     : await drawClassic(ctx, data, r, theme, photos, k, isLive, signature)
   if (!ok || !isLive()) return false
+  // Fichier pour l'impression : ni logo ni marque, seulement l'adresse du site, toute petite dans la marge du bas
+  // (l'origine reste visible si l'image circule).
+  if (!signature) {
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'right'
+    ctx.font = `500 7px ${SANS}`; ctx.fillStyle = `rgba(${theme.fg},0.38)`; setSpacing(ctx, 0.8)
+    ctx.fillText('sillonphane.fr/running', POSTER_W - 34, r.H - 11)
+    setSpacing(ctx, 0)
+  }
   canvas.width = work.width; canvas.height = work.height
   canvas.getContext('2d')!.drawImage(work, 0, 0)
   return true

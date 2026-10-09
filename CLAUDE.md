@@ -46,7 +46,8 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
   portant le tracé blanc, ville et date à gauche, dossard, temps, distance et nom à droite. 3 photos au plus (le Modèle 3 n'en prend qu'une). Fonds : blanc cassé, crème chaud, papier (grain), lin,
   gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème ou couleur unie. Chaque élément se
   masque (le classement peut ne pas être flatteur). Formats : A3, A4 et carré (30 × 30 cm), chacun téléchargeable
-  pour l'impression (JPEG 300 dpi, sans logo ni marque) ou pour les réseaux (1080 px de large, avec logo, « Sillonphane »
+  pour l'impression (JPEG 300 dpi, sans logo ni marque ; seulement « sillonphane.fr/running » en tout petit dans la
+  marge du bas) ou pour les réseaux (1080 px de large, avec logo, « Sillonphane »
   et adresse sillonphane.fr/running en filigrane en bas, aussi visibles à l'aperçu ; encadré d'explication sous
   l'aperçu) ; phrase « Une
   course. Des souvenirs. Toujours plus loin. » sur le Modèle 1).
