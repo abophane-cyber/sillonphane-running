@@ -661,7 +661,7 @@ export default function App() {
         <button className="app-logo" onClick={goToLanding} title="Page d'accueil" aria-label="Page d'accueil">
           <HomeIcon size={16} className="app-logo__home-icon" />
           <AppLogoIcon size={28} />
-          Sillonphane-Rando
+          Sillonphane
         </button>
       </header>
 
