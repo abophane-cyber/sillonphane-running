@@ -30,7 +30,7 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, computeRavitos, isRawGpxName, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
+  computeBornes, computeRavitos, isRawGpxName, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ANIM_ZOOM, animSpeed } from './hooks/useAnimationSettings'
@@ -130,7 +130,7 @@ export default function App() {
   }), [bannerDefaults])
   const raceTiming = useMemo(() => ({ useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds }), [realTimes, race.plannedTimes, race.speeds])
   const clock = useMemo(() => raceClock(points, distances, raceTiming), [points, distances, raceTiming])
-  // Carton de fin du film : intitulé, date, distance, dénivelé, temps mis (réel ou prévu) et moyenne.
+  // Carton de fin du film : intitulé, date, distance, dénivelé, temps mis (réel ou prévu) et allure moyenne.
   const endCard = useMemo<EndCard | undefined>(() => {
     if (!activeTrack) return undefined
     const dur = raceDurationS(points, activeTrack.distance, { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds })
@@ -141,7 +141,7 @@ export default function App() {
       elevGain: activeTrack.elevGain > 0 ? `+${Math.round(activeTrack.elevGain)} m` : undefined,
       time: dur ? formatElapsed(dur.s) : undefined,
       timeLabel: dur ? (dur.planned ? 'TEMPS PRÉVU' : 'TEMPS') : undefined,
-      avgSpeed: dur && dur.s > 0 ? `${(activeTrack.distance / 1000 / (dur.s / 3600)).toFixed(1).replace('.', ',')} km/h` : undefined,
+      avgPace: dur && dur.s > 0 && activeTrack.distance > 0 ? formatPace(dur.s / (activeTrack.distance / 1000)) : undefined,
     }
   }, [activeTrack, points, realTimes, race, bannerDefaults])
   const { fitBoundsCount, seekCount, zoomToStartCount, bumpFitBounds, bumpSeek, bumpZoomToStart } = useMapTriggers()

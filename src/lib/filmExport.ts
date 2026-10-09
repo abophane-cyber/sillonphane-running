@@ -792,7 +792,7 @@ function getSillonLogoPath(): { path: Path2D; length: number } {
 }
 
 /** Carton de fin, bandeau bas (style générique TV) sur la vue d'ensemble : date dorée et intitulé en italique à
- * gauche ; à droite, après un filet doré, distance, dénivelé, temps et moyenne ; adresse du site en petit au-dessus.
+ * gauche ; à droite, après un filet doré, distance, dénivelé, temps et allure ; adresse du site en petit au-dessus.
  * Bleu nuit et or des médailles km. Fondu d'apparition (`opacity`) avec une légère montée. */
 export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: number, card: EndCard, opacity: number) {
   if (opacity <= 0) return
@@ -814,7 +814,7 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
   if (card.distance) stats.push([card.distance, 'DISTANCE', false])
   if (card.elevGain) stats.push([card.elevGain, 'DÉNIVELÉ', false])
   if (card.time) stats.push([card.time, card.timeLabel ?? 'TEMPS', true])
-  if (card.avgSpeed) stats.push([card.avgSpeed, 'MOYENNE', false])
+  if (card.avgPace) stats.push([card.avgPace, 'ALLURE', false])
   const VAL = `700 ${Math.round(ch * 0.032)}px Arial, Helvetica, sans-serif`
   const LAB = `700 ${Math.round(ch * 0.013)}px Arial, Helvetica, sans-serif`
   const gap = ch * 0.036

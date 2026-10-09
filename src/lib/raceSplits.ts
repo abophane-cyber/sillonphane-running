@@ -252,7 +252,7 @@ export function computeBornes(points: GpxPoint[], distances: number[], opts: Bor
   })
 }
 
-/** Carton de fin du film (bandeau bas) : intitulé, date, distance, dénivelé, temps mis et moyenne. */
+/** Carton de fin du film (bandeau bas) : intitulé, date, distance, dénivelé, temps mis et allure moyenne. */
 export interface EndCard {
   title: string
   date?: string
@@ -263,8 +263,45 @@ export interface EndCard {
   time?: string
   /** « TEMPS » (GPX enregistré) ou « TEMPS PRÉVU » (vitesses saisies). */
   timeLabel?: string
-  /** « 12,0 km/h ». */
-  avgSpeed?: string
+  /** Allure moyenne « 4'58"/km ». */
+  avgPace?: string
+}
+
+/** Allure « 4'58"/km » pour un temps au kilomètre (s). */
+export function formatPace(sPerKm: number): string {
+  const t = Math.round(sPerKm)
+  return `${Math.floor(t / 60)}'${String(t % 60).padStart(2, '0')}"/km`
+}
+
+/** Analyse d'une course enregistrée (affiche) : temps de chaque km complet, meilleur et moins bon km, deux moitiés.
+ * Seulement avec des heures réelles (cf. hasRealTimes) : sur des temps prévus, ces chiffres n'auraient pas de sens. */
+export interface RaceAnalysis {
+  /** Temps (s) de chaque km complet, du 1er au dernier ; le bout de km avant l'arrivée n'y est pas. */
+  kmSplitsS: number[]
+  /** Numéro (1 = premier km) et temps (s) du km le plus rapide, et du plus lent. */
+  best: { km: number; s: number }
+  worst: { km: number; s: number }
+  /** Temps (s) de la première et de la seconde moitié du parcours. */
+  halvesS: [number, number]
+  /** Allure moyenne sur tout le parcours (s/km). */
+  avgPaceS: number
+}
+export function analyzeRace(points: GpxPoint[], distances: number[]): RaceAnalysis | undefined {
+  const total = distances[distances.length - 1] ?? 0
+  if (total < 2000 || !hasRealTimes(points, distances)) return undefined
+  const at = raceClock(points, distances, { useRealTimes: true }).elapsedAtM
+  const kmSplitsS: number[] = []
+  for (let km = 1; km * 1000 <= total; km++) kmSplitsS.push(at(km * 1000) - at((km - 1) * 1000))
+  let b = 0, w = 0
+  kmSplitsS.forEach((s, i) => { if (s < kmSplitsS[b]) b = i; if (s > kmSplitsS[w]) w = i })
+  const half = at(total / 2), end = at(total)
+  return {
+    kmSplitsS,
+    best: { km: b + 1, s: kmSplitsS[b] },
+    worst: { km: w + 1, s: kmSplitsS[w] },
+    halvesS: [half, end - half],
+    avgPaceS: end / (total / 1000),
+  }
 }
 
 /** Temps du parcours (s) : réel (heures du GPX) ou prévu (vitesses saisies), sinon undefined. */
