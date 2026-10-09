@@ -10,6 +10,13 @@ Déclinaison de Sillonphane pour la **course sur route, du 5 km au marathon**. P
 Référence visuelle : la vidéo officielle « Parcours du marathon de Lille 2026 » (YouTube, chaîne LHDFA).
 Ne jamais reprendre de logo d'épreuve, de commune ou de sponsor sans l'accord de son titulaire.
 
+Noms d'épreuves (souvent des marques de leurs organisateurs) :
+- **Nos textes de promotion** (site, démos, réseaux, publicité) : le nom d'une épreuve (« le semi-marathon de
+  Lille ») seulement avec **l'accord écrit de son organisateur** ; sans accord, distance · date · ville
+  (« 21,1 km · 24 octobre 2026 · Lille »).
+- **Films des utilisateurs** : titre personnel tiré du GPX, « Mon semi-marathon à Lille » (modifiable) ; règles
+  d'usage (personnel, partage non commercial, commercial) dans les conditions d'utilisation (`public/legal.html`).
+
 ## Plan
 
 ### Avant la course (parcours de l'épreuve)
