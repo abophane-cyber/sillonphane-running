@@ -79,7 +79,7 @@ export const PROMO_SCHEDULE: PromoSchedule = {
 }
 
 /** URL absolue, domaine sans www (même contrainte CORS que version.json, voir useAppUpdateCheck). */
-export const PROMO_URL = 'https://sillonphane.fr/rando/promo.json'
+export const PROMO_URL = 'https://sillonphane.fr/running/promo.json'
 
 function todayLocal(): string {
   const d = new Date()

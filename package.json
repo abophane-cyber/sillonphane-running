@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "record": "node scripts/record.mjs",
-    "record:prod": "node scripts/record.mjs https://sillonphane.fr/rando",
+    "record:prod": "node scripts/record.mjs https://sillonphane.fr/running",
     "og": "node scripts/og-shot.mjs",
     "apk:publish": "node scripts/apk-publish.mjs",
     "android:sync": "npm run build:cap && node -e \"const fs=require('fs'); fs.copyFileSync('dist/app.html','dist/index.html'); fs.rmSync('dist/downloads', { recursive: true, force: true })\" && npx cap sync android",

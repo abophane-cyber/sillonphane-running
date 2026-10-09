@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.sillonphane.rando',
-  appName: 'Sillonphane-Rando',
+  appId: 'app.sillonphane.running',
+  appName: 'Sillonphane-Running',
   webDir: 'dist',
   android: {
     // Sans ça, le plugin background-geolocation cesse de transmettre les positions

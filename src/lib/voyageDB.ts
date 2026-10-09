@@ -2,8 +2,9 @@ import type { Voyage, VoyageTrack, VoyageFilm, VoyagePhoto, ComposedAlbumPage, P
 import { migrateLegacyCover } from './albumPages'
 import { saveFileWithPicker } from './saveFile'
 import { uuid } from './uuid'
+import { APP_ID, APP_NAME, APP_NAMES, STORAGE_DB } from './appIdentity'
 
-const DB_NAME = 'sillon-voyages'
+const DB_NAME = STORAGE_DB // propre à Running : les sillons des autres déclinaisons n'y apparaissent pas
 const DB_VERSION = 3
 const STORE_VOYAGES    = 'voyages'
 const STORE_BLOBS      = 'film-blobs'    // clé = filmId, valeur = Blob vidéo
@@ -516,8 +517,8 @@ export async function repairOrphanedPhotos(voyage: Voyage): Promise<Voyage> {
 // sauvegarde mette à jour les sillons existants (put/upsert)
 // plutôt que de créer des doublons à chaque synchro.
 
-const LS_LAST_BACKUP_AT = 'sillon-last-backup-at'
-const LS_BACKUP_PENDING = 'sillon-backup-pending'
+const LS_LAST_BACKUP_AT = 'running:sillon-last-backup-at'
+const LS_BACKUP_PENDING = 'running:sillon-backup-pending'
 
 // localStorage plutôt que la DB : lu de façon synchrone par le rappel avant fermeture (beforeunload),
 // qui n'a pas le temps d'attendre une lecture IndexedDB async.
@@ -589,6 +590,8 @@ interface SillonBackupV1 {
 interface BackupManifestV2 {
   format: 'sillon-backup'
   version: 2
+  /** Appli d'origine (« running ») : une sauvegarde d'une autre déclinaison (Rando, Cyclo…) est refusée. */
+  app?: string
   exportedAt: string
   voyages: Voyage[]
   photoTypes: Record<string, string>  // photoId -> type MIME
@@ -624,7 +627,7 @@ export async function prepareBackup(onProgress?: (done: number, total: number) =
     }
   }
   const manifest: BackupManifestV2 = {
-    format: 'sillon-backup', version: 2, exportedAt: new Date().toISOString(),
+    format: 'sillon-backup', version: 2, app: APP_ID, exportedAt: new Date().toISOString(),
     voyages, photoTypes, filmTypes,
   }
 
@@ -665,7 +668,7 @@ export async function prepareBackup(onProgress?: (done: number, total: number) =
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}h${pad(now.getMinutes())}`
-  const filename = `sillon-sauvegarde-${stamp}.zip`
+  const filename = `sillonphane-running-sauvegarde-${stamp}.zip`
   return { blob, filename }
 }
 
@@ -676,7 +679,7 @@ export async function prepareBackup(onProgress?: (done: number, total: number) =
 export async function saveBackup(prepared: PreparedBackup): Promise<'saved' | 'cancelled'> {
   const { blob, filename } = prepared
   const result = await saveFileWithPicker(blob, filename, {
-    mimeType: 'application/zip', extension: '.zip', description: 'Sauvegarde Sillon',
+    mimeType: 'application/zip', extension: '.zip', description: `Sauvegarde ${APP_NAME}`,
     // .zip figure dans la liste d'extensions "sûres" de canShare() sous Chrome (au contraire de
     // .json) : le partage natif Android peut donc servir le fichier tel quel, sans détour.
   })
@@ -688,6 +691,15 @@ export async function saveBackup(prepared: PreparedBackup): Promise<'saved' | 'c
 // RangeError « Invalid string length », quand la sauvegarde (photos/films en base64) dépasse ce que
 // le moteur JS peut tenir en une seule chaîne — plafond bien plus bas sur smartphone (WebView
 // Android) que sur ordinateur.
+/** Sauvegarde venant d'une autre déclinaison : on explique pourquoi elle est refusée. */
+function wrongAppMessage(app: string): string {
+  const origin = APP_NAMES[app]
+    ? `Cette sauvegarde vient de ${APP_NAMES[app]}`
+    : `Cette sauvegarde ne vient pas de ${APP_NAME} (autre appli Sillonphane, Rando par exemple, ou ancienne version)`
+  return `${origin} : elle ne peut pas être restaurée dans ${APP_NAME}.\n\n` +
+    `Chaque appli Sillonphane (Rando, Running, Cyclo…) garde ses propres sillons. Restaurez ce fichier dans l'appli qui l'a créé.`
+}
+
 const TOO_BIG_MESSAGE =
   "Fichier trop volumineux pour être restauré sur ce téléphone.\n\n" +
   "La sauvegarde contient trop de photos/films pour la mémoire de l'appareil. " +
@@ -725,8 +737,8 @@ async function importZipBackup(file: File, onProgress?: (done: number, total: nu
 
   // Objet-conteneur plutôt qu'un `let` : TypeScript ne « rétrécit » pas les affectations faites
   // dans une closure (onfile/ondata), il croirait manifest toujours nul.
-  const state: { manifest: BackupManifestV2 | null; parseError: unknown; total: number; done: number } = {
-    manifest: null, parseError: null, total: 0, done: 0,
+  const state: { manifest: BackupManifestV2 | null; parseError: unknown; wrongApp: string | null; total: number; done: number } = {
+    manifest: null, parseError: null, wrongApp: null, total: 0, done: 0,
   }
 
   // Écritures IndexedDB sérialisées, avec contre-pression : on arrête d'alimenter le
@@ -744,6 +756,7 @@ async function importZipBackup(file: File, onProgress?: (done: number, total: nu
       if (err) { state.parseError = state.parseError ?? err; return }
       if (chunk.length) chunks.push(chunk)
       if (!final) return
+      if (state.wrongApp) return  // sauvegarde refusée : on n'écrit plus rien
       const bytes = concatBytes(chunks)
       chunks.length = 0
 
@@ -752,6 +765,8 @@ async function importZipBackup(file: File, onProgress?: (done: number, total: nu
           state.manifest = JSON.parse(new TextDecoder().decode(bytes)) as BackupManifestV2
         } catch (e) { state.parseError = state.parseError ?? e; return }
         const mf = state.manifest
+        // Sauvegarde d'une autre appli (Rando, Cyclo…) ou d'avant le marquage : refusée avant d'écrire quoi que ce soit.
+        if (mf.app !== APP_ID) { state.wrongApp = mf.app ?? 'inconnue'; state.parseError = new Error('wrong-app'); return }
         state.total = (Array.isArray(mf.voyages) ? mf.voyages.length : 0)
           + Object.keys(mf.photoTypes ?? {}).length
           + Object.keys(mf.filmTypes ?? {}).length
@@ -800,6 +815,7 @@ async function importZipBackup(file: File, onProgress?: (done: number, total: nu
     throw new Error(`Restauration interrompue — ${errText(err)}`, { cause: err })
   }
 
+  if (state.wrongApp) throw new Error(wrongAppMessage(state.wrongApp))
   if (state.parseError) {
     if (isSizeError(state.parseError)) throw new Error(TOO_BIG_MESSAGE)
     throw new Error(`Archive illisible (fichier .zip incomplet ?) — ${errText(state.parseError)}`)
@@ -828,6 +844,8 @@ async function importLegacyJsonBackup(file: File, onProgress?: (done: number, to
     throw new Error(`Lecture du fichier impossible — ${errText(err)}`, { cause: err })
   }
   if (!text.trim()) throw new Error('Le fichier est vide.')
+  // L'ancien format .json n'a été produit que par Sillonphane-Rando : jamais restauré dans Running.
+  throw new Error(wrongAppMessage('rando'))
   let backup: SillonBackupV1
   try {
     backup = JSON.parse(text) as SillonBackupV1

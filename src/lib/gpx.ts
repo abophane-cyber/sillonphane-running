@@ -301,9 +301,9 @@ function escapeXml(s: string): string {
 // Reconnaît un GPX produit par buildGpxXml (enregistrement GPS en direct de l'appli) plutôt
 // qu'un fichier importé d'une source tierce. Sert de rattrapage pour les tracés enregistrés
 // avant l'ajout du champ VoyageTrack.source : le creator a toujours été « Sillage-Randonnée »
-// (avant renommage), « Sillon-Rando » puis « Sillonphane-Rando », qu'aucune appli tierce n'utilise.
+// (avant renommage), « Sillon-Rando » puis « Sillonphane-Rando » ; « Sillonphane-Running » pour Running.
 export function isRecordedGpx(gpxData: string): boolean {
-  return /creator="Sill(age-Randonnée|on-Rando|onphane-Rando)"/.test(gpxData)
+  return /creator="Sill(age-Randonnée|on-Rando|onphane-Rando|onphane-Running)"/.test(gpxData)
 }
 
 // Sérialise un tracé enregistré en direct au format GPX standard, relisible par parseGpx
@@ -314,7 +314,7 @@ export function buildGpxXml(points: GpxPoint[], name: string): string {
   }).join('\n')
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Sillonphane-Rando" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="Sillonphane-Running" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
     <name>${escapeXml(name)}</name>
   </metadata>

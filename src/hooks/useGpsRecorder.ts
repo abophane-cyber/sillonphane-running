@@ -38,7 +38,7 @@ const initialStats: RecorderStats = {
 // détruite quand on ferme complètement l'appli, même si le service GPS natif continue de tourner
 // en arrière-plan. Sans ce checkpoint, rouvrir l'appli pendant un enregistrement retombait sur
 // l'écran d'accueil sans aucune trace du parcours en cours.
-const CHECKPOINT_KEY = 'sillon-active-recording'
+const CHECKPOINT_KEY = 'running:sillon-active-recording'
 
 interface RecordingCheckpoint {
   points: { lat: number; lon: number; ele: number; time: number }[]

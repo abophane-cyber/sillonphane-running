@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto'
 import { copyFileSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 
 const SRC = 'android/app/build/outputs/apk/debug/app-debug.apk'
-const DEST = 'public/downloads/sillonphane-rando.apk'
+const DEST = 'public/downloads/sillonphane-running.apk'
 const JSON_PATH = 'public/downloads/version.json'
 
 if (!process.argv.includes('--no-copy')) copyFileSync(SRC, DEST)

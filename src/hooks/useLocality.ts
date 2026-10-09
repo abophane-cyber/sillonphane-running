@@ -86,7 +86,7 @@ interface OsmToponym {
 
 // Cache par bbox — en mémoire + localStorage (survit au rechargement)
 const bboxCache = new Map<string, Promise<OsmToponym[]>>()
-const LS_BBOX = 'sillon_bbox_'
+const LS_BBOX = 'running:sillon_bbox_'
 
 function lsGetBbox(key: string): OsmToponym[] | null {
   try { const v = localStorage.getItem(LS_BBOX + key); return v ? JSON.parse(v) : null } catch { return null }
@@ -261,7 +261,7 @@ async function fetchCommuneUncached(lon: number, lat: number): Promise<CommunePl
 // (≈ 100 m). Le résultat « pas de commune » est mis en cache aussi ({ v: null }) ; seules les
 // erreurs réseau/HTTP ne le sont pas (la promesse est retirée de la Map pour permettre un réessai).
 const communeCache = new Map<string, Promise<CommunePlace | null>>()
-const COMMUNE_LS_PREFIX = 'sillon_com1_'
+const COMMUNE_LS_PREFIX = 'running:sillon_com1_'
 
 function fetchCommune(lon: number, lat: number): Promise<CommunePlace | null> {
   const key = `${lon.toFixed(3)},${lat.toFixed(3)}`
@@ -311,7 +311,7 @@ function bestEndpointPlace(
 
 const localityCache = new Map<string, Promise<EndpointPlace | null>>()
 // v2 : l'entrée garde le type OSM (placeType) ; les anciennes entrées sans type sont regéocodées.
-const LS_PREFIX = 'sillon_loc2_'
+const LS_PREFIX = 'running:sillon_loc2_'
 
 function lsGet(key: string) {
   try { const v = localStorage.getItem(LS_PREFIX + key); return v ? JSON.parse(v) : null } catch { return null }
@@ -377,7 +377,7 @@ function findCols(points: GpxPoint[], distances: number[]): ColInfo[] {
   return cols
 }
 
-const LS_COL = 'sillon_col_'
+const LS_COL = 'running:sillon_col_'
 function lsGetCol(key: string) { try { const v = localStorage.getItem(LS_COL + key); return v ? JSON.parse(v) : null } catch { return null } }
 function lsSetCol(key: string, val: { name: string; lon: number; lat: number }) { try { localStorage.setItem(LS_COL + key, JSON.stringify(val)) } catch { /* stockage local plein ou indisponible */ } }
 
@@ -416,7 +416,7 @@ async function fetchColName(lon: number, lat: number): Promise<{ name: string; l
 // Géocodage direct d'un col nommé par l'utilisateur (panneau ajouté à la main) : cherche le
 // toponyme sur Photon, biaisé vers le tracé, puis le rattache au point du tracé le plus proche.
 // Renvoie null si rien de crédible n'est trouvé (l'appelant garde alors sa position de repli).
-const LS_COL_FWD = 'sillon_colfwd_'
+const LS_COL_FWD = 'running:sillon_colfwd_'
 export async function fetchColLatLonByName(
   name: string,
   points: GpxPoint[],
@@ -482,7 +482,7 @@ function snapToTrack(lon: number, lat: number, points: GpxPoint[]): { lon: numbe
 // sommet du profil d'altitude et échappe à findCols — on le retrouve donc directement dans OSM.
 const PASS_MAX_TRACK_DIST = 150 // m entre le nœud OSM du col et le tracé
 const PASS_NAME_RE = /^(col|pas|port|collet|br[eè]che|passo)\b/i
-const LS_PASSES = 'sillon_passes_'
+const LS_PASSES = 'running:sillon_passes_'
 const passCache = new Map<string, Promise<ColMarker[]>>()
 
 async function fetchOsmPassesNearTrack(points: GpxPoint[]): Promise<ColMarker[]> {

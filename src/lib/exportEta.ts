@@ -24,7 +24,7 @@ const SMOOTH_TAU_S = 2
 
 export function makeExportEta(kind: EtaKind, filmS: number, prepShare: number) {
   // v2 : temps de rendu seul par seconde de film (v1 mélangeait préparation et rendu).
-  const key = `sillon.eta2.${kind}`
+  const key = `running:sillon.eta2.${kind}`
   let renderSecPerFilmS: number | null = null
   try {
     const v = Number(localStorage.getItem(key))

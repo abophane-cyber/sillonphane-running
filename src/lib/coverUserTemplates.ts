@@ -19,7 +19,7 @@ export interface UserCoverTemplate {
                              // sécurité) — le sélecteur les distingue et n'en garde qu'une poignée
 }
 
-const KEY = 'sillon-cover-templates'
+const KEY = 'running:sillon-cover-templates'
 export const USER_TEMPLATE_PREFIX = 'u:'
 export const isUserTemplateId = (id: string | undefined): boolean =>
   !!id && id.startsWith(USER_TEMPLATE_PREFIX)

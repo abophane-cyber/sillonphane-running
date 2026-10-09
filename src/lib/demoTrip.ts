@@ -30,7 +30,7 @@ async function fetchDemoPhoto(url: string): Promise<Blob> {
   return r.blob()
 }
 const DEMO_SILLON_NAME = "Rando d'exemple"
-const DEMO_VOYAGE_KEY = 'sillon-demo-voyage-id'
+const DEMO_VOYAGE_KEY = 'running:sillon-demo-voyage-id'
 
 export interface DemoTrip {
   voyageId: string

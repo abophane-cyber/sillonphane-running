@@ -20,7 +20,7 @@ export function ChoiceScreen({ onRecord, onUpload, onAlbum, onVoyages, onBack }:
       <div className="upload-screen__boxes">
         <div className="gpx-uploader gpx-uploader--record" onClick={onRecord}>
           <div className="gpx-uploader__icon">🔴</div>
-          <p className="gpx-uploader__title">Enregistrez en direct votre tracé GPX avec Sillonphane-Rando <span className="gpx-uploader__badge">Android</span></p>
+          <p className="gpx-uploader__title">Enregistrez en direct votre course avec Sillonphane-Running <span className="gpx-uploader__badge">Android</span></p>
           <p className="gpx-uploader__hint">Sillonphane suit votre position pendant la sortie, même écran éteint</p>
           <p className="gpx-uploader__note">🔒 Tout fonctionne sur votre téléphone - aucune position ni fichier envoyé sur un serveur</p>
         </div>

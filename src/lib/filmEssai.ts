@@ -3,7 +3,7 @@
 // Mémorisé pour l'onglet (le lien « Commencer » de la page d'accueil ne garde pas ?essai) ; « ?essai=0 » l'arrête.
 
 export const ESSAI_FILM_S = 15
-const KEY = 'sillonphane.essai'
+const KEY = 'running:sillonphane.essai'
 
 export function isEssaiFilm(): boolean {
   const v = new URLSearchParams(window.location.search).get('essai')
@@ -20,7 +20,7 @@ export function isEssaiFilm(): boolean {
 // d'ensemble). Ce qui précède est calculé (caméra, positions) mais ni dessiné ni encodé. Même mémorisation que ?essai ;
 // « ?fin=0 » l'arrête.
 export const FIN_FILM_S = 15
-const FIN_KEY = 'sillonphane.fin'
+const FIN_KEY = 'running:sillonphane.fin'
 
 export function isFinFilm(): boolean {
   const v = new URLSearchParams(window.location.search).get('fin')
@@ -37,7 +37,7 @@ export function isFinFilm(): boolean {
 // barre de fin. Réservé à nos vidéos de promotion, avec le nom d'une épreuve seulement sur accord écrit de son
 // organisateur (cf. CLAUDE.md). Même mémorisation que ?essai ; « ?promo=0 » l'arrête. Seulement sur l'appli lancée en
 // local (localhost) : en ligne, ?promo est sans effet, la mention reste sur tous les films des utilisateurs.
-const PROMO_KEY = 'sillonphane.promo'
+const PROMO_KEY = 'running:sillonphane.promo'
 
 export function isPromoFilm(): boolean {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) return false
@@ -53,7 +53,7 @@ export function isPromoFilm(): boolean {
 
 // Ouverture seule (film 3D) : « ?ouverture » dans l'URL -> seule l'ouverture est rendue (jusqu'à l'arrivée de la
 // caméra sur le départ, plus 1 s), pour la juger vite. Même mémorisation que ?essai ; « ?ouverture=0 » l'arrête.
-const OUVERTURE_KEY = 'sillonphane.ouverture'
+const OUVERTURE_KEY = 'running:sillonphane.ouverture'
 
 export function isOuvertureFilm(): boolean {
   const v = new URLSearchParams(window.location.search).get('ouverture')

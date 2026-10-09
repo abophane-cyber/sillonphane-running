@@ -213,7 +213,7 @@ export interface FilmExport3dOptions {
 // (localStorage), à défaut des valeurs moyennes ; pendant l'export, on les remplace par les
 // vitesses réelles dès qu'on a assez d'échantillons. Mémorisées en fin d'export (moyenne avec
 // l'historique, pour lisser un export atypique : tuiles en cache, réseau saturé…).
-const ETA_KEY = 'sillon.film3d.rates'
+const ETA_KEY = 'running:sillon.film3d.rates'
 interface EtaRates { msPerTile: number; prepFixedMs: number; msPerFrame: number }
 const ETA_DEFAULTS: EtaRates = { msPerTile: 45, prepFixedMs: 15_000, msPerFrame: 70 }
 function loadEtaRates(): EtaRates {

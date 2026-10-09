@@ -109,7 +109,7 @@
   font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; box-shadow: 0 6px 18px rgba(236,106,44,.3); }
 .aff-download:hover { filter: brightness(1.06); }
 .aff-download:disabled { opacity: .6; cursor: progress; }
-/* Encadré sous l'affiche : tirage (logo retiré du fichier à imprimer) et annonce Mes dossards */
+/* Encadré sous l'affiche : tirage (logo retiré du fichier à imprimer) et annonce du livre de Mes sillons */
 .aff-box { margin-top: 14px; padding: 12px 16px; border: 1px solid var(--color-border); border-radius: 10px; background: var(--color-surface); }
 .aff-box p { margin: 0; font-size: .8rem; line-height: 1.55; color: var(--color-text-muted); }
 .aff-box p + p { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--color-border); }

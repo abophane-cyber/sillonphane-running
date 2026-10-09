@@ -9,7 +9,7 @@ export function PWAPrompt() {
   // écran éteint/appli fermée — on pousse vers l'APK plutôt que l'installation PWA.
   if (isAndroidBrowser() && !Capacitor.isNativePlatform()) {
     return (
-      <a className="pwa-prompt" href={`${import.meta.env.BASE_URL}downloads/sillonphane-rando.apk`} download>
+      <a className="pwa-prompt" href={`${import.meta.env.BASE_URL}downloads/sillonphane-running.apk`} download>
         <span className="pwa-prompt__text">Télécharger l'appli Android (recommandé)</span>
         <span className="pwa-prompt__btn">Télécharger</span>
       </a>

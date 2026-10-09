@@ -8,14 +8,14 @@ import { NATIVE_VERSION_CODE } from '../nativeVersion'
 // mis à jour à chaque reconstruction de l'APK.
 //
 // URL absolue obligatoire : dans l'APK, l'appli tourne sur l'origine locale du bundle embarqué
-// (pas sur sillonphane.fr/rando), et android:sync supprime dist/downloads avant l'empaquetage — un
+// (pas sur sillonphane.fr/running), et android:sync supprime dist/downloads avant l'empaquetage — un
 // fetch relatif (`${import.meta.env.BASE_URL}downloads/version.json`) échouerait donc toujours en silence (404 local).
 //
-// Domaine SANS www obligatoire : www.sillonphane.fr/rando fait un 308 vers sillonphane.fr/rando, et cette
+// Domaine SANS www obligatoire : www.sillonphane.fr/running fait un 308 vers sillonphane.fr/running, et cette
 // redirection ne porte pas d'en-tête CORS — un fetch cross-origin (mode 'cors' par défaut) échoue
 // alors silencieusement ("Failed to fetch") en suivant la redirection, même si la réponse finale
 // a bien Access-Control-Allow-Origin. Cibler l'apex directement évite la redirection.
-const VERSION_URL = 'https://sillonphane.fr/rando/downloads/version.json'
+const VERSION_URL = 'https://sillonphane.fr/running/downloads/version.json'
 
 // Renvoie le versionCode en ligne s'il est plus récent que le build installé, sinon null.
 // (Avant : un booléen — mais l'appelant a besoin du numéro pour mémoriser un « masquer » ciblé.)

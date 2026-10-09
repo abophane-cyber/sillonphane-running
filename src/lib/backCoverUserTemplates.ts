@@ -14,7 +14,7 @@ export { USER_TEMPLATE_PREFIX, isUserTemplateId }
 /** Applique un gabarit de dos à la page — logique identique à la couverture. */
 export const applyUserBackCoverTemplate = applyUserCoverTemplate
 
-const KEY = 'sillon-backcover-templates'
+const KEY = 'running:sillon-backcover-templates'
 
 export function loadUserBackCoverTemplates(): UserCoverTemplate[] {
   try {

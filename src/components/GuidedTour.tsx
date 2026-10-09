@@ -30,7 +30,7 @@ const STEP_TEXT: Record<Step, ReactNode> = {
     "votre album-photo.",
 }
 
-const INTRO_SEEN_KEY = 'sillon.animGuide.introSeen'
+const INTRO_SEEN_KEY = 'running:sillon.animGuide.introSeen'
 
 // Personnage illustrant la bulle à chaque étape : un différent par étape (portraits
 // pré-cadrés, voir CHARACTER_FACE), et tous réunis à la dernière étape. Les personnages sans portrait sont omis.

@@ -356,8 +356,8 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
             en bas.
           </p>
           <p>
-            <strong>Bientôt : Mes dossards.</strong> Au fil des courses, vos affiches se rangent dans vos dossards :
-            un livre de vos courses, vos records sur 5 km, 10 km, semi et marathon, votre progression.
+            <strong>Bientôt : le livre de vos sillons.</strong> Au fil des courses, vos affiches se rangent dans
+            Mes sillons : réunissez-les en un livre, avec vos records sur 5 km, 10 km, semi et marathon et votre progression.
           </p>
         </div>
       </div>

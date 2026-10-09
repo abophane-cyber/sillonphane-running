@@ -4,7 +4,7 @@
 
 const PHOTON_REVERSE = 'https://photon.komoot.io/reverse'
 const RADIUS_KM = 0.4
-const LS_KEY = 'sillon_start_landmark_'
+const LS_KEY = 'running:sillon_start_landmark_'
 /** Types interrogés et leur priorité (plus grand = préféré à distance égale). */
 const KINDS: [string, number][] = [
   ['historic', 3], ['amenity:townhall', 2], ['tourism:museum', 2], ['tourism:attraction', 2], ['place:square', 1.5],

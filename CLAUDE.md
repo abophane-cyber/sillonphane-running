@@ -17,6 +17,14 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
 - **Films des utilisateurs** : titre personnel tiré du GPX, « Mon semi-marathon à Lille » (modifiable) ; règles
   d'usage (personnel, partage non commercial, commercial) dans les conditions d'utilisation (`public/legal.html`).
 
+## Séparation d'avec les autres déclinaisons
+
+Rando, Running, Cyclo… sont servies depuis le même domaine (sillonphane.fr) : leurs sillons ne doivent jamais se
+mélanger. Running a sa propre base IndexedDB (`sillon-running`), ses clés localStorage préfixées `running:`,
+son identifiant Android (`app.sillonphane.running`), ses URLs (`/running/downloads/…`, `/running/promo.json`), et
+marque ses sauvegardes (`app: 'running'` dans le manifeste) : une sauvegarde d'une autre appli, ou l'ancien format
+.json de Rando, est refusée avec un message. Tout est centralisé dans `src/lib/appIdentity.ts`.
+
 ## Plan
 
 ### Avant la course (parcours de l'épreuve)
@@ -56,8 +64,9 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
   réduction affiché seulement après l'enregistrement (comme pour Rando, `src/lib/printPartners.ts`).
 
 ### Plus tard
-- **Mes dossards** (nom retenu, à la place de « carnet de courses ») : livre réunissant les affiches d'une
-  ou plusieurs saisons, avec les records (5 km, 10 km, semi, marathon) et la progression ; annoncé aux
-  utilisateurs sur l'écran de l'affiche et sur la page d'accueil (« Bientôt »).
+- **Le livre de Mes sillons** (au lieu de « Mes dossards », abandonné : un seul nom, comme dans les autres applis) :
+  livre réunissant les affiches d'une ou plusieurs saisons rangées dans « Mes sillons » de Running, avec les records
+  (5 km, 10 km, semi, marathon) et la progression ; annoncé sur l'écran de l'affiche et sur la page d'accueil
+  (« Bientôt »).
 - Comparaison avec un autre coureur ou l'édition précédente (deuxième ruban).
 - Offre organisateurs : film officiel du parcours aux couleurs de l'épreuve (logo et sponsors fournis par eux).

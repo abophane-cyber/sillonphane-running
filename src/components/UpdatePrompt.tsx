@@ -3,11 +3,11 @@ import { Filesystem, Directory } from '@capacitor/filesystem'
 import { FileOpener } from '@capacitor-community/file-opener'
 import { useAppUpdateCheck } from '../hooks/useAppUpdateCheck'
 
-const APK_FILENAME = 'sillonphane-rando.apk'
-const APK_URL = 'https://sillonphane.fr/rando/downloads/sillonphane-rando.apk'
+const APK_FILENAME = 'sillonphane-running.apk'
+const APK_URL = 'https://sillonphane.fr/running/downloads/sillonphane-running.apk'
 // versionCode que l'utilisateur a explicitement masqué : la bannière ne réapparaît que pour une
 // version STRICTEMENT plus récente que celle-ci.
-const DISMISS_KEY = 'sillon-update-dismissed'
+const DISMISS_KEY = 'running:sillon-update-dismissed'
 
 function readDismissed(): number {
   try { return Number(localStorage.getItem(DISMISS_KEY)) || 0 } catch { return 0 }

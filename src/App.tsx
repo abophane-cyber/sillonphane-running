@@ -158,7 +158,7 @@ export default function App() {
   const dismissHint = (id: string) => setDismissedHints(prev => new Set(prev).add(id))
   // Calque de guidage de l'écran d'animation. Activé par défaut ; le bouton
   // « Revoir le guide » du header le réaffiche depuis la 1re bulle (nonce ++).
-  const GUIDE_KEY = 'sillon.animGuide'
+  const GUIDE_KEY = 'running:sillon.animGuide'
   const [guideOn, setGuideOn] = useState<boolean>(() => {
     try { return localStorage.getItem(GUIDE_KEY) !== 'off' } catch { return true }
   })
