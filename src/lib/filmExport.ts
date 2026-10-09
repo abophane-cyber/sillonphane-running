@@ -102,12 +102,11 @@ export interface FilmExportOptions {
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-/** Zoom du film à partir du zoom de l'aperçu. Ordinateur : + FILM_ZOOM_BONUS, fixe (même échelle sur tous les
- * ordinateurs) : l'aperçu, en px CSS, est agrandi par l'écran (Windows à 125 %, courant) ; le film, en px réels, paraissait
- * plus dézoomé. */
-const FILM_ZOOM_BONUS = 0.32 // log2(1,25)
+/** Zoom du film à partir du zoom de l'aperçu : le même sur ordinateur (même échelle que l'aperçu) ; + 1 sur mobile
+ * (image de 1280 px). L'écart d'échelle constaté entre aperçu et film venait de la mosaïque de la marche (cf. MOSAIC_Z),
+ * pas de l'écran. */
 function filmZoom(zoomRaw: number): number {
-  return IS_MOBILE ? zoomRaw + 1 : zoomRaw + FILM_ZOOM_BONUS
+  return IS_MOBILE ? zoomRaw + 1 : zoomRaw
 }
 const OUT_W   = IS_MOBILE ? 1280 : 1920
 const OUT_H   = IS_MOBILE ?  720 : 1080
@@ -994,7 +993,8 @@ function buildFilm2dTileUrls(
   const closeZooms: number[] = []
   if (withHikers) for (let z = Math.ceil(zoom) + 1; z <= Math.ceil(zoom + HIKER3D_CLOSE_ZOOM); z++) closeZooms.push(z)
   return [...new Set([
-    ...buildRouteTileUrls(points, [Math.floor(zoom), Math.ceil(zoom)], tileRadius),
+    // + niveau de la mosaïque de la marche (tuiles de 256 px : zoom MapLibre + 1, cf. MOSAIC_Z).
+    ...buildRouteTileUrls(points, [...new Set([Math.floor(zoom), Math.ceil(zoom), Math.round(zoom + 1)])], tileRadius),
     ...buildBoundingBoxTileUrls(points, zooms, OUT_W / OUT_H),
     ...(closeZooms.length ? buildRouteTileUrls([endPoints[0], endPoints[endPoints.length - 1]], closeZooms, tileRadius) : []),
   ])]
@@ -1534,7 +1534,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // tuiles nécessaires sont déjà en cache HTTP grâce au préchargement ci-dessus, donc ce
   // chargement/décodage est rapide. `null` (tracé trop long) -> repli sur le rendu MapLibre
   // existant, comme avant cette optimisation.
-  const mapMosaic = await buildMapMosaic(prefetchPoints, zoom, FILM_TILE_RADIUS, 8192, signal)
+  // Zoom MapLibre (tuiles de 512 px) -> zoom des tuiles de 256 px de la mosaïque : + 1. Sans ce +1, la marche était
+  // un niveau plus loin que l'ouverture et la page de départ (rendues par MapLibre) : saut d'échelle ×2 au départ.
+  const MOSAIC_Z = zoom + 1
+  const mapMosaic = await buildMapMosaic(prefetchPoints, MOSAIC_Z, FILM_TILE_RADIUS, 8192, signal)
   if (signal?.aborted) { exportMap.remove(); mapContainer.remove(); return new Blob() }
   console.log(`[film2d] mosaïque fond de carte : ${mapMosaic ? `${mapMosaic.canvas.width}×${mapMosaic.canvas.height}px (zoom ${mapMosaic.zoom})` : 'indisponible (tracé trop long ?), repli MapLibre'}`)
 
@@ -1803,7 +1806,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // une position avant d'avoir mis à jour camLng/camLat (contrairement à MapLibre).
     if (!mapMosaic) exportMap.jumpTo({ center: [camLng, camLat], zoom })
     const px = mapMosaic
-      ? projectToScreen(lng, lat, camLng, camLat, zoom, OUT_W, OUT_H)
+      ? projectToScreen(lng, lat, camLng, camLat, MOSAIC_Z, OUT_W, OUT_H)
       : exportMap.project([lng, lat])
     const lagPx = Math.hypot(px.x - OUT_W / 2, px.y - OUT_H / 2)
     // Proximité continue à la zone du cartel d'altitude (1 = dedans, 0 = à AVOID_PAD ou plus,
@@ -1829,13 +1832,13 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // 1. Fond de carte : recadrage pur de la mosaïque pré-composée (aucun rendu GPU par image,
     // voir filmMapMosaic.ts), ou repli sur le rendu MapLibre habituel si elle est indisponible.
     const project: ProjectFn = mapMosaic
-      ? (lon, lat) => projectToScreen(lon, lat, camLng, camLat, zoom, OUT_W, OUT_H)
+      ? (lon, lat) => projectToScreen(lon, lat, camLng, camLat, MOSAIC_Z, OUT_W, OUT_H)
       : (lon, lat) => exportMap.project([lon, lat])
     ctx.clearRect(0, 0, OUT_W, OUT_H)
     if (mapMosaic) {
       // Mosaïque au niveau entier le plus proche, mise à l'échelle du zoom exact du film (sinon saut d'échelle entre la
       // page de départ, rendue par MapLibre au zoom exact, et la course).
-      const ms = Math.pow(2, mapMosaic.zoom - zoom), cw = OUT_W * ms, chh = OUT_H * ms
+      const ms = Math.pow(2, mapMosaic.zoom - MOSAIC_Z), cw = OUT_W * ms, chh = OUT_H * ms
       const origin = mosaicCropOrigin(mapMosaic, camLng, camLat, cw, chh)
       try { ctx.drawImage(mapMosaic.canvas, origin.x, origin.y, cw, chh, 0, 0, OUT_W, OUT_H) }
       catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
