@@ -1392,7 +1392,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // dans la zone du cartel d'altitude.
   const FOLLOW_K       = IS_MOBILE ? 0.075 : 0.038
   const FOLLOW_MAX_LAG = Math.min(OUT_W, OUT_H) * (IS_MOBILE ? 0.24 : 0.30)
-  const STARTUP_FRAMES = Math.round((IS_MOBILE ? 0.8 : 1.4) * fps)
 
   let camLng = points[0].lon
   let camLat = points[0].lat
@@ -1784,10 +1783,19 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     onProgress?.(frameProgress(fi))
   }
 
+  // Départ en douceur : le ruban accélère de 0 à sa vitesse sur START_ACCEL_S (avant, il partait d'un coup à pleine
+  // vitesse et la caméra, restée sur le départ, rattrapait ensuite brusquement). Temps de marche « tw » : t²/2T au début,
+  // puis linéaire, mis à l'échelle pour finir pile à la fin de la marche.
+  const START_ACCEL_S = 1.6
+  const walkW = totalFrames / fps
+  const accelS = Math.min(START_ACCEL_S, walkW / 4)
+  const walkK = walkW / (walkW - accelS / 2)
+  const walkTime = (t: number) => (t < accelS ? (t * t) / (2 * accelS) : t - accelS / 2) * walkK
   for (let f = 0; f <= renderFrames; f++) {
     if (signal?.aborted) break
 
-    const progress = walkWarp ? walkWarp.mAtTime(f / fps) / totalDistance : f / totalFrames
+    const tw = walkTime(f / fps)
+    const progress = walkWarp ? walkWarp.mAtTime(tw) / totalDistance : tw / walkW
     const [lng, lat] = lngLatAtProgress(cameraPoints, distances, totalDistance, progress)
 
     // Suivi continu : lissage exponentiel de la caméra vers le randonneur. Avec la mosaïque, la
@@ -1806,10 +1814,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const padX = Math.max(elevRect.x - px.x, px.x - (elevRect.x + elevRect.w), 0)
     const padY = Math.max(elevRect.y - MARKER_H - px.y, px.y - (elevRect.y + elevRect.h), 0)
     const elevFactor = Math.max(0, Math.min(1, 1 - Math.max(padX, padY) / AVOID_PAD))
-    // Gain de suivi : monte doucement au démarrage (caméra immobile sur le départ), se resserre
-    // si le randonneur s'éloigne trop du centre (il ne sortira jamais du cadre) ou entre dans la
-    // zone du cartel d'altitude.
-    let k = FOLLOW_K * Math.min(1, f / Math.max(1, STARTUP_FRAMES))
+    // Gain de suivi : constant dès la première image (le ruban accélère en douceur, cf. walkTime) ; se resserre si le
+    // randonneur s'éloigne trop du centre (il ne sortira jamais du cadre) ou entre dans la zone du cartel d'altitude.
+    let k = FOLLOW_K
     if (lagPx > FOLLOW_MAX_LAG) k = Math.min(0.5, k * (lagPx / FOLLOW_MAX_LAG))
     if (elevFactor > 0) k = Math.max(k, k + (0.12 - k) * elevFactor)
     camLng += (lng - camLng) * k
