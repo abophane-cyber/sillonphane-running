@@ -1311,19 +1311,39 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const allLocs = [...previewLocs, ...(opts.customLocalities ?? [])]
 
   const estTotalFrames = Math.ceil(walkS * fps)
-  const localityEvents: LocalityEvent[] = allLocs.map(loc => {
-    let minDist = Infinity, closestDist = 0
-    for (let i = 0; i < points.length; i++) {
-      const dx = points[i].lon - loc.lon, dy = points[i].lat - loc.lat
-      const d  = dx * dx + dy * dy
-      if (d < minDist) { minDist = d; closestDist = distances[i] }
+  // Un lieu par passage : un tracé qui repasse devant (boucle, aller-retour) l'affiche à chaque passage, à commencer par
+  // le premier. Avant, seul le point le plus proche de tout le tracé comptait : au premier passage devant le Zénith, rien.
+  // Passage = suite de points à moins de max(1,5 × la distance minimale, distance minimale + 150 m) du lieu ; deux
+  // passages trop proches (moins de 1 km de parcours, ou panneaux qui se chevaucheraient dans le temps) n'en font qu'un.
+  const passGapM = Math.max(1000, (totalDistance / Math.max(1, walkS)) * ((SIGN_LEAD_FRAMES + SIGN_STAY_FRAMES) / fps + 1))
+  const localityEvents: LocalityEvent[] = allLocs.flatMap(loc => {
+    const kx = 111320 * Math.cos((loc.lat * Math.PI) / 180), ky = 110540
+    const dM = (i: number) => Math.hypot((points[i].lon - loc.lon) * kx, (points[i].lat - loc.lat) * ky)
+    let minD = Infinity
+    for (let i = 0; i < points.length; i++) minD = Math.min(minD, dM(i))
+    const thr = Math.max(minD * 1.5, minD + 150)
+    const passes: number[] = [] // distance (m de parcours) du point le plus proche de chaque passage
+    let bestI = -1
+    for (let i = 0; i <= points.length; i++) {
+      const inside = i < points.length && dM(i) <= thr
+      if (inside) { if (bestI < 0 || dM(i) < dM(bestI)) bestI = i }
+      else if (bestI >= 0) {
+        const m = distances[bestI]
+        if (!passes.length || m - passes[passes.length - 1] > passGapM) passes.push(m)
+        bestI = -1
+      }
     }
-    const triggerProgress = Math.min(closestDist / totalDistance, 1)
-    const arriveFrame = walkWarp ? Math.round(walkWarp.timeAtM(triggerProgress * totalDistance) * fps) : Math.round(triggerProgress * estTotalFrames)
-    const showFrame = Math.max(0, arriveFrame - SIGN_LEAD_FRAMES)
     const style: SignStyle = loc.type === 'col' ? 'col' : loc.placeType === 'poi' ? 'poi' : loc.placeType === 'ravito' ? 'ravito' : (loc.placeType === 'hamlet' || loc.placeType === 'locality') ? 'lieudit' : 'standard'
-    return { name: loc.name, lon: loc.lon, lat: loc.lat, style, ele: loc.ele, showFrame, hideFrame: arriveFrame + SIGN_STAY_FRAMES, arriveFrame }
+    return passes.map(m => {
+      const triggerProgress = Math.min(m / totalDistance, 1)
+      const arriveFrame = walkWarp ? Math.round(walkWarp.timeAtM(triggerProgress * totalDistance) * fps) : Math.round(triggerProgress * estTotalFrames)
+      const showFrame = Math.max(0, arriveFrame - SIGN_LEAD_FRAMES)
+      return { name: loc.name, lon: loc.lon, lat: loc.lat, style, ele: loc.ele, showFrame, hideFrame: arriveFrame + SIGN_STAY_FRAMES, arriveFrame }
+    })
   })
+
+  /** Un seul exemplaire par lieu (plans fixes : ouverture, fin, vue d'ensemble), quel que soit le nombre de passages. */
+  const localitySpots = localityEvents.filter((e, i, a) => a.findIndex(x => x.name === e.name) === i)
 
   const departureEvent: LocalityEvent | null = opts.startName ? { name: opts.startName, lon: points[0].lon, lat: points[0].lat, style: opts.startColEle != null ? 'col' : opts.startLieudit ? 'lieudit' : 'standard', ele: opts.startColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: 0 } : null
   const arrivalEvent: LocalityEvent | null   = opts.endName   ? { name: opts.endName,   lon: points[points.length - 1].lon, lat: points[points.length - 1].lat, style: opts.endColEle != null ? 'col' : opts.endLieudit ? 'lieudit' : 'standard', ele: opts.endColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: estTotalFrames } : null
@@ -1626,7 +1646,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     for (let i = 0; i < visualPoints.length; i += openingStep) add(visualPoints[i], distances[i] / totalDistance)
     add(visualPoints[visualPoints.length - 1], 1)
     // Lieux connus (points d'intérêt du film) posés sur l'ouverture.
-    for (const ev of localityEvents) {
+    for (const ev of localitySpots) {
       if (ev.style !== 'poi') continue
       const q = exportMap.project([ev.lon, ev.lat])
       openingPoiRel.push({ x: q.x - pS.x, y: q.y - pS.y, name: ev.name })
@@ -1961,7 +1981,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 1)
       drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale())
 
-      for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
+      for (const ev of [...localitySpots, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const pt = exportMap.project([ev.lon, ev.lat])
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
           drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale() * endK(ev))
@@ -2077,7 +2097,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const infoA = Math.max(0, Math.min(1, (f - EASE_OV - OVERVIEW_CLEAN_S * fps) / WATERMARK_FADE_FRAMES))
       if (f < EASE_OV) drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale(), locFade)
       else drawBornes((lon, lat) => exportMap.project([lon, lat]), Math.max(signScale(), OVERVIEW_BORNE_SCALE), infoA, Infinity, true)
-      for (const ev of [...localityEvents, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
+      for (const ev of [...localitySpots, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const isEndpoint = ev === departureEvent || ev === arrivalEvent
         const a = isEndpoint || ev.style === 'col' ? 1 : locFade
         if (a <= 0) continue
