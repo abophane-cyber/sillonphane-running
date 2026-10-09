@@ -570,7 +570,7 @@ async function exportFilm3dImpl(
   // ne faut donc pas la lire comme de la terre ferme.
   const hasRawHoles = elevGrid.rawBad.some(v => v)
   const vertBad = new Uint8Array(GEOM_RES * GEOM_RES)
-  let minElev = Infinity
+  let minElev = Infinity, maxElev = -Infinity
   for (let iz = 0; iz < GEOM_RES; iz++) {
     for (let ix = 0; ix < GEOM_RES; ix++) {
       const u = ix / (GEOM_RES - 1)
@@ -578,7 +578,7 @@ async function exportFilm3dImpl(
       const lon = cov.covLonMin + u * (cov.covLonMax - cov.covLonMin)
       const lat = cov.covLatMax - v * (cov.covLatMax - cov.covLatMin)
       const elev = elevAtLonLat(lon, lat)
-      minElev = Math.min(minElev, elev)
+      minElev = Math.min(minElev, elev); maxElev = Math.max(maxElev, elev)
       posAttr.setY(iz * GEOM_RES + ix, elev)
       if (hasRawHoles) {
         const [px, py] = cov.elevPixelForLonLat(lon, lat)
@@ -696,7 +696,9 @@ async function exportFilm3dImpl(
   })
   const terrain = new THREE.Mesh(geometry, terrainMat)
   terrain.receiveShadow = true
-  terrain.castShadow = true // auto-ombrage du relief (désactivé dans main.ts pour le FPS temps réel)
+  // Auto-ombrage du relief (désactivé dans main.ts pour le FPS temps réel) : seulement s'il y a du relief. En ville,
+  // terrain plat, il ne portait que les ombres en longues raies sombres de pics isolés du MNT (soleil bas).
+  terrain.castShadow = maxElev - minElev > 150
   if (isCoastal) terrain.renderOrder = 1
   scene.add(terrain)
   scene.add(addTerrainSkirt(geometry, 400))
