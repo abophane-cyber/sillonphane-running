@@ -124,14 +124,11 @@ async function fetchElevTileBuffer(url: string, signal: AbortSignal | undefined,
 
 export interface OrthoResult { canvas: HTMLCanvasElement; ok: boolean[]; cols: number; rows: number }
 
-// Repli mondial quand l'orthophoto IGN manque (hors France : étranger, large). Esri World Imagery,
-// même grille Web Mercator z/y/x que les tuiles PM d'IGN -> mêmes indices de tuile. Évite la
-// grande plaque grise/comblée sur les tracés frontaliers (ex. rive suisse du Léman).
-const ESRI_WORLD_IMAGERY = (z: number, y: number, x: number) =>
-  `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`
+// Pas de repli sur une imagerie mondiale : Esri World Imagery retiré le 2026-10-09 (ses conditions d'utilisation ne
+// couvrent pas un service public ou commercial sans compte ArcGIS). Hors couverture IGN : comblement de voisinage,
+// puis teinte de repli.
 
-// Teinte de repli peinte sous toute la mosaïque : là où même le repli Esri et le comblement de
-// proximité ne couvrent pas (très loin du tracé), on obtient un vert-gris terne qui se fond dans
+// Teinte de repli peinte sous toute la mosaïque : là où le comblement de proximité ne couvre pas (très loin du tracé), on obtient un vert-gris terne qui se fond dans
 // le brouillard plutôt qu'un canevas noir/transparent.
 const ORTHO_VOID_TINT = '#8d978a'
 
@@ -182,34 +179,21 @@ export async function fetchOrthoTiles(
       const y = tyMinP + jy
       const url = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX=${zoom}&TILEROW=${y}&TILECOL=${x}`
       const slot = jy * nxP + jx
-      // Tuile IGN absente (404, hors couverture) -> repli Esri World Imagery ; s'il répond, la
-      // tuile est traitée comme valide (pas de comblement). Sinon on la marque et le voisinage
-      // la comble (voir inpaintOrthoHoles).
-      // Hors France (Suisse, Italie…) l'IGN ne renvoie PAS de 404 mais une tuile 200 toute
-      // blanche, et les tuiles frontalières sont blanches au-delà de la frontière : ces pixels
-      // blancs sont rendus transparents et Esri est peint dessous.
+      // Tuile IGN absente (404, hors couverture) : marquée, le voisinage la comble (voir inpaintOrthoHoles).
+      // Hors France (Suisse, Italie…) l'IGN ne renvoie PAS de 404 mais une tuile 200 toute blanche, et les tuiles
+      // frontalières sont blanches au-delà de la frontière : ces pixels blancs sont rendus transparents (teinte de
+      // repli dessous) ; une tuile plus qu'à moitié vide est laissée au comblement.
       jobs.push(() => {
         if (signal?.aborted) return Promise.resolve()
         return loadImageWithRetry(url, signal)
-          .then(async img => {
+          .then(img => {
             const { tile, blankFrac } = maskBlankOrtho(img)
-            const px = jx * TILE, py = jy * TILE
-            if (blankFrac > 0) {
-              try {
-                ctx.drawImage(await loadImageWithRetry(ESRI_WORLD_IMAGERY(zoom, y, x), signal), px, py)
-              } catch {
-                // Pas d'Esri : une tuile quasi vide est laissée au comblement de voisinage.
-                if (blankFrac > 0.5) { console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`); return }
-              }
-            }
-            ctx.drawImage(tile, px, py)
+            // Tuile quasi vide (hors couverture IGN) : laissée au comblement de voisinage.
+            if (blankFrac > 0.5) { console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`); return }
+            ctx.drawImage(tile, jx * TILE, jy * TILE)
             ok[slot] = true
           })
-          .catch(() =>
-            loadImageWithRetry(ESRI_WORLD_IMAGERY(zoom, y, x), signal)
-              .then(img => { ctx.drawImage(img, jx * TILE, jy * TILE); ok[slot] = true })
-              .catch(() => console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`)),
-          )
+          .catch(() => console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`))
           .finally(() => onTileDone?.())
       })
     }
@@ -221,7 +205,7 @@ export async function fetchOrthoTiles(
 // (2) Comble les tuiles ortho manquantes par propagation de la couleur depuis le bord des zones
 // valides (flood BFS) PUIS floute fortement la zone comblée : sans le flou, la propagation BFS
 // laisse des bandes/mosaïques bien visibles (« passages très pixellisés » sur le film). Après
-// flou c'est une tache douce qui se fond dans le brouillard ; l'imagerie réelle (IGN/Esri) n'est
+// flou c'est une tache douce qui se fond dans le brouillard ; l'imagerie réelle (IGN) n'est
 // jamais touchée, elle reste nette.
 export function inpaintOrthoHoles(canvas: HTMLCanvasElement, ok: boolean[], cols: number, rows: number): void {
   if (ok.every(Boolean)) return
@@ -733,7 +717,7 @@ export function computeCoverage(trail: [number, number][]): Coverage {
   )
   const PAD = Math.min(0.045, Math.max(0.014, span * 0.18))
   // Le cadre France ne rogne que la marge, jamais le tracé lui-même : un tracé hors cadre (étranger,
-  // frontière) garde son emprise (repli Esri) au lieu d'une emprise inversée -> nx/ny négatifs.
+  // frontière) garde son emprise (comblée hors couverture IGN) au lieu d'une emprise inversée -> nx/ny négatifs.
   const lonMin = Math.min(...lons), lonMax = Math.max(...lons)
   const latMin = Math.min(...lats), latMax = Math.max(...lats)
   const BBOX = {
@@ -764,7 +748,7 @@ export function computeCoverage(trail: [number, number][]): Coverage {
   }
 
   // Plafond 17 (~1,2 m/px) : les tracés courts en profitent (gros plans + parois nets) ; les longs
-  // retombent à 16/15 via `fits`. IGN ORTHOIMAGERY sert jusqu'à z19, repli Esri jusqu'à ~z17+.
+  // retombent à 16/15 via `fits`. IGN ORTHOIMAGERY sert jusqu'à z19.
   let ZOOM_ORTHO = 17
   let ZOOM_ELEV = 14
   while (ZOOM_ORTHO > 12 && !fits(ZOOM_ORTHO, false, MAX_ORTHO_MP)) ZOOM_ORTHO--

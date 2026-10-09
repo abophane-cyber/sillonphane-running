@@ -660,7 +660,7 @@ async function exportFilm3dImpl(
   // Zones hors couverture (étranger, hors emprise IGN) : on NE découpe PLUS le maillage — ça
   // laissait un bord en dents de scie et un trou sur le ciel (visible sur les tracés frontaliers).
   // Le relief y est désormais comblé de bout en bout (fetchElevationTiles/inpaintElevation, rayon
-  // étendu) + repli DEM mondial ; l'ortho est comblée ou repliée sur Esri, et le brouillard noie
+  // étendu) + repli DEM mondial ; l'ortho est comblée hors couverture IGN, et le brouillard noie
   // le lointain. Cas littoral (`isCoastal`) : mer rendue transparente par le masque coastAlphaMap.
   geometry.computeVertexNormals()
 
@@ -2458,7 +2458,7 @@ function drawOverlays(
   // Habillage aligné sur le film 2D : encart du haut (chiffres et profil), météo en haut à droite, adresse de fin.
   drawEndAddress(ctx, OUT_W, OUT_H, o.watermarkReveal)
 
-  // Crédits sources (bas GAUCHE, discret) — orthophotos IGN + repli Esri World Imagery,
+  // Crédits sources (bas GAUCHE, discret) — orthophotos IGN, noms de lieux OpenStreetMap,
   // relief RGE ALTI IGN + repli AWS Terrain Tiles.
   ctx.save()
   ctx.textAlign = 'left'
@@ -2466,7 +2466,7 @@ function drawOverlays(
   ctx.font = "500 12px system-ui, sans-serif"
   ctx.fillStyle = 'rgba(255,255,255,0.66)'
   ctx.shadowColor = 'rgba(0,0,0,0.55)'; ctx.shadowBlur = 4
-  ctx.fillText('© IGN · © OpenStreetMap · Esri, Maxar · AWS Terrain Tiles', 16, OUT_H - 12)
+  ctx.fillText('© IGN · © OpenStreetMap · AWS Terrain Tiles', 16, OUT_H - 12)
   ctx.restore()
 
   if (o.hudAlpha <= 0) return
