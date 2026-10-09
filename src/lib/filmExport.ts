@@ -614,7 +614,7 @@ export function borneBoxes(
 
 /** Lieu connu (POI) remonté de `lift` px au-dessus de son point, pour dégager une borne ou une place : sa tige est
  * prolongée jusqu'au point (trait fin blanc cerné, comme la tige de l'étiquette). */
-function drawPoiStem(ctx: CanvasRenderingContext2D, x: number, y: number, lift: number, alpha: number) {
+export function drawPoiStem(ctx: CanvasRenderingContext2D, x: number, y: number, lift: number, alpha: number) {
   if (lift < 1 || alpha <= 0) return
   ctx.save()
   ctx.globalAlpha = alpha

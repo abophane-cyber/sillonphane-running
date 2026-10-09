@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S } from '../routeStreets'
-import { PLACE_HOLD_S, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from '../mapLabels'
+import { PLACE_HOLD_S, boxesHit, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -46,7 +46,7 @@ import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, startPresentAt, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import type { StreetSpan } from '../streetCaption'
-import { drawBorneLayer, drawEndCard, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BAND, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
+import { borneBoxes, drawBorneLayer, drawEndCard, drawPoiStem, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BAND, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
 import { ESSAI_FILM_S, FIN_FILM_S } from '../filmEssai'
@@ -1420,6 +1420,8 @@ async function exportFilm3dImpl(
       sprite.scale.set(lab.w * k, lab.h * k, 1)
       sprite.center.set(lab.ax / lab.w, 1 - lab.ay / lab.h)
       sprite.userData.poi = true
+      sprite.userData.cy0 = 1 - lab.ay / lab.h // accroche au repère ; abaissée de lift / POI_PX_H pour remonter l'étiquette
+      sprite.userData.lift = 0
       label = sprite
     } else {
       const img = tex.image as HTMLCanvasElement
@@ -1462,6 +1464,8 @@ async function exportFilm3dImpl(
   /** Hauteur apparente des étiquettes de POI (bulle + trait), en part de la distance caméra : ≈ leur taille du film 2D
    * en 1080p (champ vertical de 55° : l'image couvre 1,04 × la distance). */
   const POI_ANGULAR_H = 0.14 // 0,08 (taille du 2D) : illisible, la caméra 3D est bien plus haute
+  /** Hauteur à l'écran (px) des étiquettes de POI (champ vertical de 55°). */
+  const POI_PX_H = (POI_ANGULAR_H / (2 * Math.tan((55 / 2) * Math.PI / 180))) * OUT_H
   const panelBaseScales = [
     ...panelSprites.map(p => p.sprite),
     ...[departurePanel, arrivalPanel].filter((s): s is Label => s != null),
@@ -1479,6 +1483,7 @@ async function exportFilm3dImpl(
         // POI : taille constante à l'écran (étiquette flottante, toujours face à la caméra).
         const k = (d * POI_ANGULAR_H) / h
         sprite.scale.set(w * k, h * k, 1)
+        sprite.center.y = sprite.userData.cy0 - (sprite.userData.lift ?? 0) / POI_PX_H
         continue
       }
       if (isLabel) {
@@ -2044,6 +2049,8 @@ async function exportFilm3dImpl(
 
   // Rues empruntées : nom inscrit le long du ruban (cf. mapLabels.ts), à l'approche de la rue, tenu au moins CAPTION_HOLD_S.
   const streetLabels3d = (opts.streets ?? []).map(s => ({ ...s, label: streetLabel(s.name, s.importance) }))
+  /** Places d'abord (les rues évitent leurs cercles). */
+  const streetLabels3dOrdered = [...streetLabels3d].sort((a, b) => Number(!!b.label.place) - Number(!!a.label.place))
   const borneSignCache: LocSignCache = new Map()
   const trackM = TRACK_M
 
@@ -2260,11 +2267,11 @@ async function exportFilm3dImpl(
     // Bornes et ravitaillements (comme le film 2D) : au passage de la tête du ruban pendant la course, tous à
     // l'arrivée ; effacés au début de la montée vers la vue d'ensemble, puis de retour, agrandis et sans
     // chevauchement, après OVERVIEW_CLEAN_S de vue d'ensemble sans infos.
+    const place = (it: Borne | Ravito) => {
+      const p = ribbonScreenAt((it.km * 1000 / trackM) * RIBBON_SEGMENTS)
+      return p.z < 1 ? p : null
+    }
     if (opts.bornes?.length || opts.ravitos?.length) {
-      const place = (it: Borne | Ravito) => {
-        const p = ribbonScreenAt((it.km * 1000 / trackM) * RIBBON_SEGMENTS)
-        return p.z < 1 ? p : null
-      }
       const ovU = (simElapsed - PHASE3_END) / OVERVIEW_RISE_S
       const draw = (scale: number, alpha: number, coveredM: number, overview = false) =>
         drawBorneLayer(ctx2d, borneSignCache, opts.bornes ?? [], opts.ravitos ?? [], place, scale, alpha, coveredM, overview)
@@ -2275,9 +2282,23 @@ async function exportFilm3dImpl(
     }
     drawRunner(ctx2d, simElapsed, lastOverlay.profileT, 1 / fps)
     // Rue empruntée, en haut de l'écran : après l'effacement du nom de départ, jusqu'à la fin du survol.
-    if (simElapsed >= PHASE1_END && simElapsed < PHASE3_END) {
+    const inFlight = simElapsed >= PHASE1_END && simElapsed < PHASE3_END
+    // Rectangles pris pendant le survol (comme le film 2D) : bornes fixes ; places : évitent les bornes ; rues : glissent
+    // pour éviter bornes, lieux et places ; lieux connus (sprites) : remontés au-dessus des bornes et des places.
+    const borneOcc: Box[] = inFlight ? borneBoxes(borneSignCache, opts.bornes ?? [], opts.ravitos ?? [], place) : []
+    const poiScreen = inFlight ? panelSprites.filter(p => p.sprite.visible && p.sprite.userData.poi).map(({ sprite }) => {
+      _poiV.copy(sprite.position).project(camera)
+      if (_poiV.z >= 1) return null
+      const sx = (_poiV.x + 1) / 2 * OUT_W, sy = (1 - _poiV.y) / 2 * OUT_H
+      const wpx = POI_PX_H * (sprite.scale.x / sprite.scale.y)
+      const box = (lift: number): Box => ({ x: sx - sprite.center.x * wpx, y: sy - (1 - sprite.userData.cy0) * POI_PX_H - lift, w: wpx, h: POI_PX_H })
+      return { sprite, sx, sy, box }
+    }).filter(p => p != null) : []
+    const placeOcc: Box[] = []
+    if (inFlight) {
       const m = headFrac * trackM, mps = trackM / DURATION
-      for (const st of streetLabels3d) {
+      const poiOcc = poiScreen.map(p => p.box(p.sprite.userData.lift ?? 0))
+      for (const st of streetLabels3dOrdered) {
         // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
         const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * mps, 0.6 * mps)
         if (a <= 0) continue
@@ -2288,8 +2309,21 @@ async function exportFilm3dImpl(
           pts.push(p.z < 1 ? { x: p.x, y: p.y } : null)
         }
         // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran.
-        drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H })
+        const box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H }, undefined,
+          st.label.place ? borneOcc : [...borneOcc, ...poiOcc, ...placeOcc])
+        if (box && st.label.place) placeOcc.push(box)
       }
+    }
+    // Lieux connus : remontée cible par pas de 8 px (220 px au plus) jusqu'à dégager bornes et places, lissée ; tige
+    // prolongée jusqu'au repère. Hors survol : retour à leur place.
+    for (const { sprite } of panelSprites) if (sprite.userData.poi && !inFlight) sprite.userData.lift = 0
+    for (const p of poiScreen) {
+      const obst = [...borneOcc, ...placeOcc]
+      let target = 0
+      while (target < 220 && boxesHit(p.box(target), obst)) target += 8
+      const cur = p.sprite.userData.lift ?? 0
+      p.sprite.userData.lift = cur + (target - cur) * 0.2
+      drawPoiStem(ctx2d, p.sx, p.sy, p.sprite.userData.lift, 1)
     }
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
     const intoEndCard = simElapsed - (TOTAL_CYCLE - END_CARD_LEAD)
