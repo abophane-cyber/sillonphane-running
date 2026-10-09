@@ -24,7 +24,7 @@ const STEP_TEXT: Record<Step, ReactNode> = {
       «&nbsp;Terminer&nbsp;» en bas de la fenêtre.
     </>
   ),
-  characters: "Choisissez un ou deux personnages pour votre film.",
+  characters: "Choisissez votre personnage pour le film.",
   create:
     "Et voilà ! Vous pouvez maintenant créer votre film 2D ou 3D, ou composer " +
     "votre album-photo.",
@@ -265,7 +265,7 @@ export function GuidedTour({
             {step === 'panels' && replaying && !wizardDone && terminerNudge
               ? 'Cliquez sur « Terminer » en bas de la fenêtre des panneaux pour poursuivre.'
               : step === 'characters' && ribbonOption
-              ? 'Choisissez un ou deux personnages pour votre film, ou le ruban seul.'
+              ? 'Choisissez votre personnage, ou le ruban seul.'
               : step === 'create'
                 ? (trackSaved
                   ? 'Et voilà ! Vous pouvez créer votre film 2D ou 3D, ou composer votre album-photo. Lancer l\'aperçu est facultatif.'

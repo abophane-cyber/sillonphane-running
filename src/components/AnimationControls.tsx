@@ -234,7 +234,7 @@ export function AnimationControls({
 
           </div>
 
-          {/* Section Personnage(s) — 1 ou 2 parmi 4, validés/invalidés au clic */}
+          {/* Section Personnage — un seul, choisi au clic */}
           <div className={`controls__group controls__group--character${needsCharacter ? ' controls__group--emphasize' : ''}`}>
             <span className="controls__group-label">{onToggleRibbon ? 'Personnage ou ruban seul' : 'Personnage'}</span>
             <div className="controls__appearance-icons">
