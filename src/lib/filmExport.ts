@@ -13,7 +13,7 @@ import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './t
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPointsByDistance } from './gpx'
 import { BASEMAP_BACKGROUND } from './tileSources'
-import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
+import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, RIBBON_TIP_PX, RIBBON_TIP_SWELL, ribbonAgeColor, ribbonColorAt, ribbonHeadM, tailByPixels } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
@@ -290,6 +290,27 @@ function drawTrack(
     ctx.strokeStyle = fade(RIBBON_HEAD_FADE, RIBBON_HEAD_COLOR)
     ctx.lineWidth   = 4.5
     ctx.stroke(head)
+
+    // Renflement au bout du ruban (cf. RIBBON_TIP_PX), en fondu depuis son début.
+    const headPts = [hp]
+    for (let k = h + 1; k <= lo; k++) headPts.push(project(points[k].lon, points[k].lat))
+    headPts.push(tipPt)
+    const tip = tailByPixels(headPts, RIBBON_TIP_PX, (p) => p, (a, b, s) => ({ x: a.x + (b.x - a.x) * s, y: a.y + (b.y - a.y) * s }))
+    if (tip.length > 1) {
+      const tipPath = new Path2D()
+      tip.forEach((p, k) => (k ? tipPath.lineTo(p.x, p.y) : tipPath.moveTo(p.x, p.y)))
+      const tipFade = (from: string, to: string) => {
+        const g = ctx.createLinearGradient(tip[0].x, tip[0].y, tipPt.x, tipPt.y)
+        g.addColorStop(0, from); g.addColorStop(0.6, to); g.addColorStop(1, to)
+        return g
+      }
+      ctx.strokeStyle = tipFade('rgba(20,30,20,0)', RIBBON_OUTLINE)
+      ctx.lineWidth   = 4.5 * RIBBON_TIP_SWELL + 2
+      ctx.stroke(tipPath)
+      ctx.strokeStyle = tipFade(RIBBON_HEAD_FADE, RIBBON_HEAD_COLOR)
+      ctx.lineWidth   = 4.5 * RIBBON_TIP_SWELL
+      ctx.stroke(tipPath)
+    }
   }
 
   ctx.restore()

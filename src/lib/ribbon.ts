@@ -54,6 +54,25 @@ export function ribbonColorAt(f: number): string {
  * l'échelle du personnage. Sinon il passait sous ses pieds, voire devant lui. */
 export const RIBBON_LAG_PX = 16
 
+/** Renflement au bout du ruban : ses derniers RIBBON_TIP_PX px (à l'écran) sont plus larges (× RIBBON_TIP_SWELL) et
+ * apparaissent en fondu, pour bien voir le bout quand il repasse sur le tracé déjà parcouru. */
+export const RIBBON_TIP_PX = 34
+export const RIBBON_TIP_SWELL = 1.7
+
+/** Derniers `px` pixels d'une polyligne à l'écran (départ → bout), coupés au point près. */
+export function tailByPixels<T>(pts: T[], px: number, project: (p: T) => { x: number; y: number }, lerp: (a: T, b: T, t: number) => T): T[] {
+  if (pts.length < 2) return []
+  const out: T[] = [pts[pts.length - 1]]
+  let prev = project(pts[pts.length - 1]), left = px
+  for (let i = pts.length - 2; i >= 0; i--) {
+    const q = project(pts[i])
+    const d = Math.hypot(q.x - prev.x, q.y - prev.y)
+    if (d >= left) { out.push(lerp(pts[i + 1], pts[i], d ? left / d : 0)); break }
+    out.push(pts[i]); left -= d; prev = q
+  }
+  return out.reverse()
+}
+
 /** Longueur de la tête du ruban (m) : 2 % du parcours, entre 80 et 500 m. */
 export function ribbonHeadM(totalDistance: number): number {
   return Math.max(80, Math.min(500, totalDistance * 0.02))
