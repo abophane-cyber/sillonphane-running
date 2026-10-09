@@ -808,7 +808,7 @@ export default function App() {
             onLoad={(parsed, fileName, raw) => { setRecordedLive(false); handleGpxLoad(parsed, fileName, raw) }}
             onAlbum={() => setView('album')}
             onVoyages={goToVoyages}
-            customTitle={customTitle}
+            customTitle={bannerDefaults.title}
             onCustomTitleChange={setCustomTitle}
             manualDate={manualDate}
             onManualDateChange={setManualDate}
@@ -832,7 +832,7 @@ export default function App() {
             manualDate={manualDate || undefined}
             departureTime={departureTime || undefined}
             arrivalTime={arrivalTime || undefined}
-            customTitle={customTitle || undefined}
+            customTitle={bannerDefaults.title || undefined}
             onTitleChange={setCustomTitle}
             startName={startName || undefined}
             endName={endName || undefined}
@@ -917,7 +917,7 @@ export default function App() {
             previewFinished={previewFinished}
             trackSaved={activeSillonId !== null}
             onViewFilm={handleViewFilm}
-            customTitle={customTitle}
+            customTitle={bannerDefaults.title}
             onVoyages={goToVoyages}
             onSaveTrack={() => setShowSaveModal(true)}
             onAlbum={() => setView('album')}
