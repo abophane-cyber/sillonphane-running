@@ -100,12 +100,12 @@ export interface FilmExportOptions {
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const IS_MOBILE = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-/** Zoom du film à partir du zoom de l'aperçu. Ordinateur : l'aperçu est zoomé en px CSS, agrandis par l'écran
- * (Windows à 125 %, zoom du navigateur) ; le film, lui, est en px réels -> + log2(devicePixelRatio), pour qu'il
- * montre la carte à la même échelle que l'aperçu en plein écran. */
+/** Zoom du film à partir du zoom de l'aperçu. Ordinateur : + FILM_ZOOM_BONUS, fixe (même échelle sur tous les
+ * ordinateurs) : l'aperçu, en px CSS, est agrandi par l'écran (Windows à 125 %, courant) ; le film, en px réels, paraissait
+ * plus dézoomé. */
+const FILM_ZOOM_BONUS = 0.32 // log2(1,25)
 function filmZoom(zoomRaw: number): number {
-  if (IS_MOBILE) return zoomRaw + 1
-  return zoomRaw + Math.min(1, Math.max(0, Math.log2(window.devicePixelRatio || 1)))
+  return IS_MOBILE ? zoomRaw + 1 : zoomRaw + FILM_ZOOM_BONUS
 }
 const OUT_W   = IS_MOBILE ? 1280 : 1920
 const OUT_H   = IS_MOBILE ?  720 : 1080
