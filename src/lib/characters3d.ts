@@ -40,7 +40,8 @@ export const CHARACTERS: CharacterDef[] = [
   // Course (jogging) ; attente au départ, victoire à l'arrivée ; numéro plaqué sur le dossard blanc.
   { id: 'coureuse1', label: 'Coureuse', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1_idle.glb`, greetUrl: `${import.meta.env.BASE_URL}perso/models/coureuse1_victoire.glb`, clipFps: 30, trimDuplicateLastFrame: true,
     bib: { x: 0, y: 0.706, w: 0.085, h: 0.05, bone: 'mixamorigSpine2' }, cadence: 1.25 },
-  // Idem pour le coureur (dossard plus bas et plus grand).
+  // Idem pour le coureur (dossard plus bas et plus grand) ; victoire reprise de la coureuse, déplacement des hanches
+  // ramené à son échelle (armature en mètres, celle de la coureuse en centimètres).
   { id: 'coureur1', label: 'Coureur', tint: 0xffffff, modelUrl: `${import.meta.env.BASE_URL}perso/models/coureur1.glb`, idleUrl: `${import.meta.env.BASE_URL}perso/models/coureur1_idle.glb`, greetUrl: `${import.meta.env.BASE_URL}perso/models/coureur1_victoire.glb`, clipFps: 30, trimDuplicateLastFrame: true,
     bib: { x: 0, y: 0.637, w: 0.095, h: 0.078, bone: 'mixamorigSpine1' }, cadence: 1.25 },
   // Départ : attente (respiration) ; marche ; fin : révérence (clip « s'assoit », sans pose finale).
