@@ -28,7 +28,7 @@ import {
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
-import { PLACE_HOLD_S, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha } from './mapLabels'
+import { PLACE_HOLD_S, boxesHit, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from './mapLabels'
 import { FIN_FILM_S, isPromoFilm } from './filmEssai'
 
 export interface FilmExportOptions {
@@ -587,6 +587,45 @@ export function drawBorneLayer(
     }
     drawLocSign(ctx, locSignCache, num, x, y, 'borne', undefined, alpha, s, sub)
   }
+}
+
+/** Rectangle occupé à l'écran par un panneau (sprite de `drawLocSign`, sans sa marge d'ombre de 8 px). */
+function signBox(cache: LocSignCache, name: string, style: SignStyle, px: number, py: number, scale = 1, sub?: string): Box {
+  const key = `${style}|${name}||${sub ?? ''}`
+  let sp = cache.get(key)
+  if (!sp) { sp = buildLocSignSprite(name, style, undefined, sub); cache.set(key, sp) }
+  return {
+    x: px - (sp.offX - 8) * scale, y: py - (sp.offY - 8) * scale,
+    w: (sp.canvas.width / SIGN_RES - 16) * scale, h: (sp.canvas.height / SIGN_RES - 16) * scale,
+  }
+}
+
+/** Rectangles des bornes et ravitaillements à l'écran, atteints ou non (ils sont fixes sur le tracé) : noms de rue, de
+ * place et lieux les évitent. */
+export function borneBoxes(
+  cache: LocSignCache, bornes: Borne[], ravitos: Ravito[],
+  place: (it: Borne | Ravito) => { x: number; y: number } | null, scale = 1,
+): Box[] {
+  const out: Box[] = []
+  for (const b of bornes) { const p = place(b); if (p) out.push(signBox(cache, borneNumber(b), 'borne', p.x, p.y, scale, borneTimeLine(b) || undefined)) }
+  for (const r of ravitos) { const p = place(r); if (p) out.push(signBox(cache, r.label, 'ravito', p.x, p.y, scale)) }
+  return out
+}
+
+/** Lieu connu (POI) remonté de `lift` px au-dessus de son point, pour dégager une borne ou une place : sa tige est
+ * prolongée jusqu'au point (trait fin blanc cerné, comme la tige de l'étiquette). */
+function drawPoiStem(ctx: CanvasRenderingContext2D, x: number, y: number, lift: number, alpha: number) {
+  if (lift < 1 || alpha <= 0) return
+  ctx.save()
+  ctx.globalAlpha = alpha
+  ctx.lineCap = 'round'
+  ctx.strokeStyle = 'rgba(29,38,44,0.55)'; ctx.lineWidth = 3
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - lift); ctx.stroke()
+  ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = 1.4
+  ctx.stroke()
+  ctx.fillStyle = '#ffffff'
+  ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill()
+  ctx.restore()
 }
 
 function drawLocSign(
@@ -1352,16 +1391,26 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // tenu au moins CAPTION_HOLD_S, effacé en 0,6 s (durées converties en mètres à la vitesse moyenne du film).
   const streetLabels = captionStreets(opts.streets).map(st => ({ ...st, label: streetLabel(st.name, st.importance) }))
   const filmMps = totalDistance / Math.max(1, walkS)
-  const drawStreetLabels = (project: ProjectFn, m: number) => {
-    for (const st of streetLabels) {
+  /** Noms de place puis de rue. `avoid` : rectangles déjà pris (bornes, lieux) ; places : évitent bornes et lieux (sinon
+   * restent au milieu, prioritaires) ; rues : glissent le long de la rue pour éviter aussi les places. Renvoie les
+   * rectangles des places dessinées (les lieux remontent au-dessus, cf. poiLift). */
+  /** Remontée (px) de chaque lieu connu affiché, lissée d'une image à l'autre. */
+  const poiLift = new Map<LocalityEvent, number>()
+  const placeOrder = [...streetLabels].sort((a, b) => Number(!!b.label.place) - Number(!!a.label.place))
+  const drawStreetLabels = (project: ProjectFn, m: number, avoid: Box[] = [], avoidStreets: Box[] = []): Box[] => {
+    const placeBoxes: Box[] = []
+    for (const st of placeOrder) {
       // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
       const a = streetLabelAlpha(m, st.startM, st.endM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * filmMps, 0.6 * filmMps)
       if (a <= 0) continue
       const pts: { x: number; y: number }[] = []
       for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
         if (distances[i] >= st.startM) pts.push(project(visualPoints[i].lon, visualPoints[i].lat))
-      drawStreetAlongPath(ctx, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H })
+      const box = drawStreetAlongPath(ctx, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H }, undefined,
+        st.label.place ? avoid : [...avoid, ...avoidStreets, ...placeBoxes])
+      if (box && st.label.place) placeBoxes.push(box)
     }
+    return placeBoxes
   }
 
   const totalFrames       = Math.ceil(walkS * fps)
@@ -1882,7 +1931,17 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // 2. Tracé GPX (projeté de manière synchrone) : le ruban s'arrête juste derrière la coureuse (RIBBON_LAG_PX).
     const lagM = hikers3d && progress < 1
       ? RIBBON_LAG_PX * FILM_SCALE * metersPerPixel(points[0].lat, zoom) : 0
-    drawStreetLabels(project, progress * totalDistance) // noms de rue sous le ruban
+    // Rectangles pris : bornes et ravitaillements (fixes sur le tracé) et lieux connus affichés. Places : évitent les
+    // bornes ; rues : glissent pour éviter bornes, lieux et places ; lieux : remontent au-dessus des bornes et des
+    // places (poiLift).
+    const borneOcc = borneBoxes(locSignCache, opts.bornes ?? [], opts.ravitos ?? [], it => project(it.lon, it.lat))
+    const poiOcc: Box[] = []
+    for (const ev of localityEvents) {
+      if (ev.style !== 'poi' || signAlpha(f, ev.showFrame, ev.hideFrame, SIGN_FADE_FRAMES) <= 0) continue
+      const pt = project(ev.lon, ev.lat)
+      poiOcc.push(signBox(locSignCache, ev.name, 'poi', pt.x, pt.y - (poiLift.get(ev) ?? 0)))
+    }
+    const placeOcc = drawStreetLabels(project, progress * totalDistance, borneOcc, poiOcc) // noms de rue sous le ruban
     drawTrack(ctx, project, visualPoints, distances, totalDistance, Math.max(0, progress - lagM / totalDistance))
     drawBornes(project, 1, 1, progress * totalDistance) // bornes approchées, au sol sous les panneaux
     // Cartouche d'épreuve : en fondu au départ de la course, tenu jusqu'à l'arrivée.
@@ -1906,7 +1965,19 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const pt = project(ev.lon, ev.lat)
       // (Plus de masquage du panneau quand le randonneur passe devant : il reste affiché.)
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
-        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, 1), ev.style, ev.ele, signA, endK(ev))
+        let lift = 0
+        if (ev.style === 'poi') {
+          // Lieu connu sur une borne ou une place : remonté par pas de 8 px jusqu'à les dégager (220 px au plus),
+          // en douceur si la cible change (une place qui apparaît).
+          const base = signBox(locSignCache, ev.name, 'poi', pt.x, pt.y), obst = [...borneOcc, ...placeOcc]
+          let target = 0
+          while (target < 220 && boxesHit({ ...base, y: base.y - target }, obst)) target += 8
+          const cur = poiLift.get(ev) ?? target
+          lift = cur + (target - cur) * 0.2
+          poiLift.set(ev, lift)
+          drawPoiStem(ctx, pt.x, pt.y, lift, signA)
+        }
+        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, 1) - lift, ev.style, ev.ele, signA, endK(ev))
       }
     }
 

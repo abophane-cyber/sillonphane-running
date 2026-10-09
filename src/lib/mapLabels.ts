@@ -263,20 +263,33 @@ export interface StreetLabel {
 type Pt = { x: number; y: number }
 const STEP = 4
 
+/** Rectangle occupé à l'écran (px) : bornes, étiquettes de lieux, noms de rue et de place, pour qu'ils ne se chevauchent
+ * pas. Priorité : borne (fixe) > place > lieu connu (POI, remonté au-dessus) > rue (déplacée le long de la rue). */
+export type Box = { x: number; y: number; w: number; h: number }
+export const boxesHit = (a: Box, list: readonly Box[]) =>
+  list.some(b => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y)
+const boxOf = (ps: Pt[], pad: number): Box => {
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+  for (const p of ps) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y) }
+  return { x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad }
+}
+
 /** Écrit le nom le long de la rue `pts` (px écran ; `null` = point hors champ ou derrière la caméra), décalé de `offset`
  * px sur le côté gauche du sens de lecture, lettre par lettre en suivant la courbe. Le nom est FIXE sur la carte : à la
  * première image où il tient sur la partie visible de la rue (`view`, taille de l'image), son centre, sa taille et son
  * sens de lecture sont figés (`label.fix`) ; ensuite il suit ce point de la rue, sans glisser avec la caméra. `pts` doit
  * donc décrire la même rue, dans le même ordre, à chaque image. `k` : échelle. Blanc sur fond sombre, noir sur fond
  * clair : fond lu dans `bg` (défaut : le canvas de `ctx`, carte déjà dessinée ; `scale` = px du fond par px de dessin ;
- * null : fond pas encore prêt, mesure remise à une image suivante). */
+ * null : fond pas encore prêt, mesure remise à une image suivante). `avoid` : rectangles déjà pris (bornes, lieux) que
+ * le nom évite au moment d'être placé (glissé le long de la rue ; pas de place libre : réessai à l'image suivante).
+ * Renvoie le rectangle occupé par le nom dessiné (null : rien dessiné). */
 export function drawStreetAlongPath(
   ctx: CanvasRenderingContext2D, label: StreetLabel, pts: (Pt | null)[],
   alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
-  bg?: { src: CanvasImageSource; scale: number } | null,
-) {
-  if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return
-  if (label.place) { drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg); return }
+  bg?: { src: CanvasImageSource; scale: number } | null, avoid: readonly Box[] = [],
+): Box | null {
+  if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return null
+  if (label.place) return drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg, avoid)
   const chars = [...label.text]
   const fontAt = (size: number) => `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
   const spacingAt = (size: number) => (label.major ? 0.1 : 0.03) * size
@@ -298,23 +311,49 @@ export function drawStreetAlongPath(
       else if (cur >= 0) { if (i - 1 - cur > best[1] - best[0]) best = [cur, i - 1]; cur = -1 }
     }
     const [i0, i1] = best
-    if (i1 - i0 < 1) { ctx.restore(); return }
+    if (i1 - i0 < 1) { ctx.restore(); return null }
     const cum = [0]
     for (let i = i0 + 1; i <= i1; i++) cum.push(cum[cum.length - 1] + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y))
     const total = cum[cum.length - 1]
     const base = 13.5 * k
     let size = base
     for (; size >= base * 0.7; size -= 0.5 * k) if (measure(size).textW <= total * 0.85) break
-    if (measure(size).textW > total * 0.85) { ctx.restore(); return }
-    let j = 1
-    while (j < cum.length - 1 && cum[j] < total / 2) j++
-    const at = i0 + j - 1 + (total / 2 - cum[j - 1]) / Math.max(1e-6, cum[j] - cum[j - 1])
-    label.fix = { at, size, flip: pts[i1]!.x < pts[i0]!.x }
+    const textW = measure(size).textW
+    if (textW > total * 0.85) { ctx.restore(); return null }
+    /** Indice fractionnaire du point à l'abscisse s de la partie visible. */
+    const idxAt = (s: number) => {
+      let j = 1
+      while (j < cum.length - 1 && cum[j] < s) j++
+      return i0 + j - 1 + (s - cum[j - 1]) / Math.max(1e-6, cum[j] - cum[j - 1])
+    }
+    // Centre : au milieu si la place est libre, sinon glissé le long de la rue (de part et d'autre, par pas de 8 %)
+    // jusqu'à ne plus toucher les rectangles pris (bornes, lieux, places).
+    const pad = offset * k + size
+    const footprint = (s: number): Box => {
+      const ps: Pt[] = []
+      for (let i = i0; i <= i1; i++) if (Math.abs(cum[i - i0] - s) <= textW / 2) ps.push(pts[i]!)
+      const a = idxAt(Math.max(0, s - textW / 2)), b = idxAt(Math.min(total, s + textW / 2))
+      for (const t of [a, b]) {
+        const ia = Math.floor(t), ib = Math.min(i1, ia + 1), u = t - ia
+        ps.push({ x: pts[ia]!.x + (pts[ib]!.x - pts[ia]!.x) * u, y: pts[ia]!.y + (pts[ib]!.y - pts[ia]!.y) * u })
+      }
+      return boxOf(ps, pad)
+    }
+    let sAt = -1
+    for (let n = 0; n <= 12 && sAt < 0; n++) {
+      for (const sgn of n ? [1, -1] : [1]) {
+        const s = total / 2 + sgn * n * 0.08 * total
+        if (s - textW / 2 < 0 || s + textW / 2 > total) continue
+        if (!avoid.length || !boxesHit(footprint(s), avoid)) { sAt = s; break }
+      }
+    }
+    if (sAt < 0) { ctx.restore(); return null }
+    label.fix = { at: idxAt(sAt), size, flip: pts[i1]!.x < pts[i0]!.x }
   }
   const { at, size } = label.fix
   // Partie continue (sans point manquant) de la rue autour du centre du nom.
   const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
-  if (!pts[ia] || !pts[ib]) { ctx.restore(); return }
+  if (!pts[ia] || !pts[ib]) { ctx.restore(); return null }
   let lo = ia, hi = ib
   while (lo > 0 && pts[lo - 1]) lo--
   while (hi < pts.length - 1 && pts[hi + 1]) hi++
@@ -340,7 +379,7 @@ export function drawStreetAlongPath(
   const fwd = walk(c, Array.from({ length: hi - ib + 1 }, (_, n) => ib + n))
   const back = walk(c, Array.from({ length: ia - lo + 1 }, (_, n) => ia - n))
   const res = [...back.reverse(), c, ...fwd]
-  if (res.length < 3) { ctx.restore(); return }
+  if (res.length < 3) { ctx.restore(); return null }
   const R = 6
   let sm = res.map((_, i) => {
     let x = 0, y = 0, n = 0
@@ -393,6 +432,7 @@ export function drawStreetAlongPath(
     ctx.restore()
   }
   ctx.restore()
+  return boxOf(glyphs, size * 0.7)
 }
 
 /** Au-delà de cette luminance moyenne (0 noir, 1 blanc), le fond est clair : nom de rue écrit en noir. */
@@ -431,25 +471,9 @@ function backgroundLuma(bg: { src: CanvasImageSource; scale: number }, glyphs: {
 function drawPlaceCircle(
   ctx: CanvasRenderingContext2D, label: StreetLabel, place: { top: string; bottom: string }, pts: (Pt | null)[],
   alpha: number, k: number, view: { w: number; h: number } | undefined, bg: { src: CanvasImageSource; scale: number } | null | undefined,
-) {
-  if (!label.fix) {
-    // Centre : milieu de la plus longue partie de la place visible à l'écran (assez loin des bords pour le cercle).
-    const M = 90 * k
-    const inView = (p: Pt | null): p is Pt => !!p && (!view || (p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M))
-    let best: [number, number] = [0, -1], cur = -1
-    for (let i = 0; i <= pts.length; i++) {
-      if (i < pts.length && inView(pts[i])) { if (cur < 0) cur = i }
-      else if (cur >= 0) { if (i - 1 - cur > best[1] - best[0]) best = [cur, i - 1]; cur = -1 }
-    }
-    if (best[1] < best[0]) return
-    label.fix = { at: (best[0] + best[1]) / 2, size: 11.5 * k, flip: false }
-  }
-  const { at, size } = label.fix
-  const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
-  const a = pts[ia], b = pts[ib] ?? a
-  if (!a || !b) return
-  const f = at - ia
-  const cx = a.x + (b.x - a.x) * f, cy = a.y + (b.y - a.y) * f
+  avoid: readonly Box[] = [],
+): Box | null {
+  const size = label.fix?.size ?? 11.5 * k
   ctx.save()
   ctx.font = `700 ${size}px ${LABEL_FONT}`
   const sp = 0.07 * size
@@ -461,6 +485,43 @@ function drawPlaceCircle(
   const dashW = ctx.measureText('-').width + 4 * sp + size
   // Un nom long (« DU GÉNÉRAL DE GAULLE ») ne dépasse pas ~200° : cercle un peu plus large, lettres moins serrées.
   const r = Math.max(2.2 * size, (sum(topW) + sum(botW) + 2 * dashW) / (2 * Math.PI), Math.max(sum(topW), sum(botW)) / (Math.PI * 1.1))
+  const outer = r + size * 0.8 + 3 * k // anneau extérieur et son halo
+  const circleBox = (p: Pt): Box => ({ x: p.x - outer, y: p.y - outer, w: 2 * outer, h: 2 * outer })
+  if (!label.fix) {
+    // Centre : milieu de la plus longue partie de la place visible à l'écran (assez loin des bords pour le cercle) ;
+    // s'il touche une borne ou un lieu, le point de la place le plus proche du milieu qui les évite.
+    const M = 90 * k
+    const inView = (p: Pt | null): p is Pt => !!p && (!view || (p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M))
+    let best: [number, number] = [0, -1], cur = -1
+    for (let i = 0; i <= pts.length; i++) {
+      if (i < pts.length && inView(pts[i])) { if (cur < 0) cur = i }
+      else if (cur >= 0) { if (i - 1 - cur > best[1] - best[0]) best = [cur, i - 1]; cur = -1 }
+    }
+    if (best[1] < best[0]) { ctx.restore(); return null }
+    const mid = (best[0] + best[1]) / 2
+    const pointAt = (t: number): Pt => {
+      const i = Math.floor(t), j = Math.min(best[1], i + 1), u = t - i
+      return { x: pts[i]!.x + (pts[j]!.x - pts[i]!.x) * u, y: pts[i]!.y + (pts[j]!.y - pts[i]!.y) * u }
+    }
+    let at = mid
+    if (avoid.length && boxesHit(circleBox(pointAt(mid)), avoid)) {
+      at = -1
+      const span = best[1] - best[0]
+      for (let n = 1; n <= 10 && at < 0; n++) {
+        for (const t of [mid + (n / 20) * span, mid - (n / 20) * span]) {
+          if (t >= best[0] && t <= best[1] && !boxesHit(circleBox(pointAt(t)), avoid)) { at = t; break }
+        }
+      }
+      if (at < 0) at = mid // la place est trop petite pour s'écarter : le cercle reste au milieu (place prioritaire)
+    }
+    label.fix = { at, size, flip: false }
+  }
+  const { at } = label.fix
+  const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
+  const a = pts[ia], b = pts[ib] ?? a
+  if (!a || !b) { ctx.restore(); return null }
+  const f = at - ia
+  const cx = a.x + (b.x - a.x) * f, cy = a.y + (b.y - a.y) * f
   const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
   // Haut : de gauche à droite dans le sens horaire, centré sur -90° ; lettres tournées vers l'extérieur.
   {
@@ -517,4 +578,5 @@ function drawPlaceCircle(
     ctx.restore()
   }
   ctx.restore()
+  return circleBox({ x: cx, y: cy })
 }
