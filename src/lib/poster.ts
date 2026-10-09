@@ -8,7 +8,6 @@ import {
   analyzeRace, computeBornes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, hasRealTimes,
   parseEventName, type Borne, type RaceAnalysis,
 } from './raceSplits'
-import { ribbonColorAt } from './ribbon'
 import { BASEMAP_TILE_URL, IGN_TILE_URL } from './tileSources'
 
 /** Unités de dessin : l'affiche est conçue à 720 × 960 puis mise à l'échelle. */
@@ -206,7 +205,18 @@ function loadTile(url: string): Promise<HTMLImageElement | null> {
 
 // ── Dessin ───────────────────────────────────────────────────────────────────
 
-interface Theme { fg: string; bg: string; mapBg: string; outline: string; accent: string }
+/** Couleurs du logo Sillonphane (dégradé du sillon, de bas en haut), reprises par le ruban de l'affiche. */
+const LOGO_FOREST = '#2F4839'
+const LOGO_TERRACOTTA = '#C15C3D'
+const LOGO_CREAM = '#F5F3EF'
+
+/** Couleur du ruban à la part `f` du parcours (0 = départ vert forêt, 0,5 = terracotta, 1 = arrivée crème). */
+function logoColorAt(f: number): string {
+  const x = Math.max(0, Math.min(1, f))
+  return x <= 0.5 ? mixHex(LOGO_FOREST, LOGO_TERRACOTTA, x / 0.5) : mixHex(LOGO_TERRACOTTA, LOGO_CREAM, (x - 0.5) / 0.5)
+}
+
+interface Theme { fg: string; bg: string; mapBg: string; outline: string; halo: string; accent: string }
 
 /** Luminance relative (0 = noir, 1 = blanc) d'une couleur « #RRGGBB ». */
 function luminance(hex: string): number {
@@ -230,6 +240,7 @@ function makeTheme(paper: string, background: PosterBackground): Theme {
     // Fond uni : le papier, à peine assombri ou éclairci pour détacher la carte.
     mapBg: background === 'uni' ? mixHex(paper, light ? '#000000' : '#ffffff', 0.05) : light ? '#E9E3D6' : '#1b221d',
     outline: light ? 'rgba(25,24,23,0.55)' : 'rgba(10,16,12,0.75)',
+    halo: light ? 'rgba(25,24,23,0.55)' : 'rgba(245,243,239,0.28)',
     accent: light ? '#C15C3D' : '#D97A3D',
   }
 }
@@ -297,16 +308,17 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     m.globalCompositeOperation = 'source-over'
   }
 
-  // Ruban : liseré sombre, puis le dégradé du site (vert au départ → orange → crème à l'arrivée).
+  // Ruban aux couleurs du logo (vert forêt au départ → terracotta → crème à l'arrivée), sur un liseré : halo crème
+  // léger sur papier foncé (le vert forêt se perdrait sur la carte assombrie), trait sombre sur papier clair.
   m.lineJoin = 'round'; m.lineCap = 'round'
-  m.strokeStyle = theme.outline; m.lineWidth = 9 * k
+  m.strokeStyle = theme.halo; m.lineWidth = 10 * k
   m.beginPath()
   points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p))))
   m.stroke()
-  m.lineWidth = 5 * k
+  m.lineWidth = 6 * k
   const STEP = Math.max(1, Math.round(points.length / 400))
   for (let i = 0; i < points.length - 1; i += STEP) {
-    m.strokeStyle = ribbonColorAt(distances[i] / total)
+    m.strokeStyle = logoColorAt(distances[i] / total)
     m.beginPath()
     m.moveTo(px(points[i]), py(points[i]))
     for (let j = i + 1; j <= Math.min(points.length - 1, i + STEP); j++) m.lineTo(px(points[j]), py(points[j]))
@@ -320,19 +332,20 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     const bx = px(b), by = py(b)
     m.beginPath(); m.arc(bx, by, 12 * k, 0, Math.PI * 2)
     m.fillStyle = theme.bg; m.fill()
-    m.lineWidth = 2 * k; m.strokeStyle = ribbonColorAt(b.km * 1000 / total); m.stroke()
+    m.lineWidth = 2 * k; m.strokeStyle = logoColorAt(b.km * 1000 / total); m.stroke()
     m.fillStyle = fg(1); m.font = `800 ${11 * k}px ${SANS}`
     m.fillText(String(b.km), bx, by + 0.5 * k)
   }
-  const flag = (p: GpxPoint, label: string, color: string, dy: number) => {
-    m.beginPath(); m.arc(px(p), py(p), 6 * k, 0, Math.PI * 2)
-    m.fillStyle = color; m.fill(); m.lineWidth = 2 * k; m.strokeStyle = theme.bg; m.stroke()
+  // Pastilles du logo : départ crème, arrivée vert forêt cerclée de crème.
+  const flag = (p: GpxPoint, label: string, fill: string, ring: string, dy: number) => {
+    m.beginPath(); m.arc(px(p), py(p), 7 * k, 0, Math.PI * 2)
+    m.fillStyle = fill; m.fill(); m.lineWidth = 2.5 * k; m.strokeStyle = ring; m.stroke()
     m.textAlign = 'left'; m.font = `700 ${10 * k}px ${SANS}`; setSpacing(m, 1.5 * k)
-    m.fillStyle = fg(1); m.fillText(label, px(p) + 10 * k, py(p) + dy * k)
+    m.fillStyle = fg(1); m.fillText(label, px(p) + 11 * k, py(p) + dy * k)
     setSpacing(m, 0)
   }
-  flag(points[0], 'DÉPART', ribbonColorAt(0), 12)
-  flag(points[points.length - 1], 'ARRIVÉE', ribbonColorAt(1), -10)
+  flag(points[0], 'DÉPART', LOGO_CREAM, LOGO_FOREST, 12)
+  flag(points[points.length - 1], 'ARRIVÉE', LOGO_FOREST, LOGO_CREAM, -10)
 
   m.textAlign = 'right'; m.textBaseline = 'alphabetic'
   m.font = `${9 * k}px ${SANS}`; m.fillStyle = fg(0.55)
@@ -516,7 +529,7 @@ function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, theme: The
   const X = (d: number) => x + d / total * w
   const Y = (e: number) => base - (e - lo) / (hi - lo) * (base - top)
   const grad = ctx.createLinearGradient(x, 0, x + w, 0)
-  grad.addColorStop(0, ribbonColorAt(0)); grad.addColorStop(0.5, ribbonColorAt(0.5)); grad.addColorStop(1, ribbonColorAt(1))
+  grad.addColorStop(0, LOGO_FOREST); grad.addColorStop(0.5, LOGO_TERRACOTTA); grad.addColorStop(1, LOGO_CREAM)
   ctx.beginPath()
   ctx.moveTo(x, base)
   sm.forEach((e, i) => ctx.lineTo(X(distances[i]), Y(e)))
