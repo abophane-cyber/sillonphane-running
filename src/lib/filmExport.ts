@@ -92,6 +92,8 @@ export interface FilmExportOptions {
   debugMaxFrames?: number
   /** Film d'essai (?essai dans l'URL) : le début de la marche seulement, sans ouverture, dézoom de départ ni plans de fin. */
   essai?: boolean
+  /** Ouverture (?ouverture) : avec essai, l'ouverture et la page de départ sont gardées. */
+  ouverture?: boolean
   /** Fin seule (?fin dans l'URL) : les FIN_FILM_S dernières secondes (arrivée et vue d'ensemble) ; ce qui précède est
    *  calculé (caméra) mais ni dessiné ni encodé, sans ouverture ni bande-son. */
   fin?: boolean
@@ -1539,7 +1541,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
   // debugMaxFrames : ouverture sautée (on veut voir la carte/les panneaux tout de suite), et les timestamps de la
   // boucle de marche ne tiennent plus compte de sa durée. Film d'essai : sans ouverture, 15 s de marche seulement.
-  const introFrames = opts.debugMaxFrames || opts.fin ? 0 : INTRO_FRAMES
+  const introFrames = (opts.debugMaxFrames && !opts.ouverture) || opts.fin ? 0 : INTRO_FRAMES
   // Images avant la marche : écran-titre + dézoom de départ des randonneurs 3D.
   const preWalkFrames = introFrames + START_DEZOOM_FRAMES
   // Progression remontée à l'appelant, pondérée par coût réel par image et non par nombre brut

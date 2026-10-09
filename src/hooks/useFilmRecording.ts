@@ -12,7 +12,7 @@ import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 import type { StreetRun } from '../lib/routeStreets'
-import { ESSAI_FILM_S, FIN_FILM_S, isEssaiFilm, isFinFilm } from '../lib/filmEssai'
+import { ESSAI_FILM_S, FIN_FILM_S, isEssaiFilm, isFinFilm, isOuvertureFilm } from '../lib/filmEssai'
 
 export interface CreateFilmContext {
   activeTrack: GpxTrack
@@ -119,8 +119,10 @@ export function useFilmRecording() {
     // Mes sillons ; seule cette portion du tracé est préchargée, d'où une création bien plus rapide.
     // Fin seule (?fin) : les FIN_FILM_S dernières secondes (arrivée et vue d'ensemble), prioritaire sur ?essai.
     const fin = !filmDebug && isFinFilm()
-    const essai = !filmDebug && !fin && isEssaiFilm()
-    const debugMaxFrames = filmDebug ? Math.round(8 * FPS) : essai ? Math.round(ESSAI_FILM_S * FPS) : undefined
+    // Ouverture (?ouverture) : l'ouverture, la page de départ et les 5 premières secondes de course.
+    const ouverture = !filmDebug && !fin && isOuvertureFilm()
+    const essai = !filmDebug && !fin && (ouverture || isEssaiFilm())
+    const debugMaxFrames = filmDebug ? Math.round(8 * FPS) : ouverture ? Math.round(5 * FPS) : essai ? Math.round(ESSAI_FILM_S * FPS) : undefined
     if (filmDebug) console.log('[filmdebug]', { durationS, debugMaxFrames, fps: FPS, search: window.location.search })
 
     try {
@@ -167,6 +169,7 @@ export function useFilmRecording() {
         debugSkipCharacter: filmDebug,
         debugMaxFrames,
         essai,
+        ouverture: ouverture || undefined,
         fin,
       })
 

@@ -50,3 +50,18 @@ export function isPromoFilm(): boolean {
     return v != null && v !== '0'
   }
 }
+
+// Ouverture seule (film 3D) : « ?ouverture » dans l'URL -> seule l'ouverture est rendue (jusqu'à l'arrivée de la
+// caméra sur le départ, plus 1 s), pour la juger vite. Même mémorisation que ?essai ; « ?ouverture=0 » l'arrête.
+const OUVERTURE_KEY = 'sillonphane.ouverture'
+
+export function isOuvertureFilm(): boolean {
+  const v = new URLSearchParams(window.location.search).get('ouverture')
+  try {
+    if (v === '0') sessionStorage.removeItem(OUVERTURE_KEY)
+    else if (v != null) sessionStorage.setItem(OUVERTURE_KEY, '1')
+    return sessionStorage.getItem(OUVERTURE_KEY) === '1'
+  } catch {
+    return v != null && v !== '0'
+  }
+}

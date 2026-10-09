@@ -10,7 +10,7 @@ import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 import type { EventCartouche } from '../lib/filmExport'
-import { FIN_FILM_S, isEssaiFilm, isFinFilm } from '../lib/filmEssai'
+import { FIN_FILM_S, isEssaiFilm, isFinFilm, isOuvertureFilm } from '../lib/filmEssai'
 import { captionStreets } from '../lib/routeStreets'
 
 export interface CreateFilm3dContext {
@@ -100,11 +100,12 @@ export function useFilm3dExport() {
     const s = ANIM_SETTINGS.randonneur
     const base = Math.min(s.max, Math.max(s.min, (ctx.activeTrack.distance / 1000) * s.secondsPerKm))
     const fullDurationS = base * FILM3D_DURATION_FACTOR
-    // Film d'essai (?essai, cf. filmEssai.ts) : l'ouverture puis les ESSAI_FILM_S premières secondes du survol, à
-    // vitesse normale. Tout le tracé est préparé : l'ouverture le montre en entier.
+    // Film d'essai (?essai, cf. filmEssai.ts) : les ESSAI_FILM_S premières secondes du survol, sans l'ouverture, à
+    // vitesse normale. Ouverture seule (?ouverture) : pour juger l'ouverture vite.
     // Fin seule (?fin) : les dernières secondes (arrivée et vue d'ensemble), prioritaire sur ?essai.
     const fin = isFinFilm()
     const essai = !fin && isEssaiFilm()
+    const ouverture = !fin && isOuvertureFilm() // ouverture seule (?ouverture)
     const durationS = fullDurationS
     const points = ctx.activeTrack.points
     const trackM = ctx.activeTrack.distance
@@ -160,6 +161,7 @@ export function useFilm3dExport() {
         durationS,
         essai,
         fin,
+        openingOnly: ouverture || undefined,
         fps: 30,
         onProgress: p => {
           setFilm3dProgress(Math.max(0, p.ratio)); setFilm3dPhase(p.phase)
