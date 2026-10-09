@@ -456,7 +456,8 @@ function drawPlaceCircle(
   const topW = widthsOf(place.top), botW = widthsOf(place.bottom)
   const sum = (w: number[]) => w.reduce((x, y) => x + y, 0) - sp
   const dashW = ctx.measureText('-').width + 4 * sp + size
-  const r = Math.max(2.2 * size, (sum(topW) + sum(botW) + 2 * dashW) / (2 * Math.PI))
+  // Un nom long (« DU GÉNÉRAL DE GAULLE ») ne dépasse pas ~200° : cercle un peu plus large, lettres moins serrées.
+  const r = Math.max(2.2 * size, (sum(topW) + sum(botW) + 2 * dashW) / (2 * Math.PI), Math.max(sum(topW), sum(botW)) / (Math.PI * 1.1))
   const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
   // Haut : de gauche à droite dans le sens horaire, centré sur -90° ; lettres tournées vers l'extérieur.
   {
