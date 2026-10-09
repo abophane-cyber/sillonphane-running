@@ -210,7 +210,10 @@ const LOGO_FOREST = '#2F4839'
 const LOGO_TERRACOTTA = '#C15C3D'
 const LOGO_CREAM = '#F5F3EF'
 
-/** Couleur du ruban à la part `f` du parcours (0 = départ vert forêt, 0,5 = terracotta, 1 = arrivée crème). */
+/** Dégradé du logo : vert forêt (0, en bas) → terracotta (0,5) → crème (1, en haut). */
+const LOGO_STOPS: [number, string][] = [[0, LOGO_FOREST], [0.5, LOGO_TERRACOTTA], [1, LOGO_CREAM]]
+
+/** Couleur du dégradé du logo à la hauteur `f` (0 = bas, 1 = haut). */
 function logoColorAt(f: number): string {
   const x = Math.max(0, Math.min(1, f))
   return x <= 0.5 ? mixHex(LOGO_FOREST, LOGO_TERRACOTTA, x / 0.5) : mixHex(LOGO_TERRACOTTA, LOGO_CREAM, (x - 0.5) / 0.5)
@@ -307,22 +310,17 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     m.globalCompositeOperation = 'source-over'
   }
 
-  // Ruban : exactement les couleurs du logo (vert forêt au départ → terracotta → crème à l'arrivée), sans retouche,
-  // posé sur un liseré sombre comme le sillon du logo sur son fond noir.
+  // Ruban : une seule ligne peinte comme le sillon du logo — dégradé vertical sur l'emprise du tracé, vert forêt en
+  // bas, terracotta au milieu, crème en haut — posée sur un liseré sombre (le carré noir du logo).
+  const ys = points.map(py)
+  const yBottom = Math.max(...ys), yTop = Math.min(...ys)
+  const heightAt = (y: number) => (yBottom - y) / Math.max(1, yBottom - yTop) // 0 = bas, 1 = haut
+  const grad = m.createLinearGradient(0, yBottom, 0, yTop)
+  LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
   m.lineJoin = 'round'; m.lineCap = 'round'
-  m.strokeStyle = theme.outline; m.lineWidth = 10 * k
-  m.beginPath()
-  points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p))))
-  m.stroke()
-  m.lineWidth = 6 * k
-  const STEP = Math.max(1, Math.round(points.length / 400))
-  for (let i = 0; i < points.length - 1; i += STEP) {
-    m.strokeStyle = logoColorAt(distances[i] / total)
-    m.beginPath()
-    m.moveTo(px(points[i]), py(points[i]))
-    for (let j = i + 1; j <= Math.min(points.length - 1, i + STEP); j++) m.lineTo(px(points[j]), py(points[j]))
-    m.stroke()
-  }
+  const trace = () => { m.beginPath(); points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p)))) }
+  trace(); m.strokeStyle = theme.outline; m.lineWidth = 10 * k; m.stroke()
+  trace(); m.strokeStyle = grad; m.lineWidth = 6 * k; m.stroke()
 
   // Bornes tous les 5 km (le semi n'est pas repris : la borne des 20 km suffit), départ et arrivée.
   const fg = (a: number) => `rgba(${theme.fg},${a})`
@@ -331,7 +329,7 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     const bx = px(b), by = py(b)
     m.beginPath(); m.arc(bx, by, 12 * k, 0, Math.PI * 2)
     m.fillStyle = theme.bg; m.fill()
-    m.lineWidth = 2 * k; m.strokeStyle = logoColorAt(b.km * 1000 / total); m.stroke()
+    m.lineWidth = 2 * k; m.strokeStyle = logoColorAt(heightAt(by)); m.stroke()
     m.fillStyle = fg(1); m.font = `800 ${11 * k}px ${SANS}`
     m.fillText(String(b.km), bx, by + 0.5 * k)
   }
@@ -529,7 +527,7 @@ function drawProfile(ctx: CanvasRenderingContext2D, data: PosterData, theme: The
   const X = (d: number) => x + d / total * w
   const Y = (e: number) => base - (e - lo) / (hi - lo) * (base - top)
   const grad = ctx.createLinearGradient(x, 0, x + w, 0)
-  grad.addColorStop(0, LOGO_FOREST); grad.addColorStop(0.5, LOGO_TERRACOTTA); grad.addColorStop(1, LOGO_CREAM)
+  LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
   ctx.beginPath()
   ctx.moveTo(x, base)
   sm.forEach((e, i) => ctx.lineTo(X(distances[i]), Y(e)))
