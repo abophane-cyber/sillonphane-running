@@ -38,44 +38,54 @@
   /* ---- Affiche : dessinée à 720 × 960 (3:4, 30 × 40 cm), mise à l'échelle de la colonne ---- */
   .poster-wrap { position: relative; width: 100%; }
   .poster { position: absolute; top: 0; left: 0; width: 720px; height: 960px; transform-origin: 0 0;
-    background: var(--night); color: var(--cream); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.28); border-radius: 3px;
+    --pf: 244 237 224; --pbg: #121714; --mapbg: #1b221d; --outline: rgba(10,16,12,.75);
+    background: var(--pbg); color: rgb(var(--pf)); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.28); border-radius: 3px;
     display: flex; flex-direction: column; padding: 34px 34px 22px; }
   .p-head { text-align: left; }
   .p-kicker { font-size: 11px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: var(--orange); }
-  .p-title { font-family: 'Playfair Display', serif; font-size: 46px; font-weight: 700; line-height: 1.05; margin: 8px 0 6px; color: var(--cream); }
-  .p-sub { font-size: 15px; letter-spacing: .04em; color: rgba(244,237,224,.75); }
+  .p-title { font-family: 'Playfair Display', serif; font-size: 46px; font-weight: 700; line-height: 1.05; margin: 8px 0 6px; color: rgb(var(--pf)); }
+  .p-sub { font-size: 15px; letter-spacing: .04em; color: rgb(var(--pf) / .75); }
 
   .p-mid { display: flex; gap: 12px; margin: 20px 0 0; height: 430px; }
-  .p-map { position: relative; flex: 1; border-radius: 6px; overflow: hidden; background: #1b221d; }
+  .p-map { position: relative; flex: 1; border-radius: 6px; overflow: hidden; background: var(--mapbg); }
+  /* Fonds au choix : vues aériennes assombries (défaut), Plan IGN nuit, Plan IGN clair, uni */
+  .poster.bg-plan-nuit .p-map .tiles { filter: invert(1) hue-rotate(180deg) brightness(.62) saturate(.35) contrast(1.1); }
+  .poster.bg-clair { --pf: 25 24 23; --pbg: #F4EFE5; --mapbg: #E9E3D6; --outline: rgba(25,24,23,.55); }
+  .poster.bg-clair .p-map .tiles { filter: saturate(.25) brightness(1.04) contrast(.92); opacity: .85; }
+  .poster.bg-clair .p-kicker, .poster.bg-clair .p-split b { color: var(--terracotta); }
+  .poster.bg-uni { --mapbg: #18201b; }
+  .poster.bg-uni .p-map .tiles, .poster.bg-uni .p-map__credit { display: none; }
   .p-map .tiles { position: absolute; top: 0; left: 0; transform-origin: 0 0; filter: brightness(.42) saturate(.55) contrast(1.05); }
   .p-map .tiles img { position: absolute; width: 256px; height: 256px; }
   .p-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .p-map__credit { position: absolute; right: 8px; bottom: 6px; font-size: 9px; color: rgba(244,237,224,.55); }
+  .p-map__credit { position: absolute; right: 8px; bottom: 6px; font-size: 9px; color: rgb(var(--pf) / .55); }
   .p-photos { display: none; width: 200px; flex-direction: column; gap: 12px; }
   .with-photos .p-photos { display: flex; }
   .p-photo { flex: 1; border-radius: 6px; background-size: cover; background-position: center; position: relative; }
   .p-photo span { position: absolute; left: 8px; bottom: 7px; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.8); background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 3px; }
 
   .p-time { display: flex; align-items: flex-end; justify-content: space-between; margin: 22px 0 0; gap: 20px; }
-  .p-chrono__label { font-size: 11px; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; color: rgba(244,237,224,.6); }
-  .p-chrono__value { font-family: 'Playfair Display', serif; font-size: 78px; font-weight: 700; line-height: .95; color: var(--cream); font-variant-numeric: lining-nums tabular-nums; }
+  .p-chrono__label { font-size: 11px; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; color: rgb(var(--pf) / .6); }
+  .p-chrono__value { font-family: 'Playfair Display', serif; font-size: 78px; font-weight: 700; line-height: .95; color: rgb(var(--pf)); font-variant-numeric: lining-nums tabular-nums; }
   .p-facts { display: grid; grid-template-columns: auto auto; gap: 6px 16px; font-size: 13px; text-align: right; padding-bottom: 6px; }
-  .p-facts dt { color: rgba(244,237,224,.55); }
-  .p-facts dd { margin: 0; font-weight: 700; color: var(--cream); font-variant-numeric: tabular-nums; }
+  .p-facts dt { color: rgb(var(--pf) / .55); }
+  .p-facts dd { margin: 0; font-weight: 700; color: rgb(var(--pf)); font-variant-numeric: tabular-nums; }
 
-  .p-splits { display: grid; grid-template-columns: repeat(5, 1fr); margin: 20px 0 0; border-top: 1px solid rgba(244,237,224,.18); border-bottom: 1px solid rgba(244,237,224,.18); }
-  .p-split { padding: 10px 0 9px; text-align: center; border-left: 1px solid rgba(244,237,224,.12); }
+  .p-splits { display: grid; grid-template-columns: repeat(5, 1fr); margin: 20px 0 0; border-top: 1px solid rgb(var(--pf) / .18); border-bottom: 1px solid rgb(var(--pf) / .18); }
+  .p-split { padding: 10px 0 9px; text-align: center; border-left: 1px solid rgb(var(--pf) / .12); }
   .p-split:first-child { border-left: 0; }
   .p-split b { display: block; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--orange); }
   .p-split strong { display: block; font-size: 20px; font-weight: 700; margin: 3px 0 1px; font-variant-numeric: tabular-nums; }
-  .p-split small { font-size: 11px; color: rgba(244,237,224,.6); font-variant-numeric: tabular-nums; }
-  .p-notes { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: rgba(244,237,224,.75); margin: 10px 0 0; }
-  .p-notes strong { color: var(--cream); }
+  .p-split small { font-size: 11px; color: rgb(var(--pf) / .6); font-variant-numeric: tabular-nums; }
+  .p-notes { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: rgb(var(--pf) / .75); margin: 10px 0 0; }
+  .p-notes strong { color: rgb(var(--pf)); }
 
   .p-profile { margin: 12px 0 0; height: 74px; }
   .p-profile svg { width: 100%; height: 100%; display: block; }
-  .p-foot { margin-top: auto; display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: rgba(244,237,224,.45); }
-  .p-foot b { font-family: 'Playfair Display', serif; letter-spacing: .04em; text-transform: none; font-size: 13px; color: rgba(244,237,224,.7); }
+  .hide-splits .p-splits, .hide-notes .p-notes, .hide-profile .p-profile { display: none; }
+  .hide-splits .p-notes { border-top: 1px solid rgb(var(--pf) / .18); padding-top: 10px; margin-top: 20px; }
+  .p-foot { margin-top: auto; display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: rgb(var(--pf) / .45); }
+  .p-foot b { font-family: 'Playfair Display', serif; letter-spacing: .04em; text-transform: none; font-size: 13px; color: rgb(var(--pf) / .7); }
 
   /* ---- Panneau de l'appli ---- */
   .panel { display: flex; flex-direction: column; gap: 16px; }
@@ -85,8 +95,12 @@
   .field { display: grid; gap: 4px; margin-top: 10px; font-size: .78rem; font-weight: 600; color: var(--ink-soft); }
   .field input { width: 100%; min-width: 0; font: inherit; font-weight: 500; font-size: .92rem; color: var(--ink); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
   .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: .84rem; color: var(--ink-soft); }
+  .checks label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .checks input { accent-color: var(--forest); width: 16px; height: 16px; }
   .hint { font-size: .74rem; color: var(--ink-faint); margin-top: 8px; }
   .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; margin-top: 10px; }
+  .seg--wrap { flex-wrap: wrap; border-radius: 14px; }
   .seg button { font: inherit; font-size: .82rem; font-weight: 600; border: 0; background: none; padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--ink-soft); }
   .seg button[aria-pressed="true"] { background: var(--forest); color: #fff; }
   .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -153,7 +167,27 @@
         <label class="field">Dossard<input id="inBib" value="4127" /></label>
       </div>
       <label class="field">Classement<input id="inRank" value="1 284e sur 9 512" /></label>
+      <p class="field" style="margin-top:14px">À afficher sur l'affiche</p>
+      <div class="checks">
+        <label><input type="checkbox" data-show="bib" checked> Dossard</label>
+        <label><input type="checkbox" data-show="rank" checked> Classement</label>
+        <label><input type="checkbox" data-show="pace" checked> Allure moyenne</label>
+        <label><input type="checkbox" data-show="splits" checked> Temps de passage</label>
+        <label><input type="checkbox" data-show="notes" checked> Meilleur km, moitiés</label>
+        <label><input type="checkbox" data-show="profile" checked> Profil</label>
+      </div>
       <p class="hint">Exemple : le GPX d'essai vient d'un tracé de planification (5'00"/km constant) ; les temps de passage affichés sont fictifs.</p>
+    </section>
+
+    <section class="card">
+      <h2>Fond</h2>
+      <p>Choisissez le fond qui ira avec votre intérieur.</p>
+      <div class="seg seg--wrap" role="group" aria-label="Fond">
+        <button type="button" data-bg="sat" aria-pressed="true">Vues aériennes</button>
+        <button type="button" data-bg="plan-nuit" aria-pressed="false">Plan nuit</button>
+        <button type="button" data-bg="clair" aria-pressed="false">Plan clair</button>
+        <button type="button" data-bg="uni" aria-pressed="false">Uni</button>
+      </div>
     </section>
 
     <section class="card">
@@ -210,6 +244,7 @@
 
 <script>
 (async function () {
+  const poster = document.getElementById('poster')
   // ---------- Trace ----------
   const gpxUrl = new URLSearchParams(location.search).get('gpx') || '../demo/_essai-semi-lille.gpx'
   const xml = new DOMParser().parseFromString(await (await fetch(gpxUrl)).text(), 'application/xml')
@@ -260,12 +295,16 @@
     const parts = v('inChrono').split(':').map(Number)
     const sec = parts.reduce((a, n) => a * 60 + n, 0)
     document.getElementById('pChrono').textContent = parts.length === 3 ? `${parts[0]} h ${String(parts[1]).padStart(2, '0')}'${String(parts[2]).padStart(2, '0')}"` : v('inChrono')
+    const show = k => document.querySelector(`[data-show="${k}"]`).checked
     document.getElementById('pFacts').innerHTML =
-      `<dt>Dossard</dt><dd>${v('inBib')}</dd>` +
-      `<dt>Classement</dt><dd>${v('inRank')}</dd>` +
-      `<dt>Allure moyenne</dt><dd>${mmss((sec || finish) / OFFICIAL_KM)}/km</dd>`
+      (show('bib') ? `<dt>Dossard</dt><dd>${v('inBib')}</dd>` : '') +
+      (show('rank') ? `<dt>Classement</dt><dd>${v('inRank')}</dd>` : '') +
+      (show('pace') ? `<dt>Allure moyenne</dt><dd>${mmss((sec || finish) / OFFICIAL_KM)}/km</dd>` : '')
+    poster.classList.toggle('hide-splits', !show('splits'))
+    poster.classList.toggle('hide-notes', !show('notes'))
+    poster.classList.toggle('hide-profile', !show('profile'))
   }
-  document.querySelectorAll('.panel input').forEach(i => i.addEventListener('input', bind))
+  document.querySelectorAll('.panel input').forEach(i => i.addEventListener(i.type === 'checkbox' ? 'change' : 'input', bind))
   bind()
 
   // ---------- Carte : vues aériennes IGN assombries + ruban ----------
@@ -278,7 +317,16 @@
     const c = f <= 0.5 ? mix(G, O, f / 0.5) : mix(O, C, (f - 0.5) / 0.5)
     return `rgb(${c})`
   }
+  const css = n => getComputedStyle(poster).getPropertyValue(n).trim()
+  let FG, BG, OUT
+  const readTheme = () => { const f = css('--pf'); FG = a => `rgb(${f} / ${a})`; BG = css('--pbg'); OUT = css('--outline') }
+  const LAYERS = {
+    sat: ['ORTHOIMAGERY.ORTHOPHOTOS', 'image/jpeg'],
+    plan: ['GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2', 'image/png'],
+  }
+  let layer = LAYERS.sat
   function drawMap () {
+    readTheme()
     const box = document.getElementById('pMap'), W = box.offsetWidth, H = box.offsetHeight, PAD = 34
     const lats = pts.map(p => p.lat), lons = pts.map(p => p.lon)
     const x0 = wx(Math.min(...lons), 0), x1 = wx(Math.max(...lons), 0), y0 = wy(Math.max(...lats), 0), y1 = wy(Math.min(...lats), 0)
@@ -295,7 +343,7 @@
       for (let ty = Math.floor(oy / 256); ty <= Math.floor((oy + H / k) / 256); ty++) {
         const img = new Image()
         img.onerror = () => { if (!img.dataset.retry) { img.dataset.retry = '1'; setTimeout(() => { img.src = img.src + '&r=1' }, 400) } }
-        img.src = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX=${zt}&TILEROW=${ty}&TILECOL=${tx}`
+        img.src = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=${layer[0]}&STYLE=normal&FORMAT=${layer[1]}&TILEMATRIXSET=PM&TILEMATRIX=${zt}&TILEROW=${ty}&TILECOL=${tx}`
         img.style.left = (tx * 256 - ox) + 'px'; img.style.top = (ty * 256 - oy) + 'px'
         tiles.appendChild(img)
       }
@@ -304,7 +352,7 @@
     const svg = document.getElementById('pTrace')
     svg.setAttribute('viewBox', `0 0 ${W} ${H}`)
     const all = pts.map(p => `${px(p).toFixed(1)},${py(p).toFixed(1)}`).join(' ')
-    let s = `<polyline points="${all}" fill="none" stroke="rgba(10,16,12,.75)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>`
+    let s = `<polyline points="${all}" fill="none" stroke="${OUT}" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>`
     const STEP = 6
     for (let i = 0; i < pts.length - 1; i += STEP) {
       const seg = pts.slice(i, Math.min(pts.length, i + STEP + 1)).map(p => `${px(p).toFixed(1)},${py(p).toFixed(1)}`).join(' ')
@@ -313,20 +361,21 @@
     // bornes tous les 5 km
     for (let km = 5; km * 1000 < total; km += 5) {
       const q = at(km * 1000), x = px(q), y = py(q)
-      s += `<g><circle cx="${x}" cy="${y}" r="12" fill="#121714" stroke="${ribbon(km * 1000 / total)}" stroke-width="2"/>` +
-           `<text x="${x}" y="${y + 4}" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="11" fill="#F4EDE0">${km}</text></g>`
+      s += `<g><circle cx="${x}" cy="${y}" r="12" fill="${BG}" stroke="${ribbon(km * 1000 / total)}" stroke-width="2"/>` +
+           `<text x="${x}" y="${y + 4}" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="11" fill="${FG(1)}">${km}</text></g>`
     }
     // départ et arrivée
     const a = pts[0], b = pts.at(-1)
     const flag = (p, label, color, dy) =>
-      `<g><circle cx="${px(p)}" cy="${py(p)}" r="6" fill="${color}" stroke="#121714" stroke-width="2"/>` +
-      `<text x="${px(p) + 10}" y="${py(p) + dy}" font-family="Plus Jakarta Sans, sans-serif" font-weight="700" font-size="10" letter-spacing="1.5" fill="#F4EDE0">${label}</text></g>`
+      `<g><circle cx="${px(p)}" cy="${py(p)}" r="6" fill="${color}" stroke="${BG}" stroke-width="2"/>` +
+      `<text x="${px(p) + 10}" y="${py(p) + dy}" font-family="Plus Jakarta Sans, sans-serif" font-weight="700" font-size="10" letter-spacing="1.5" fill="${FG(1)}">${label}</text></g>`
     s += flag(a, 'DÉPART', ribbon(0), 14) + flag(b, 'ARRIVÉE', ribbon(1), -8)
     svg.innerHTML = s
   }
 
   // ---------- Profil d'altitude ----------
-  ;(function drawProfile () {
+  function drawProfile () {
+    readTheme()
     const W = 652, H = 74, top = 6, bottom = 60
     const sm = pts.map((p, i) => { const w = pts.slice(Math.max(0, i - 4), i + 5); return w.reduce((a, q) => a + q.ele, 0) / w.length })
     const lo = Math.min(...sm) - 3, hi = Math.max(...sm) + 3
@@ -337,15 +386,23 @@
     s += `<polyline points="${line}" fill="none" stroke="url(#pg)" stroke-width="2"/>`
     for (let km = 0; km * 1000 <= total; km += 5) {
       const x = Math.min(W - 1, X(km * 1000))
-      s += `<line x1="${x}" x2="${x}" y1="${bottom}" y2="${bottom + 4}" stroke="rgba(244,237,224,.45)"/>` +
-           `<text x="${x}" y="${H - 2}" text-anchor="${km ? 'middle' : 'start'}" font-family="Plus Jakarta Sans, sans-serif" font-size="9" fill="rgba(244,237,224,.55)">${km} km</text>`
+      s += `<line x1="${x}" x2="${x}" y1="${bottom}" y2="${bottom + 4}" stroke="${FG(.45)}"/>` +
+           `<text x="${x}" y="${H - 2}" text-anchor="${km ? 'middle' : 'start'}" font-family="Plus Jakarta Sans, sans-serif" font-size="9" fill="${FG(.55)}">${km} km</text>`
     }
-    s += `<text x="${W}" y="${top + 8}" text-anchor="end" font-family="Plus Jakarta Sans, sans-serif" font-size="9" fill="rgba(244,237,224,.55)">${Math.round(Math.min(...sm))} – ${Math.round(Math.max(...sm))} m</text>`
+    s += `<text x="${W}" y="${top + 8}" text-anchor="end" font-family="Plus Jakarta Sans, sans-serif" font-size="9" fill="${FG(.55)}">${Math.round(Math.min(...sm))} – ${Math.round(Math.max(...sm))} m</text>`
     document.getElementById('pProfile').innerHTML = s
-  })()
+  }
+
+  // ---------- Fond ----------
+  document.querySelectorAll('[data-bg]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-bg]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)))
+    poster.classList.remove('bg-plan-nuit', 'bg-clair', 'bg-uni')
+    if (btn.dataset.bg !== 'sat') poster.classList.add('bg-' + btn.dataset.bg)
+    layer = btn.dataset.bg === 'sat' ? LAYERS.sat : LAYERS.plan
+    drawMap(); drawProfile()
+  }))
 
   // ---------- Photos ----------
-  const poster = document.getElementById('poster')
   document.querySelectorAll('[data-photos]').forEach(btn => btn.addEventListener('click', () => {
     document.querySelectorAll('[data-photos]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)))
     poster.classList.toggle('with-photos', btn.dataset.photos !== '0')
@@ -356,7 +413,7 @@
   const wrap = document.getElementById('posterWrap')
   const fit = () => { const s = Math.min(1, wrap.offsetWidth / 720); poster.style.transform = `scale(${s})`; wrap.style.height = 960 * s + 'px' }
   new ResizeObserver(fit).observe(wrap)
-  fit(); drawMap()
+  fit(); drawMap(); drawProfile()
 })()
 </script>
 </body>
