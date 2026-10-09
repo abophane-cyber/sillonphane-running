@@ -110,5 +110,3 @@
   font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; box-shadow: 0 6px 18px rgba(236,106,44,.3); }
 .aff-download:hover { filter: brightness(1.06); }
 .aff-download:disabled { opacity: .6; cursor: progress; }
-.aff-preview-note { margin: 10px 0 0; text-align: center; font-size: .76rem; color: var(--color-text-muted); }
-.aff-preview-note button { padding: 0; border: 0; background: none; font: inherit; color: var(--aff-accent); text-decoration: underline; cursor: pointer; }

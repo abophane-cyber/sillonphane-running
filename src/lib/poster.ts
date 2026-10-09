@@ -623,7 +623,7 @@ function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: num
   ctx.restore()
 }
 
-/** Pied des images pour les réseaux (jamais sur le tirage) : logo et « Sillonphane » à droite, adresse du site en
+/** Pied de l'affiche, sur tous les formats (tirage et réseaux) : logo et « Sillonphane » à droite, adresse du site en
  * filigrane dessous (comme à la fin des films), phrase à gauche si `tagline`. Occupe les 44 dernières unités. */
 export function drawSocialFooter(ctx: CanvasRenderingContext2D, theme: Theme, L: number, R: number, H: number, tagline = false) {
   const fg = (a: number) => `rgba(${theme.fg},${a})`
@@ -869,7 +869,7 @@ async function drawClassic(ctx: CanvasRenderingContext2D, data: PosterData, r: R
     drawProfile(ctx, data, r, theme, L, p.profileY, CW, p.profileH)
   }
 
-  // Pied : phrase, logo et adresse, sur l'image pour les réseaux seulement, jamais sur le tirage.
+  // Pied : phrase, logo et adresse (tous formats).
   if (signature) drawSocialFooter(ctx, theme, L, R, H, true)
   return true
 }
@@ -944,10 +944,10 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
 /**
  * Dessine l'affiche sur `canvas`, à `widthPx` pixels de large (hauteur selon le format). `isLive` permet d'abandonner
  * un dessin devenu inutile (réglage modifié pendant le chargement des tuiles). Renvoie false s'il a été abandonné.
- * `signature` : « Sillonphane » sur l'affiche (format carré, pour les réseaux) ; jamais sur le tirage.
+ * `signature` : pied avec logo, « Sillonphane » et adresse du site — sur tous les formats (tirage compris).
  */
 export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, data: PosterData, settings: PosterSettings,
-  photos: HTMLImageElement[], isLive: () => boolean = () => true, signature = !posterFormat(settings).print): Promise<boolean> {
+  photos: HTMLImageElement[], isLive: () => boolean = () => true, signature = true): Promise<boolean> {
   await loadFonts()
   const r = resolvePoster(data, settings)
   const theme = makeTheme(r.fond.color)
