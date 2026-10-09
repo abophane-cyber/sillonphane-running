@@ -219,7 +219,7 @@ function logoColorAt(f: number): string {
   return x <= 0.5 ? mixHex(LOGO_FOREST, LOGO_TERRACOTTA, x / 0.5) : mixHex(LOGO_TERRACOTTA, LOGO_CREAM, (x - 0.5) / 0.5)
 }
 
-interface Theme { fg: string; bg: string; mapBg: string; outline: string; accent: string }
+interface Theme { light: boolean; fg: string; bg: string; mapBg: string; outline: string; accent: string }
 
 /** Luminance relative (0 = noir, 1 = blanc) d'une couleur « #RRGGBB ». */
 function luminance(hex: string): number {
@@ -238,6 +238,7 @@ function mixHex(a: string, b: string, t: number): string {
 function makeTheme(paper: string, background: PosterBackground): Theme {
   const light = luminance(paper) > 0.4
   return {
+    light,
     fg: light ? '25,24,23' : '244,237,224',
     bg: paper,
     // Fond uni : le papier, à peine assombri ou éclairci pour détacher la carte.
@@ -319,7 +320,20 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
   LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
   m.lineJoin = 'round'; m.lineCap = 'round'
   const trace = () => { m.beginPath(); points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p)))) }
-  trace(); m.strokeStyle = theme.outline; m.lineWidth = 10 * k; m.stroke()
+  // Carte sombre (vues aériennes, plan nuit, uni sur papier foncé) : le ruban rayonne — traits larges et transparents
+  // de son propre dégradé, ajoutés en lumière (« lighter »), sous le trait net. Couleurs du logo inchangées.
+  const darkMap = bg === 'sat' || bg === 'plan-nuit' || (bg === 'uni' && !theme.light)
+  if (darkMap) {
+    m.globalCompositeOperation = 'lighter'
+    m.strokeStyle = grad
+    for (const [w, a] of [[26, 0.07], [18, 0.1], [12, 0.16]] as const) {
+      trace(); m.globalAlpha = a; m.lineWidth = w * k; m.stroke()
+    }
+    m.globalAlpha = 1
+    m.globalCompositeOperation = 'source-over'
+  } else {
+    trace(); m.strokeStyle = theme.outline; m.lineWidth = 10 * k; m.stroke()
+  }
   trace(); m.strokeStyle = grad; m.lineWidth = 6 * k; m.stroke()
 
   // Bornes tous les 5 km (le semi n'est pas repris : la borne des 20 km suffit), départ et arrivée.
