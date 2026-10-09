@@ -423,7 +423,7 @@ function backgroundLuma(bg: { src: CanvasImageSource; scale: number }, glyphs: {
 }
 
 /** Nom de place en cercle, centré sur la place (point du parcours, fixe sur la carte comme les noms de rue) : `top` en
- * arc sur le haut, `bottom` en arc sur le bas, lettres droites, lues de gauche à droite ; fin anneau entre les deux.
+ * arc sur le haut, `bottom` en arc sur le bas, lettres droites, lues de gauche à droite ; le tout à l'intérieur d'un fin anneau.
  * Même teinte adaptative que les rues (blanc sur fond sombre, noir sur fond clair). */
 function drawPlaceCircle(
   ctx: CanvasRenderingContext2D, label: StreetLabel, place: { top: string; bottom: string }, pts: (Pt | null)[],
@@ -482,8 +482,8 @@ function drawPlaceCircle(
   const dark = label.fix.dark === true
   const ink = dark ? '#111111' : '#ffffff', halo = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'
   ctx.globalAlpha = alpha * 0.97
-  // Fin anneau intérieur, discret : le cercle se lit comme un tampon posé sur la place.
-  const rr = r - size * 0.9
+  // Fin anneau extérieur, discret : le nom est écrit à l'intérieur, comme un tampon posé sur la place.
+  const rr = r + size * 0.8
   ctx.lineWidth = 3.2 * k; ctx.strokeStyle = halo
   ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke()
   ctx.lineWidth = 1.3 * k; ctx.strokeStyle = ink
