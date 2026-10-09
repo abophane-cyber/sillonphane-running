@@ -12,10 +12,20 @@
 .affiche__item span { font-size: .84rem; color: var(--color-text-muted); }
 .affiche__item em { font-style: normal; font-size: .84rem; font-weight: 600; color: var(--color-accent); margin-top: 4px; }
 
-.affiche--editor { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; }
-@media (max-width: 900px) { .affiche--editor { grid-template-columns: 1fr; } }
-.affiche__preview { position: sticky; top: 0; width: 100%; max-width: 640px; justify-self: center; }
-@media (max-width: 900px) { .affiche__preview { position: static; } }
+/* Réglages de part et d'autre de l'affiche : informations et photos à gauche, fond, enregistrement et
+   Mes dossards à droite. Écran moyen : les deux colonnes s'empilent à droite ; téléphone : tout sous l'affiche. */
+.affiche--editor { max-width: 1440px; display: grid; gap: 24px; align-items: start;
+  grid-template-columns: 320px minmax(0, 1fr) 320px; grid-template-areas: "left preview right"; }
+.affiche__panel--left { grid-area: left; }
+.affiche__panel--right { grid-area: right; }
+.affiche__preview { grid-area: preview; position: sticky; top: 0; width: 100%; max-width: 640px; justify-self: center; }
+@media (max-width: 1180px) {
+  .affiche--editor { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "preview left" "preview right"; }
+}
+@media (max-width: 900px) {
+  .affiche--editor { grid-template-columns: 1fr; grid-template-areas: "preview" "left" "right"; }
+  .affiche__preview { position: static; }
+}
 .affiche__canvas { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: 3px; background: #121714; box-shadow: 0 16px 44px rgba(0,0,0,.35); }
 
 .affiche__panel { display: flex; flex-direction: column; gap: 14px; }

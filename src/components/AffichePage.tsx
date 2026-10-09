@@ -220,11 +220,7 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
 
   return (
     <div className="affiche affiche--editor">
-      <div className="affiche__preview" ref={wrapRef}>
-        <canvas ref={canvasRef} className="affiche__canvas" aria-label="Aperçu de l'affiche" />
-      </div>
-
-      <aside className="affiche__panel">
+      <aside className="affiche__panel affiche__panel--left">
         <section className="affiche__card">
           <h2>Vos informations</h2>
           <p>Saisies par vous : l'appli ne va rien chercher ailleurs.</p>
@@ -257,6 +253,35 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
           )}
         </section>
 
+        <section className="affiche__card">
+          <h2>Photos</h2>
+          <p>Facultatives : deux au plus, l'arrivée et la médaille par exemple.</p>
+          {photos.length > 0 && (
+            <div className="affiche__photos">
+              {photos.map(p => photoUrls[p.id] && (
+                <button
+                  key={p.id}
+                  type="button"
+                  className={chosenIds.includes(p.id) ? 'is-on' : ''}
+                  onClick={() => togglePhoto(p.id)}
+                  title={chosenIds.includes(p.id) ? 'Retirer de l\'affiche' : 'Mettre sur l\'affiche'}
+                >
+                  <img src={photoUrls[p.id]} alt="" />
+                  {chosenIds.includes(p.id) && <span>{chosenIds.indexOf(p.id) + 1}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+          <button type="button" className="affiche__btn affiche__btn--ghost" onClick={() => fileRef.current?.click()}>+ Ajouter une photo</button>
+          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addPhotos(e.target.files); e.target.value = '' }} />
+        </section>
+      </aside>
+
+      <div className="affiche__preview" ref={wrapRef}>
+        <canvas ref={canvasRef} className="affiche__canvas" aria-label="Aperçu de l'affiche" />
+      </div>
+
+      <aside className="affiche__panel affiche__panel--right">
         <section className="affiche__card">
           <h2>Fond de carte</h2>
           <div className="affiche__seg" role="group" aria-label="Fond de carte">
@@ -291,29 +316,6 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
               <input type="color" value={paper} onChange={e => set({ paper: e.target.value })} aria-label="Autre couleur" />
             </label>
           </div>
-        </section>
-
-        <section className="affiche__card">
-          <h2>Photos</h2>
-          <p>Facultatives : deux au plus, l'arrivée et la médaille par exemple.</p>
-          {photos.length > 0 && (
-            <div className="affiche__photos">
-              {photos.map(p => photoUrls[p.id] && (
-                <button
-                  key={p.id}
-                  type="button"
-                  className={chosenIds.includes(p.id) ? 'is-on' : ''}
-                  onClick={() => togglePhoto(p.id)}
-                  title={chosenIds.includes(p.id) ? 'Retirer de l\'affiche' : 'Mettre sur l\'affiche'}
-                >
-                  <img src={photoUrls[p.id]} alt="" />
-                  {chosenIds.includes(p.id) && <span>{chosenIds.indexOf(p.id) + 1}</span>}
-                </button>
-              ))}
-            </div>
-          )}
-          <button type="button" className="affiche__btn affiche__btn--ghost" onClick={() => fileRef.current?.click()}>+ Ajouter une photo</button>
-          <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={e => { addPhotos(e.target.files); e.target.value = '' }} />
         </section>
 
         <section className="affiche__card">
