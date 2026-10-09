@@ -443,9 +443,8 @@ interface MapOptions {
   radius: number
   /** Bords fondus dans le papier : part (0 à 1) de la largeur ou de la hauteur, de chaque côté. */
   fade?: { left?: number; right?: number; top?: number; bottom?: number }
-  /** Contour estompé en ellipse : centre (cx, cy) et rayons (rx, ry) en part du cadre ; `feather` = part du rayon
-   * adoucie au bord. */
-  fadeEllipse?: { cx: number; cy: number; rx: number; ry: number; feather: number }
+  /** Contour estompé (en unités) : rectangle collé à gauche, côté droit arrondi, bords haut, droit et bas flous. */
+  softEdge?: number
 }
 
 /** Carte (fond + ruban + bornes) dans le rectangle (x, y, w, h) en unités, `k` = pixels par unité. */
@@ -565,18 +564,27 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o: MapOp
     m.fillStyle = vt; m.fillRect(0, 0, W, H)
     m.globalCompositeOperation = 'source-over'
   }
-  // Contour estompé (3e modèle) : carte pleine dans une ellipse, bord adouci sur une bande étroite (`feather`).
-  if (o.fadeEllipse) {
-    const f = o.fadeEllipse
+  // Contour estompé (3e modèle) : carte pleine dans un grand rectangle collé au bord gauche, côté droit largement
+  // arrondi, bords haut, droit et bas flous. Masque = la forme floutée par une ombre portée (shadowBlur, pris en
+  // charge partout, contrairement à ctx.filter), décalée hors du cadre pour ne garder que l'ombre.
+  if (o.softEdge) {
+    const f = o.softEdge * k, cr = Math.min(W, H) * 0.32
+    const mask = document.createElement('canvas')
+    mask.width = W; mask.height = H
+    const g = mask.getContext('2d')!
+    const off = W + 2 * f + 100
+    g.shadowColor = '#000'; g.shadowBlur = f; g.shadowOffsetX = off
+    g.fillStyle = '#000'
+    const x0 = -off - f * 2, y0 = f * 0.9, x1 = -off + W - f * 0.9, y1 = H - f * 0.9
+    g.beginPath()
+    g.moveTo(x0, y0)
+    g.lineTo(x1 - cr, y0); g.arcTo(x1, y0, x1, y0 + cr, cr)
+    g.lineTo(x1, y1 - cr); g.arcTo(x1, y1, x1 - cr, y1, cr)
+    g.lineTo(x0, y1)
+    g.closePath()
+    g.fill()
     m.globalCompositeOperation = 'destination-in'
-    m.save()
-    m.translate(f.cx * W, f.cy * H)
-    m.scale(f.rx * W, f.ry * H)
-    const rg = m.createRadialGradient(0, 0, 0, 0, 0, 1)
-    rg.addColorStop(0, 'rgba(0,0,0,1)'); rg.addColorStop(1 - f.feather, 'rgba(0,0,0,1)'); rg.addColorStop(1, 'rgba(0,0,0,0)')
-    m.fillStyle = rg
-    m.fillRect(-10, -10, 20, 20) // en rayons d'ellipse : couvre tout le cadre
-    m.restore()
+    m.drawImage(mask, 0, 0)
     m.globalCompositeOperation = 'source-over'
   }
 
@@ -1000,12 +1008,11 @@ async function drawModel3(ctx: CanvasRenderingContext2D, data: PosterData, r: Re
 
   // Carte collée au bord gauche, bords dissous dans le papier
   const mapTop = Math.max(y + 22, H * 0.3)
-  const mapW = Math.round(POSTER_W * 0.585)
+  const mapW = Math.round(POSTER_W * 0.6)
   if (r.show('map')) {
     const mapOpts: MapOptions = {
       bg: r.background, ribbon: r.ribbon, theme, bornes: r.show('bornes'), radius: 0,
-      // Ellipse débordant à gauche (la carte reste collée au bord), contour estompé en haut, à droite et en bas.
-      fadeEllipse: { cx: 0.36, cy: 0.52, rx: 0.68, ry: 0.54, feather: 0.16 },
+      softEdge: 26,
     }
     if (!await drawMap(ctx, data, mapOpts, 0, mapTop, mapW, blockBottom - mapTop, k, isLive)) return false
   }
