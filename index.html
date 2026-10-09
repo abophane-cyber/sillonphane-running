@@ -201,6 +201,32 @@
         min-height: max(520px, calc(100svh - var(--hdr-h, 84px)));
         display: flex; align-items: center;
       }
+      .hero__ridges {
+        position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 0;
+        filter: saturate(1.05) contrast(1.04);
+        opacity: 0; /* pas de fondu : passage franc d'une photo à l'autre */
+        transform: scale(var(--kb-s0)) translate(var(--kb-x0), var(--kb-y0));
+        will-change: transform, opacity;
+        /* Mouvement propre à chaque photo (zoom avant/arrière + glissement) */
+        --kb-s0: 1.04; --kb-x0: 0%;    --kb-y0: 0%;
+        --kb-s1: 1.14; --kb-x1: -2%;   --kb-y1: -1%;
+      }
+      .hero__ridges:nth-of-type(2) { --kb-s0: 1.05; --kb-x0: -1.5%; --kb-y0: 0%;  --kb-s1: 1.13; --kb-x1: 1.5%; --kb-y1: 1%; }
+      /* Diaporama : la photo active apparaît en fondu ; le mouvement (is-kb) court aussi
+         pendant son fondu de sortie pour ne jamais s'arrêter net. */
+      .hero__ridges.is-on { opacity: 1; }
+      .hero__ridges.is-kb { animation: heroKenBurns 6s cubic-bezier(.45,.05,.55,.95) forwards; }
+      /* Variante tirée au hasard : lent panoramique de bas en haut (on découvre le haut de la photo) */
+      .hero__ridges.is-kb.is-rise { animation-name: heroRise; }
+      @keyframes heroRise {
+        from { transform: scale(1.12) translate(0, -4%); }
+        to   { transform: scale(1.12) translate(0, 4%); }
+      }
+      @keyframes heroKenBurns {
+        /* Amplitude ×0,8 et mouvement lissé (accélère et ralentit en douceur) : caméra douce */
+        from { transform: scale(calc(1 + (var(--kb-s0) - 1) * 0.8)) translate(calc(var(--kb-x0) * 0.8), calc(var(--kb-y0) * 0.8)); }
+        to   { transform: scale(calc(1 + (var(--kb-s1) - 1) * 0.8)) translate(calc(var(--kb-x1) * 0.8), calc(var(--kb-y1) * 0.8)); }
+      }
       /* Voile sombre pour un lettrage blanc lisible sur toutes les photos (à la Komoot) */
       .hero__scrim {
         position: absolute; inset: 0; z-index: 1; pointer-events: none;
@@ -566,31 +592,8 @@
       .foot__links a:hover { color: #fff; }
       .foot__legal { flex-basis: 100%; margin: 0; font-size: 0.72rem; line-height: 1.6; color: rgba(255,255,255,0.4); }
 
-      /* ---- Running : hero illustré (plan de ville assombri, ruban de course qui se déroule) ---- */
-      .hero--run { background: #0F1412; }
-      .hero__city { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
-      .hero__ribbon { stroke-dasharray: 1; stroke-dashoffset: 1; animation: heroRibbon 14s linear infinite; }
-      /* Le ruban se déroule à vitesse constante sur 78 % du cycle : la borne posée (en JS) à la fraction f
-         du tracé apparaît à f × 78 % du cycle (fractions 0,2 · 0,4 · 0,6 · 0,8). */
-      .hero__borne { opacity: 0; }
-      .hero__borne--1 { animation: heroB1 14s linear infinite; }
-      .hero__borne--2 { animation: heroB2 14s linear infinite; }
-      .hero__borne--3 { animation: heroB3 14s linear infinite; }
-      .hero__borne--4 { animation: heroB4 14s linear infinite; }
-      @keyframes heroRibbon { 0% { stroke-dashoffset: 1; opacity: 1; } 78%, 92% { stroke-dashoffset: 0; opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 0; } }
-      @keyframes heroB1 { 0%, 15.6% { opacity: 0; } 17.5%, 92% { opacity: 1; } 100% { opacity: 0; } }
-      @keyframes heroB2 { 0%, 31.2% { opacity: 0; } 33.1%, 92% { opacity: 1; } 100% { opacity: 0; } }
-      @keyframes heroB3 { 0%, 46.8% { opacity: 0; } 48.7%, 92% { opacity: 1; } 100% { opacity: 0; } }
-      @keyframes heroB4 { 0%, 62.4% { opacity: 0; } 64.3%, 92% { opacity: 1; } 100% { opacity: 0; } }
-      .hero--run .hero__scrim {
-        background:
-          radial-gradient(ellipse 62% 50% at 50% 46%, rgba(8,10,9,0.62) 0%, rgba(8,10,9,0.18) 100%),
-          linear-gradient(to bottom, rgba(8,10,9,0.30) 0%, rgba(8,10,9,0.05) 40%, rgba(8,10,9,0.05) 60%, rgba(8,10,9,0.55) 100%);
-      }
       .hero__kicker { margin: 0 0 14px; font-size: 0.86rem; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: #F5D9A8;
         text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
-      /* Comme l'ancien diaporama et les films de démonstration, le ruban du hero et l'illustration du film
-         restent animés en « animations réduites » (choix assumé : ce sont les démonstrations du produit). */
 
       /* ---- Running : écran de film illustré (2D puis 3D, animé en JS) ---- */
       .runfilm { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -665,48 +668,10 @@
     </header>
 
     <main>
-      <!-- Hero : plan de ville assombri (style « épreuve ») et ruban de course qui se déroule, bornes au passage -->
-      <section class="hero hero--run">
-        <svg class="hero__city" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-          <defs>
-            <pattern id="blocks" width="64" height="64" patternUnits="userSpaceOnUse" patternTransform="rotate(-14)">
-              <rect width="64" height="64" fill="#0F1412" />
-              <rect x="5" y="5" width="54" height="54" rx="4" fill="#1A211D" />
-              <rect x="12" y="12" width="18" height="16" rx="2" fill="#1F2722" />
-              <rect x="36" y="32" width="16" height="20" rx="2" fill="#1F2722" />
-            </pattern>
-            <linearGradient id="hero-rib" gradientUnits="userSpaceOnUse" x1="240" y1="0" x2="1320" y2="0">
-              <stop offset="0%" stop-color="#3E8A5A" /><stop offset="55%" stop-color="#E8823F" /><stop offset="100%" stop-color="#F5E6C8" />
-            </linearGradient>
-          </defs>
-          <rect width="1600" height="900" fill="url(#blocks)" />
-          <!-- grands axes -->
-          <g stroke="#262F2A" stroke-width="10" fill="none" stroke-linecap="round">
-            <path d="M-40,620 L1640,190" /><path d="M120,-40 L420,940" /><path d="M980,-40 L1240,940" /><path d="M-40,300 C400,330 900,360 1640,520" />
-          </g>
-          <!-- parcs -->
-          <g fill="#16271C">
-            <path d="M640,560 C700,520 820,530 840,600 C860,670 760,720 690,690 C630,665 600,600 640,560Z" />
-            <path d="M1260,150 C1330,120 1420,150 1420,220 C1420,280 1330,300 1280,270 C1230,240 1220,180 1260,150Z" />
-            <path d="M180,120 C240,90 320,110 320,170 C320,220 250,240 200,215 C160,195 150,140 180,120Z" />
-          </g>
-          <!-- rivière -->
-          <path d="M-40,820 C200,760 360,820 560,780 C820,728 900,560 1100,520 C1300,480 1420,560 1640,520" fill="none" stroke="#132630" stroke-width="44" stroke-linecap="round" />
-          <!-- tracé complet, discret -->
-          <path id="hero-route" d="M260,690 C360,640 400,560 520,540 C640,520 700,600 820,560 C940,520 940,380 1040,330 C1140,280 1260,300 1320,380 C1380,460 1300,560 1180,600 C1060,640 980,700 860,720 C740,740 620,760 520,730"
-                fill="none" stroke="#FFFFFF" stroke-opacity="0.18" stroke-width="5" stroke-dasharray="2 12" stroke-linecap="round" />
-          <!-- ruban : liseré sombre puis dégradé crème → orange → vert -->
-          <path class="hero__ribbon" pathLength="1" d="M260,690 C360,640 400,560 520,540 C640,520 700,600 820,560 C940,520 940,380 1040,330 C1140,280 1260,300 1320,380 C1380,460 1300,560 1180,600 C1060,640 980,700 860,720 C740,740 620,760 520,730"
-                fill="none" stroke="#000" stroke-opacity="0.55" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
-          <path class="hero__ribbon" pathLength="1" d="M260,690 C360,640 400,560 520,540 C640,520 700,600 820,560 C940,520 940,380 1040,330 C1140,280 1260,300 1320,380 C1380,460 1300,560 1180,600 C1060,640 980,700 860,720 C740,740 620,760 520,730"
-                fill="none" stroke="url(#hero-rib)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" />
-          <circle cx="260" cy="690" r="11" fill="#F5F3EF" stroke="#191817" stroke-width="4" />
-          <!-- bornes, posées en JS aux fractions 0,2 · 0,4 · 0,6 · 0,8 du tracé -->
-          <g class="hero__borne hero__borne--1" data-f="0.2"><rect x="-36" y="-50" width="72" height="28" rx="14" fill="#F5F3EF" /><path d="M0,-22 L0,-6" stroke="#F5F3EF" stroke-width="3" /><circle r="6" fill="#F5F3EF" stroke="#191817" stroke-width="3" /><text y="-31" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="800" fill="#191817" letter-spacing="1">5 KM</text></g>
-          <g class="hero__borne hero__borne--2" data-f="0.4"><rect x="-40" y="-50" width="80" height="28" rx="14" fill="#F5F3EF" /><path d="M0,-22 L0,-6" stroke="#F5F3EF" stroke-width="3" /><circle r="6" fill="#F5F3EF" stroke="#191817" stroke-width="3" /><text y="-31" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="800" fill="#191817" letter-spacing="1">10 KM</text></g>
-          <g class="hero__borne hero__borne--3" data-f="0.6"><rect x="-40" y="-50" width="80" height="28" rx="14" fill="#F5F3EF" /><path d="M0,-22 L0,-6" stroke="#F5F3EF" stroke-width="3" /><circle r="6" fill="#F5F3EF" stroke="#191817" stroke-width="3" /><text y="-31" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="800" fill="#191817" letter-spacing="1">15 KM</text></g>
-          <g class="hero__borne hero__borne--4" data-f="0.8"><rect x="-40" y="-50" width="80" height="28" rx="14" fill="#F5F3EF" /><path d="M0,-22 L0,-6" stroke="#F5F3EF" stroke-width="3" /><circle r="6" fill="#F5F3EF" stroke="#191817" stroke-width="3" /><text y="-31" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="15" font-weight="800" fill="#191817" letter-spacing="1">20 KM</text></g>
-        </svg>
+      <!-- Hero : diaporama photo -->
+      <section class="hero">
+        <img class="hero__ridges is-on is-kb" src="hero/running-1.jpg" alt="" aria-hidden="true" fetchpriority="high" style="object-position: 50% 40%;">
+        <img class="hero__ridges" data-src="hero/running-2.jpg" alt="" aria-hidden="true" style="object-position: 50% 45%;">
         <div class="hero__scrim"></div>
 
         <div class="hero__in">
@@ -1273,17 +1238,6 @@
         window.addEventListener('resize', sync);
       })();
 
-      // Hero : bornes posées sur le tracé à leur fraction (data-f) ; leur apparition est réglée en CSS.
-      (function () {
-        var route = document.getElementById('hero-route');
-        if (!route || !route.getTotalLength) return;
-        var len = route.getTotalLength();
-        document.querySelectorAll('.hero__borne').forEach(function (g) {
-          var p = route.getPointAtLength(parseFloat(g.getAttribute('data-f')) * len);
-          g.setAttribute('transform', 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ')');
-        });
-      })();
-
       /* Illustration du film (semi-marathon fictif de 21,1 km en 1:49'30", deuxième moitié plus rapide) :
          le ruban avance, la caméra suit le coureur, le chrono tourne et chaque borne affiche son temps
          de passage. Une passe en 2D, puis la même en « 3D » (carte basculée en perspective), en boucle. */
@@ -1346,6 +1300,31 @@
           requestAnimationFrame(tick);
         }
         requestAnimationFrame(tick);
+      })();
+      // Diaporama du hero : fondu enchaîné toutes les 3,2 s (coupe franche, sans fondu), zoom + glissement (CSS). Les photos suivantes ne sont
+      // chargées qu'après la première (data-src), et la suivante est préchargée avant son tour.
+      (function () {
+        var slides = document.querySelectorAll('.hero__ridges');
+        if (slides.length < 2) return;
+        function load(img) {
+          if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
+        }
+        var cur = 0, lastRise = false;
+        load(slides[1]);
+        setInterval(function () {
+          if (document.hidden) return;
+          var next = (cur + 1) % slides.length;
+          if (!slides[next].complete || !slides[next].naturalWidth) return; // pas encore chargée : on attend le tour suivant
+          var el = slides[next];
+          el.classList.remove('is-kb');
+          var rise = !lastRise && Math.random() < 0.12; // rare (≈ 1 photo sur 8) et jamais deux fois de suite
+          el.classList.toggle('is-rise', rise); lastRise = rise;
+          void el.offsetWidth; // relance l'animation depuis le début
+          el.classList.add('is-on', 'is-kb');
+          slides[cur].classList.remove('is-on');
+          cur = next;
+          load(slides[(cur + 1) % slides.length]);
+        }, 3200);
       })();
     </script>
   </body>
