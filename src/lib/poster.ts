@@ -216,7 +216,7 @@ function logoColorAt(f: number): string {
   return x <= 0.5 ? mixHex(LOGO_FOREST, LOGO_TERRACOTTA, x / 0.5) : mixHex(LOGO_TERRACOTTA, LOGO_CREAM, (x - 0.5) / 0.5)
 }
 
-interface Theme { fg: string; bg: string; mapBg: string; outline: string; halo: string; accent: string }
+interface Theme { fg: string; bg: string; mapBg: string; outline: string; accent: string }
 
 /** Luminance relative (0 = noir, 1 = blanc) d'une couleur « #RRGGBB ». */
 function luminance(hex: string): number {
@@ -240,7 +240,6 @@ function makeTheme(paper: string, background: PosterBackground): Theme {
     // Fond uni : le papier, à peine assombri ou éclairci pour détacher la carte.
     mapBg: background === 'uni' ? mixHex(paper, light ? '#000000' : '#ffffff', 0.05) : light ? '#E9E3D6' : '#1b221d',
     outline: light ? 'rgba(25,24,23,0.55)' : 'rgba(10,16,12,0.75)',
-    halo: light ? 'rgba(25,24,23,0.55)' : 'rgba(245,243,239,0.28)',
     accent: light ? '#C15C3D' : '#D97A3D',
   }
 }
@@ -308,10 +307,10 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     m.globalCompositeOperation = 'source-over'
   }
 
-  // Ruban aux couleurs du logo (vert forêt au départ → terracotta → crème à l'arrivée), sur un liseré : halo crème
-  // léger sur papier foncé (le vert forêt se perdrait sur la carte assombrie), trait sombre sur papier clair.
+  // Ruban : exactement les couleurs du logo (vert forêt au départ → terracotta → crème à l'arrivée), sans retouche,
+  // posé sur un liseré sombre comme le sillon du logo sur son fond noir.
   m.lineJoin = 'round'; m.lineCap = 'round'
-  m.strokeStyle = theme.halo; m.lineWidth = 10 * k
+  m.strokeStyle = theme.outline; m.lineWidth = 10 * k
   m.beginPath()
   points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p))))
   m.stroke()
@@ -336,15 +335,16 @@ async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, bg: Post
     m.fillStyle = fg(1); m.font = `800 ${11 * k}px ${SANS}`
     m.fillText(String(b.km), bx, by + 0.5 * k)
   }
-  // Pastilles du logo : départ crème, arrivée vert forêt cerclée de crème.
-  const flag = (p: GpxPoint, label: string, fill: string, ring: string, dy: number) => {
+  // Pastilles du logo : départ crème plein, arrivée vert forêt cerclée de crème.
+  const flag = (p: GpxPoint, label: string, fill: string, ring: string | null, dy: number) => {
     m.beginPath(); m.arc(px(p), py(p), 7 * k, 0, Math.PI * 2)
-    m.fillStyle = fill; m.fill(); m.lineWidth = 2.5 * k; m.strokeStyle = ring; m.stroke()
+    m.fillStyle = fill; m.fill()
+    if (ring) { m.lineWidth = 2.5 * k; m.strokeStyle = ring; m.stroke() }
     m.textAlign = 'left'; m.font = `700 ${10 * k}px ${SANS}`; setSpacing(m, 1.5 * k)
     m.fillStyle = fg(1); m.fillText(label, px(p) + 11 * k, py(p) + dy * k)
     setSpacing(m, 0)
   }
-  flag(points[0], 'DÉPART', LOGO_CREAM, LOGO_FOREST, 12)
+  flag(points[0], 'DÉPART', LOGO_CREAM, null, 12)
   flag(points[points.length - 1], 'ARRIVÉE', LOGO_FOREST, LOGO_CREAM, -10)
 
   m.textAlign = 'right'; m.textBaseline = 'alphabetic'
