@@ -30,7 +30,7 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, computeRavitos, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
+  computeBornes, computeRavitos, isRawGpxName, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ANIM_ZOOM, animSpeed } from './hooks/useAnimationSettings'
@@ -112,8 +112,9 @@ export default function App() {
   // Titre et localité tirés du nom du GPX (« Parcours Semi-marathon Lille 2026-24554019 »), modifiables dans le widget.
   const gpxEvent = useMemo(() => parseEventName(activeTrack?.name, startName), [activeTrack?.name, startName])
   const bannerDefaults = useMemo<BannerText>(() => ({
-    // Titre resté au nom brut du GPX (recopié au chargement) : remplacé par le titre qui en est tiré.
-    title: (customTitle && customTitle !== activeTrack?.name ? customTitle : gpxEvent.title) || activeTrack?.name || '',
+    // Titre resté au nom brut du GPX (recopié au chargement, ou enregistré tel quel dans Mes sillons avant) : remplacé
+    // par le titre qui en est tiré.
+    title: (customTitle && !isRawGpxName(customTitle, activeTrack?.name) ? customTitle : gpxEvent.title) || activeTrack?.name || '',
     place: race.eventPlace ?? gpxEvent.place ?? startName,
     date: formatBannerDate(manualDate),
     distance: activeTrack ? formatBannerDistance(activeTrack.distance) : undefined,
@@ -424,7 +425,8 @@ export default function App() {
         bibNumber: race.bibNumber?.trim() || undefined,
         ravitos: race.ravitos?.trim() || undefined,
         streets: race.streets?.length ? race.streets : undefined,
-        name: customTitle.trim() || undefined,
+        // Nom dans Mes sillons : le titre du film (« Mon semi-marathon à Lille »), pas le nom brut du GPX.
+        name: bannerDefaults.title.trim() || undefined,
         date: manualDate || undefined,
         departureTime: departureTime || undefined,
         arrivalTime: arrivalTime || undefined,

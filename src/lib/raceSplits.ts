@@ -61,6 +61,13 @@ export function parseEventName(name: string | undefined, placeHint?: string): { 
   return { title: t ? t.charAt(0).toUpperCase() + t.slice(1) : undefined, place }
 }
 
+/** Nom brut d'un GPX (« Parcours Semi-marathon Lille 2026-24554019 ») et non un titre choisi : identique au nom
+ * inscrit dans le GPX, ou commençant par « Parcours / Tracé / Itinéraire », ou finissant par un long numéro. */
+export function isRawGpxName(title: string, gpxName: string | undefined): boolean {
+  const t = title.trim()
+  return t === gpxName?.trim() || /^(parcours|trac[ée]|trace|itin[ée]raire)\s/i.test(t) || /[\s_-]\d{5,}$/.test(t)
+}
+
 /** Type de course nommé dans un titre : « semi-marathon », « marathon », « 10 km » ; undefined sinon. */
 function raceType(t: string): string | undefined {
   if (/\bsemi[\s-]?marathon\b|\bsemi\b/i.test(t)) return 'semi-marathon'
