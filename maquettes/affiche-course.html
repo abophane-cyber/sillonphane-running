@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>Maquette — affiche de course</title>
+<!--
+  Maquette (non publiée) de l'« affiche de course », qui remplace l'album pour Running.
+  À ouvrir avec le serveur de dev : http://localhost:5220/running/maquettes/affiche-course.html
+  Trace : public/demo/_essai-semi-lille.gpx (ou ?gpx=chemin/vers/fichier.gpx).
+  Le GPX d'essai a des heures de planification (5'00"/km constant) : le chrono et les temps de
+  passage affichés ici sont un EXEMPLE ; dans l'appli ils viendront d'un GPX enregistré en course.
+-->
+<style>
+  @font-face { font-family: 'Playfair Display'; font-weight: 400 900; src: url(../fonts/playfair-display-latin.woff2) format('woff2'); }
+  @font-face { font-family: 'Playfair Display'; font-style: italic; font-weight: 400; src: url(../fonts/playfair-display-italic-latin.woff2) format('woff2'); }
+  @font-face { font-family: 'Plus Jakarta Sans'; font-weight: 400 800; src: url(../fonts/plus-jakarta-sans-latin.woff2) format('woff2'); }
+
+  :root {
+    --terracotta: #C15C3D; --terracotta-light: #F8ECE7;
+    --forest: #2F4839; --forest-light: #EDF2EE;
+    --ink: #191817; --ink-soft: rgba(43,41,39,.8); --ink-faint: rgba(43,41,39,.55); --line: rgba(43,41,39,.12);
+    --page: #F6F3EE; --card: #fff;
+    --cream: #F4EDE0; --orange: #D97A3D; --green: #2F5C45;
+    --night: #121714;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+  h1, h2, h3 { font-family: 'Playfair Display', Georgia, serif; font-weight: 600; margin: 0; }
+
+  .screen { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 32px; max-width: 1180px; margin: 0 auto; padding: 28px 16px 60px; align-items: start; }
+  @media (max-width: 900px) { .screen { grid-template-columns: 1fr; } }
+  .screen__head { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .screen__head h1 { font-size: 1.7rem; }
+  .tag { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--terracotta); background: var(--terracotta-light); padding: 4px 9px; border-radius: 999px; }
+
+  /* ---- Affiche : dessinée à 720 × 960 (3:4, 30 × 40 cm), mise à l'échelle de la colonne ---- */
+  .poster-wrap { position: relative; width: 100%; }
+  .poster { position: absolute; top: 0; left: 0; width: 720px; height: 960px; transform-origin: 0 0;
+    background: var(--night); color: var(--cream); overflow: hidden; box-shadow: 0 18px 50px rgba(0,0,0,.28); border-radius: 3px;
+    display: flex; flex-direction: column; padding: 34px 34px 22px; }
+  .p-head { text-align: left; }
+  .p-kicker { font-size: 11px; font-weight: 700; letter-spacing: .32em; text-transform: uppercase; color: var(--orange); }
+  .p-title { font-family: 'Playfair Display', serif; font-size: 46px; font-weight: 700; line-height: 1.05; margin: 8px 0 6px; color: var(--cream); }
+  .p-sub { font-size: 15px; letter-spacing: .04em; color: rgba(244,237,224,.75); }
+
+  .p-mid { display: flex; gap: 12px; margin: 20px 0 0; height: 430px; }
+  .p-map { position: relative; flex: 1; border-radius: 6px; overflow: hidden; background: #1b221d; }
+  .p-map .tiles { position: absolute; top: 0; left: 0; transform-origin: 0 0; filter: brightness(.42) saturate(.55) contrast(1.05); }
+  .p-map .tiles img { position: absolute; width: 256px; height: 256px; }
+  .p-map svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .p-map__credit { position: absolute; right: 8px; bottom: 6px; font-size: 9px; color: rgba(244,237,224,.55); }
+  .p-photos { display: none; width: 200px; flex-direction: column; gap: 12px; }
+  .with-photos .p-photos { display: flex; }
+  .p-photo { flex: 1; border-radius: 6px; background-size: cover; background-position: center; position: relative; }
+  .p-photo span { position: absolute; left: 8px; bottom: 7px; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: rgba(255,255,255,.8); background: rgba(0,0,0,.35); padding: 2px 6px; border-radius: 3px; }
+
+  .p-time { display: flex; align-items: flex-end; justify-content: space-between; margin: 22px 0 0; gap: 20px; }
+  .p-chrono__label { font-size: 11px; font-weight: 700; letter-spacing: .28em; text-transform: uppercase; color: rgba(244,237,224,.6); }
+  .p-chrono__value { font-family: 'Playfair Display', serif; font-size: 78px; font-weight: 700; line-height: .95; color: var(--cream); font-variant-numeric: lining-nums tabular-nums; }
+  .p-facts { display: grid; grid-template-columns: auto auto; gap: 6px 16px; font-size: 13px; text-align: right; padding-bottom: 6px; }
+  .p-facts dt { color: rgba(244,237,224,.55); }
+  .p-facts dd { margin: 0; font-weight: 700; color: var(--cream); font-variant-numeric: tabular-nums; }
+
+  .p-splits { display: grid; grid-template-columns: repeat(5, 1fr); margin: 20px 0 0; border-top: 1px solid rgba(244,237,224,.18); border-bottom: 1px solid rgba(244,237,224,.18); }
+  .p-split { padding: 10px 0 9px; text-align: center; border-left: 1px solid rgba(244,237,224,.12); }
+  .p-split:first-child { border-left: 0; }
+  .p-split b { display: block; font-size: 10px; letter-spacing: .2em; text-transform: uppercase; color: var(--orange); }
+  .p-split strong { display: block; font-size: 20px; font-weight: 700; margin: 3px 0 1px; font-variant-numeric: tabular-nums; }
+  .p-split small { font-size: 11px; color: rgba(244,237,224,.6); font-variant-numeric: tabular-nums; }
+  .p-notes { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; color: rgba(244,237,224,.75); margin: 10px 0 0; }
+  .p-notes strong { color: var(--cream); }
+
+  .p-profile { margin: 12px 0 0; height: 74px; }
+  .p-profile svg { width: 100%; height: 100%; display: block; }
+  .p-foot { margin-top: auto; display: flex; justify-content: space-between; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: rgba(244,237,224,.45); }
+  .p-foot b { font-family: 'Playfair Display', serif; letter-spacing: .04em; text-transform: none; font-size: 13px; color: rgba(244,237,224,.7); }
+
+  /* ---- Panneau de l'appli ---- */
+  .panel { display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .card h2 { font-size: 1.12rem; margin-bottom: 4px; }
+  .card p { margin: 6px 0 0; font-size: .86rem; line-height: 1.55; color: var(--ink-soft); }
+  .field { display: grid; gap: 4px; margin-top: 10px; font-size: .78rem; font-weight: 600; color: var(--ink-soft); }
+  .field input { width: 100%; min-width: 0; font: inherit; font-weight: 500; font-size: .92rem; color: var(--ink); padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: .74rem; color: var(--ink-faint); margin-top: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; margin-top: 10px; }
+  .seg button { font: inherit; font-size: .82rem; font-weight: 600; border: 0; background: none; padding: 6px 14px; border-radius: 999px; cursor: pointer; color: var(--ink-soft); }
+  .seg button[aria-pressed="true"] { background: var(--forest); color: #fff; }
+  .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .btn { font: inherit; font-size: .84rem; font-weight: 600; border-radius: 999px; padding: 9px 16px; cursor: pointer; border: 1px solid var(--forest); background: var(--forest); color: #fff; }
+  .btn--ghost { background: #fff; color: var(--forest); }
+  .partner { display: block; border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; margin-top: 10px; text-decoration: none; color: inherit; }
+  .partner:hover { border-color: var(--forest); }
+  .partner strong { font-family: 'Playfair Display', serif; font-size: 1.02rem; }
+  .partner em { font-style: normal; font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--forest); background: var(--forest-light); border-radius: 999px; padding: 2px 8px; margin-left: 6px; }
+  .partner span { display: block; font-size: .8rem; color: var(--ink-soft); margin-top: 3px; }
+  .promo { display: inline-block; margin-top: 7px; font-size: .78rem; font-weight: 700; color: var(--terracotta); background: var(--terracotta-light); border-radius: 6px; padding: 3px 8px; }
+  .suggest { background: var(--forest-light); border-color: rgba(47,72,57,.25); }
+  .suggest__icon { width: 44px; height: 44px; float: right; margin: 0 0 6px 10px; }
+  .suggest ul { margin: 8px 0 0; padding-left: 18px; font-size: .84rem; color: var(--ink-soft); line-height: 1.6; }
+</style>
+</head>
+<body>
+<main class="screen">
+  <header class="screen__head">
+    <h1>Votre affiche de course</h1>
+    <span class="tag">Maquette</span>
+  </header>
+
+  <div class="poster-wrap" id="posterWrap">
+    <article class="poster" id="poster">
+      <div class="p-head">
+        <div class="p-kicker" id="pKicker">Finisher</div>
+        <div class="p-title" id="pTitle"></div>
+        <div class="p-sub" id="pSub"></div>
+      </div>
+      <div class="p-mid">
+        <div class="p-map" id="pMap">
+          <div class="tiles" id="pTiles"></div>
+          <svg id="pTrace"></svg>
+          <div class="p-map__credit">Vues aériennes © IGN</div>
+        </div>
+        <div class="p-photos">
+          <div class="p-photo" style="background-image:url(../hero/running-4.jpg); background-position: 42% 50%"><span>Photo d'exemple</span></div>
+          <div class="p-photo" style="background-image:url(../hero/running-2.jpg)"><span>Photo d'exemple</span></div>
+        </div>
+      </div>
+      <div class="p-time">
+        <div>
+          <div class="p-chrono__label">Temps officiel</div>
+          <div class="p-chrono__value" id="pChrono"></div>
+        </div>
+        <dl class="p-facts" id="pFacts"></dl>
+      </div>
+      <div class="p-splits" id="pSplits"></div>
+      <div class="p-notes" id="pNotes"></div>
+      <div class="p-profile"><svg id="pProfile" viewBox="0 0 652 74" preserveAspectRatio="none"></svg></div>
+      <div class="p-foot"><span id="pDist"></span><b>Sillonphane</b></div>
+    </article>
+  </div>
+
+  <aside class="panel">
+    <section class="card">
+      <h2>Vos informations</h2>
+      <p>Saisies par vous, jamais récupérées automatiquement.</p>
+      <label class="field">Titre<input id="inTitle" value="Mon semi-marathon à Lille" /></label>
+      <label class="field">Distance · date · ville<input id="inSub" value="21,1 km · 25 octobre 2026 · Lille" /></label>
+      <div class="row">
+        <label class="field">Temps officiel<input id="inChrono" value="1:43:10" /></label>
+        <label class="field">Dossard<input id="inBib" value="4127" /></label>
+      </div>
+      <label class="field">Classement<input id="inRank" value="1 284e sur 9 512" /></label>
+      <p class="hint">Exemple : le GPX d'essai vient d'un tracé de planification (5'00"/km constant) ; les temps de passage affichés sont fictifs.</p>
+    </section>
+
+    <section class="card">
+      <h2>Photos</h2>
+      <p>Une affiche peut se passer de photos ; sinon deux suffisent : l'arrivée, la médaille.</p>
+      <div class="seg" role="group" aria-label="Photos">
+        <button type="button" data-photos="0" aria-pressed="true">Aucune</button>
+        <button type="button" data-photos="2" aria-pressed="false">2 photos</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Enregistrer</h2>
+      <p>Affiche en haute définition pour l'impression, ou image pour les réseaux.</p>
+      <div class="btns">
+        <button class="btn" type="button">Affiche 30 × 40 cm</button>
+        <button class="btn btn--ghost" type="button">Image carrée</button>
+        <button class="btn btn--ghost" type="button">Story</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Faire imprimer</h2>
+      <p>Proposé juste après l'enregistrement, avec le code de réduction du mois.</p>
+      <a class="partner" href="#" onclick="return false">
+        <strong>WhiteWall</strong><em>finition galerie</em>
+        <span>Tirage photo, sous verre acrylique ou sur aluminium, prêt à accrocher.</span>
+        <span class="promo">Code de réduction · après l'enregistrement</span>
+      </a>
+      <a class="partner" href="#" onclick="return false">
+        <strong>Flexilivre</strong><em>prix serré</em>
+        <span>Tirage poster sur papier photo, à encadrer.</span>
+        <span class="promo">Code de réduction · après l'enregistrement</span>
+      </a>
+    </section>
+
+    <section class="card suggest">
+      <svg class="suggest__icon" viewBox="0 0 44 44" aria-hidden="true">
+        <rect x="6" y="9" width="32" height="26" rx="3" fill="#fff" stroke="#2F4839" stroke-width="2"/>
+        <circle cx="11" cy="14" r="1.6" fill="#2F4839"/><circle cx="33" cy="14" r="1.6" fill="#2F4839"/>
+        <text x="22" y="28" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="11" fill="#C15C3D">21,1</text>
+      </svg>
+      <h2>Mes dossards</h2>
+      <p>Cette affiche rejoint vos dossards. Au fil des courses, réunissez-les en un livre :</p>
+      <ul>
+        <li>une page par course : affiche, temps de passage, photos ;</li>
+        <li>vos records sur 5 km, 10 km, semi et marathon ;</li>
+        <li>votre progression, saison après saison.</li>
+      </ul>
+      <p class="hint">Bientôt — à imprimer chez nos partenaires.</p>
+    </section>
+  </aside>
+</main>
+
+<script>
+(async function () {
+  // ---------- Trace ----------
+  const gpxUrl = new URLSearchParams(location.search).get('gpx') || '../demo/_essai-semi-lille.gpx'
+  const xml = new DOMParser().parseFromString(await (await fetch(gpxUrl)).text(), 'application/xml')
+  const pts = [...xml.getElementsByTagName('trkpt')].map(n => ({
+    lat: +n.getAttribute('lat'), lon: +n.getAttribute('lon'),
+    ele: +(n.getElementsByTagName('ele')[0]?.textContent || 0),
+  }))
+  const rad = Math.PI / 180
+  pts[0].d = 0
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i]
+    const h = Math.sin((b.lat - a.lat) * rad / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin((b.lon - a.lon) * rad / 2) ** 2
+    b.d = a.d + 2 * 6371000 * Math.asin(Math.sqrt(h))
+  }
+  const total = pts.at(-1).d
+  const at = m => { // point au mètre m de la trace
+    const i = Math.max(1, pts.findIndex(p => p.d >= m))
+    const a = pts[i - 1], b = pts[i], f = (m - a.d) / Math.max(1e-6, b.d - a.d)
+    return { lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f }
+  }
+
+  // ---------- Chrono d'exemple (secondes par km, puis les 97,5 derniers mètres) ----------
+  const KM = [296, 290, 289, 291, 292, 290, 288, 289, 291, 293, 292, 294, 296, 297, 299, 301, 308, 303, 298, 291, 276]
+  const LAST = 26, OFFICIAL_KM = 21.0975
+  const cum = KM.reduce((acc, s) => (acc.push((acc.at(-1) || 0) + s), acc), [])
+  const finish = cum.at(-1) + LAST
+  const mmss = s => `${Math.floor(s / 60)}'${String(Math.round(s % 60)).padStart(2, '0')}"`
+  const hms = s => { s = Math.round(s); const h = Math.floor(s / 3600); return h ? `${h} h ${String(Math.floor(s % 3600 / 60)).padStart(2, '0')}'${String(s % 60).padStart(2, '0')}"` : mmss(s) }
+  const halfAt = cum[9] + KM[10] * 0.54875 // 10,549 km
+  const best = KM.indexOf(Math.min(...KM)), worst = KM.indexOf(Math.max(...KM))
+
+  document.getElementById('pSplits').innerHTML = [5, 10, 15, 20].map((k, i) => {
+    const seg = cum[k - 1] - (i ? cum[k - 6] : 0)
+    return `<div class="p-split"><b>${k} km</b><strong>${hms(cum[k - 1])}</strong><small>${mmss(seg / 5)}/km</small></div>`
+  }).join('') + `<div class="p-split"><b>Arrivée</b><strong>${hms(finish)}</strong><small>${mmss((finish - cum[19]) / (OFFICIAL_KM - 20))}/km</small></div>`
+  const h1 = halfAt, h2 = finish - halfAt
+  document.getElementById('pNotes').innerHTML =
+    `<span>Meilleur km : <strong>${best + 1}e · ${mmss(KM[best])}</strong></span>` +
+    `<span>Moins bon : <strong>${worst + 1}e · ${mmss(KM[worst])}</strong></span>` +
+    `<span>Moitiés : <strong>${mmss(h1)} / ${mmss(h2)}</strong>${h2 < h1 ? ' ↘' : ''}</span>`
+  document.getElementById('pDist').textContent = `Trace GPX · ${(total / 1000).toFixed(2).replace('.', ',')} km mesurés`
+
+  // ---------- Textes saisis ----------
+  const bind = () => {
+    const v = id => document.getElementById(id).value
+    document.getElementById('pTitle').textContent = v('inTitle')
+    document.getElementById('pSub').textContent = v('inSub')
+    const parts = v('inChrono').split(':').map(Number)
+    const sec = parts.reduce((a, n) => a * 60 + n, 0)
+    document.getElementById('pChrono').textContent = parts.length === 3 ? `${parts[0]} h ${String(parts[1]).padStart(2, '0')}'${String(parts[2]).padStart(2, '0')}"` : v('inChrono')
+    document.getElementById('pFacts').innerHTML =
+      `<dt>Dossard</dt><dd>${v('inBib')}</dd>` +
+      `<dt>Classement</dt><dd>${v('inRank')}</dd>` +
+      `<dt>Allure moyenne</dt><dd>${mmss((sec || finish) / OFFICIAL_KM)}/km</dd>`
+  }
+  document.querySelectorAll('.panel input').forEach(i => i.addEventListener('input', bind))
+  bind()
+
+  // ---------- Carte : vues aériennes IGN assombries + ruban ----------
+  const MAXZ = 17
+  const wx = (lon, z) => (lon + 180) / 360 * 256 * 2 ** z
+  const wy = (lat, z) => { const s = Math.sin(lat * rad); return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * 2 ** z }
+  const ribbon = f => { // dégradé d'origine, vert au départ → orange → crème à l'arrivée (src/lib/ribbon.ts)
+    const G = [0x2f, 0x5c, 0x45], O = [0xd9, 0x7a, 0x3d], C = [0xf4, 0xed, 0xe0]
+    const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t))
+    const c = f <= 0.5 ? mix(G, O, f / 0.5) : mix(O, C, (f - 0.5) / 0.5)
+    return `rgb(${c})`
+  }
+  function drawMap () {
+    const box = document.getElementById('pMap'), W = box.offsetWidth, H = box.offsetHeight, PAD = 34
+    const lats = pts.map(p => p.lat), lons = pts.map(p => p.lon)
+    const x0 = wx(Math.min(...lons), 0), x1 = wx(Math.max(...lons), 0), y0 = wy(Math.max(...lats), 0), y1 = wy(Math.min(...lats), 0)
+    const zf = Math.min(MAXZ, Math.log2(Math.min((W - 2 * PAD) / (x1 - x0), (H - 2 * PAD) / (y1 - y0))))
+    const zt = Math.min(MAXZ, Math.ceil(zf)), k = 2 ** (zf - zt)
+    const cx = (x0 + x1) / 2 * 2 ** zf, cy = (y0 + y1) / 2 * 2 ** zf
+    const px = p => wx(p.lon, zf) - cx + W / 2, py = p => wy(p.lat, zf) - cy + H / 2
+
+    // tuiles au niveau zt, ramenées à l'échelle zf
+    const tiles = document.getElementById('pTiles'); tiles.innerHTML = ''
+    const ox = cx / k - W / 2 / k, oy = cy / k - H / 2 / k // coin haut-gauche en px monde zt
+    tiles.style.transform = `scale(${k})`
+    for (let tx = Math.floor(ox / 256); tx <= Math.floor((ox + W / k) / 256); tx++)
+      for (let ty = Math.floor(oy / 256); ty <= Math.floor((oy + H / k) / 256); ty++) {
+        const img = new Image()
+        img.onerror = () => { if (!img.dataset.retry) { img.dataset.retry = '1'; setTimeout(() => { img.src = img.src + '&r=1' }, 400) } }
+        img.src = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX=${zt}&TILEROW=${ty}&TILECOL=${tx}`
+        img.style.left = (tx * 256 - ox) + 'px'; img.style.top = (ty * 256 - oy) + 'px'
+        tiles.appendChild(img)
+      }
+
+    // ruban : liseré sombre, puis segments colorés selon la part du parcours
+    const svg = document.getElementById('pTrace')
+    svg.setAttribute('viewBox', `0 0 ${W} ${H}`)
+    const all = pts.map(p => `${px(p).toFixed(1)},${py(p).toFixed(1)}`).join(' ')
+    let s = `<polyline points="${all}" fill="none" stroke="rgba(10,16,12,.75)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>`
+    const STEP = 6
+    for (let i = 0; i < pts.length - 1; i += STEP) {
+      const seg = pts.slice(i, Math.min(pts.length, i + STEP + 1)).map(p => `${px(p).toFixed(1)},${py(p).toFixed(1)}`).join(' ')
+      s += `<polyline points="${seg}" fill="none" stroke="${ribbon(pts[i].d / total)}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>`
+    }
+    // bornes tous les 5 km
+    for (let km = 5; km * 1000 < total; km += 5) {
+      const q = at(km * 1000), x = px(q), y = py(q)
+      s += `<g><circle cx="${x}" cy="${y}" r="12" fill="#121714" stroke="${ribbon(km * 1000 / total)}" stroke-width="2"/>` +
+           `<text x="${x}" y="${y + 4}" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="11" fill="#F4EDE0">${km}</text></g>`
+    }
+    // départ et arrivée
+    const a = pts[0], b = pts.at(-1)
+    const flag = (p, label, color, dy) =>
+      `<g><circle cx="${px(p)}" cy="${py(p)}" r="6" fill="${color}" stroke="#121714" stroke-width="2"/>` +
+      `<text x="${px(p) + 10}" y="${py(p) + dy}" font-family="Plus Jakarta Sans, sans-serif" font-weight="700" font-size="10" letter-spacing="1.5" fill="#F4EDE0">${label}</text></g>`
+    s += flag(a, 'DÉPART', ribbon(0), 14) + flag(b, 'ARRIVÉE', ribbon(1), -8)
+    svg.innerHTML = s
+  }
+
+  // ---------- Profil d'altitude ----------
+  ;(function drawProfile () {
+    const W = 652, H = 74, top = 6, bottom = 60
+    const sm = pts.map((p, i) => { const w = pts.slice(Math.max(0, i - 4), i + 5); return w.reduce((a, q) => a + q.ele, 0) / w.length })
+    const lo = Math.min(...sm) - 3, hi = Math.max(...sm) + 3
+    const X = d => d / total * W, Y = e => bottom - (e - lo) / (hi - lo) * (bottom - top)
+    const line = pts.map((p, i) => `${X(p.d).toFixed(1)},${Y(sm[i]).toFixed(1)}`).join(' ')
+    let s = `<defs><linearGradient id="pg" x1="0" x2="1"><stop offset="0" stop-color="${ribbon(0)}"/><stop offset=".5" stop-color="${ribbon(.5)}"/><stop offset="1" stop-color="${ribbon(1)}"/></linearGradient></defs>`
+    s += `<polygon points="0,${bottom} ${line} ${W},${bottom}" fill="url(#pg)" opacity=".28"/>`
+    s += `<polyline points="${line}" fill="none" stroke="url(#pg)" stroke-width="2"/>`
+    for (let km = 0; km * 1000 <= total; km += 5) {
+      const x = Math.min(W - 1, X(km * 1000))
+      s += `<line x1="${x}" x2="${x}" y1="${bottom}" y2="${bottom + 4}" stroke="rgba(244,237,224,.45)"/>` +
+           `<text x="${x}" y="${H - 2}" text-anchor="${km ? 'middle' : 'start'}" font-family="Plus Jakarta Sans, sans-serif" font-size="9" fill="rgba(244,237,224,.55)">${km} km</text>`
+    }
+    s += `<text x="${W}" y="${top + 8}" text-anchor="end" font-family="Plus Jakarta Sans, sans-serif" font-size="9" fill="rgba(244,237,224,.55)">${Math.round(Math.min(...sm))} – ${Math.round(Math.max(...sm))} m</text>`
+    document.getElementById('pProfile').innerHTML = s
+  })()
+
+  // ---------- Photos ----------
+  const poster = document.getElementById('poster')
+  document.querySelectorAll('[data-photos]').forEach(btn => btn.addEventListener('click', () => {
+    document.querySelectorAll('[data-photos]').forEach(b => b.setAttribute('aria-pressed', String(b === btn)))
+    poster.classList.toggle('with-photos', btn.dataset.photos !== '0')
+    drawMap()
+  }))
+
+  // ---------- Mise à l'échelle de l'affiche ----------
+  const wrap = document.getElementById('posterWrap')
+  const fit = () => { const s = Math.min(1, wrap.offsetWidth / 720); poster.style.transform = `scale(${s})`; wrap.style.height = 960 * s + 'px' }
+  new ResizeObserver(fit).observe(wrap)
+  fit(); drawMap()
+})()
+</script>
+</body>
+</html>

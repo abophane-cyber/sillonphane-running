@@ -37,8 +37,17 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
 - **Film** : chrono qui tourne, bornes « 10 KM · 52'31" », carton final (temps officiel, dossard, classement saisis
   par l'utilisateur, jamais récupérés automatiquement).
 - **Fiche épreuve** : nom, date, heure de départ, points de contrôle, ravitaillements (saisie ou import du roadbook).
-- **Album** : page récapitulative (temps de passage, profil, photos de l'utilisateur).
+- **Affiche de course** (remplace l'album : pas de livre pour une seule course) : une page par course, titre
+  personnel, distance · date · ville, tracé du ruban sur vues aériennes IGN assombries, bornes, temps officiel,
+  dossard, classement, temps de passage tous les 5 km, meilleur et moins bon km, deux moitiés, profil ; photos
+  facultatives (0 ou 2 : arrivée, médaille). Formats : affiche 30 × 40 cm (impression), image carrée, story.
+  Maquette : `maquettes/affiche-course.html` (non publiée).
+- **Impression de l'affiche** : WhiteWall (tirage, acrylique, aluminium) et Flexilivre (poster), avec code de
+  réduction affiché seulement après l'enregistrement (comme pour Rando, `src/lib/printPartners.ts`).
 
 ### Plus tard
+- **Mes dossards** (nom provisoire, à la place de « carnet de courses ») : livre réunissant les affiches d'une
+  ou plusieurs saisons, avec les records (5 km, 10 km, semi, marathon) et la progression ; annoncé aux
+  utilisateurs sur l'écran de l'affiche.
 - Comparaison avec un autre coureur ou l'édition précédente (deuxième ruban).
 - Offre organisateurs : film officiel du parcours aux couleurs de l'épreuve (logo et sponsors fournis par eux).
