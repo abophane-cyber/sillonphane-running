@@ -2411,6 +2411,8 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   color: #7a3e00; background: #fff4e0; border: 1px solid #f0b55a; border-left: 4px solid #e08a00; border-radius: 6px;
 }
 .pwiz-mark-warn a { color: #a14a00; font-weight: 700; }
+.pwiz-mark-warn--strong { color: #8a1c00; background: #ffe9e2; border-color: #f2a08a; border-left-color: #d63a10; }
+.pwiz-mark-warn--strong a { color: #a3260a; }
 .pwiz-race-total { margin: 2px 0 0; font-size: 13px; font-weight: 600; }
 .pwiz-section-label {
   font-size: 13px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;

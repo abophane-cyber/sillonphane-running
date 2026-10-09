@@ -253,10 +253,19 @@ export function PanelWizard({
             onChange={e => onFilmTitleChange(e.target.value)}
           />
           {/* Noms d'épreuves : souvent des marques (cf. conditions d'utilisation, public/legal.html#conditions). */}
-          <span className="pwiz-race-hint pwiz-mark-warn">⚠️ 
-            Film personnel. Le nom officiel d'une épreuve est une marque de son organisateur : voir
-            les <a href={`${import.meta.env.BASE_URL}legal.html#conditions`} target="_blank" rel="noopener">conditions d'utilisation</a>.
-          </span>
+          {/^(mon|ma|mes)\s/i.test(bannerDefaults.title.trim()) ? (
+            <span className="pwiz-race-hint pwiz-mark-warn">⚠️
+              Film personnel. Le nom officiel d'une épreuve est une marque de son organisateur : voir
+              les <a href={`${import.meta.env.BASE_URL}legal.html#conditions`} target="_blank" rel="noopener">conditions d'utilisation</a>.
+            </span>
+          ) : (
+            // Titre modifié, plus personnel (« Semi-marathon de Lille ») : avertissement renforcé.
+            <span className="pwiz-race-hint pwiz-mark-warn pwiz-mark-warn--strong">⚠️
+              Ce titre n'est plus un titre personnel (« Mon … »). Si c'est le nom officiel d'une épreuve, c'est une marque
+              de son organisateur : sans son accord, le film est réservé à un usage personnel, non commercial. Voir
+              les <a href={`${import.meta.env.BASE_URL}legal.html#conditions`} target="_blank" rel="noopener">conditions d'utilisation</a>.
+            </span>
+          )}
           {/* Localité de l'épreuve : cartouche du film (« LILLE » au-dessus du titre). */}
           <label className="pwiz-field-label" htmlFor="pwiz-event-place">Localité de l'épreuve</label>
           <input
