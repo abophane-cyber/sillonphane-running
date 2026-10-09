@@ -1485,8 +1485,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   /** Marche : cap filtré (visée loin devant, lissage, cf. hiker3dSprite.setDirection) et second du duo en file,
    * à une vraie distance à l'écran même dans les lacets. */
   function steerHikers3d(project: ProjectFn, coveredM: number, here: { x: number; y: number }, lat: number) {
-    // Zoom réellement affiché pendant la marche : celui de la mosaïque (arrondi au niveau entier) s'il y en a une.
-    const mpp = metersPerPixel(lat, mapMosaic ? mapMosaic.zoom : zoom)
+    const mpp = metersPerPixel(lat, zoom)
     // Anti-patinage : vitesse d'avancement à cet endroit (ralentie dans les virages), convertie en hauteurs de corps
     // par seconde à l'écran -> cadence des pas (cf. hiker3dSprite.setGroundSpeed).
     const bodyPx = Math.max(1, hikers[0].layout().body * FILM_SCALE)
@@ -1794,7 +1793,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // une position avant d'avoir mis à jour camLng/camLat (contrairement à MapLibre).
     if (!mapMosaic) exportMap.jumpTo({ center: [camLng, camLat], zoom })
     const px = mapMosaic
-      ? projectToScreen(lng, lat, camLng, camLat, mapMosaic.zoom, OUT_W, OUT_H)
+      ? projectToScreen(lng, lat, camLng, camLat, zoom, OUT_W, OUT_H)
       : exportMap.project([lng, lat])
     const lagPx = Math.hypot(px.x - OUT_W / 2, px.y - OUT_H / 2)
     // Proximité continue à la zone du cartel d'altitude (1 = dedans, 0 = à AVOID_PAD ou plus,
@@ -1821,12 +1820,15 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // 1. Fond de carte : recadrage pur de la mosaïque pré-composée (aucun rendu GPU par image,
     // voir filmMapMosaic.ts), ou repli sur le rendu MapLibre habituel si elle est indisponible.
     const project: ProjectFn = mapMosaic
-      ? (lon, lat) => projectToScreen(lon, lat, camLng, camLat, mapMosaic.zoom, OUT_W, OUT_H)
+      ? (lon, lat) => projectToScreen(lon, lat, camLng, camLat, zoom, OUT_W, OUT_H)
       : (lon, lat) => exportMap.project([lon, lat])
     ctx.clearRect(0, 0, OUT_W, OUT_H)
     if (mapMosaic) {
-      const origin = mosaicCropOrigin(mapMosaic, camLng, camLat, OUT_W, OUT_H)
-      try { ctx.drawImage(mapMosaic.canvas, origin.x, origin.y, OUT_W, OUT_H, 0, 0, OUT_W, OUT_H) }
+      // Mosaïque au niveau entier le plus proche, mise à l'échelle du zoom exact du film (sinon saut d'échelle entre la
+      // page de départ, rendue par MapLibre au zoom exact, et la course).
+      const ms = Math.pow(2, mapMosaic.zoom - zoom), cw = OUT_W * ms, chh = OUT_H * ms
+      const origin = mosaicCropOrigin(mapMosaic, camLng, camLat, cw, chh)
+      try { ctx.drawImage(mapMosaic.canvas, origin.x, origin.y, cw, chh, 0, 0, OUT_W, OUT_H) }
       catch { ctx.fillStyle = BASEMAP_BACKGROUND; ctx.fillRect(0, 0, OUT_W, OUT_H) }
     } else {
       // Appliquer la position finale de la caméra, attendre que ses tuiles soient chargées (pas
@@ -1840,7 +1842,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
     // 2. Tracé GPX (projeté de manière synchrone) : le ruban s'arrête juste derrière la coureuse (RIBBON_LAG_PX).
     const lagM = hikers3d && progress < 1
-      ? RIBBON_LAG_PX * FILM_SCALE * metersPerPixel(points[0].lat, mapMosaic ? mapMosaic.zoom : zoom) : 0
+      ? RIBBON_LAG_PX * FILM_SCALE * metersPerPixel(points[0].lat, zoom) : 0
     drawStreetLabels(project, progress * totalDistance) // noms de rue sous le ruban
     drawTrack(ctx, project, visualPoints, distances, totalDistance, Math.max(0, progress - lagM / totalDistance))
     drawBornes(project, 1, 1, progress * totalDistance) // bornes approchées, au sol sous les panneaux
