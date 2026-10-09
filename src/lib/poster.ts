@@ -220,10 +220,10 @@ function logoColorAt(f: number): string {
   return x <= 0.5 ? mixHex(LOGO_FOREST, LOGO_TERRACOTTA, x / 0.5) : mixHex(LOGO_TERRACOTTA, LOGO_CREAM, (x - 0.5) / 0.5)
 }
 
-/** Ruban « éclatant » (1re photo de référence) : couleurs vives le long du parcours — vert bref au départ, jaune,
- * longue partie orange, crème vers l'arrivée. Positions = part de la distance parcourue. */
+/** Ruban « éclatant » (1re photo de référence) : couleurs vives le long du parcours, vert, orange et crème à parts
+ * égales (un tiers chacune), le jaune au milieu du fondu vert → orange. Positions = part de la distance parcourue. */
 const BRIGHT_STOPS: [number, string][] = [
-  [0, '#3DB54A'], [0.06, '#3DB54A'], [0.14, '#E8C531'], [0.22, '#F07D1A'], [0.5, '#F07D1A'], [0.8, '#F7EBD3'], [1, '#F7EBD3'],
+  [0, '#3DB54A'], [0.28, '#3DB54A'], [0.33, '#E8C531'], [0.38, '#F07D1A'], [0.62, '#F07D1A'], [0.72, '#F7EBD3'], [1, '#F7EBD3'],
 ]
 /** Ruban « vert · orange · crème » (2e photo de référence) : les trois couleurs définies pour le ruban, vives, à parts
  * égales — un tiers du parcours chacune, avec un fondu court centré sur chaque limite (1/3 et 2/3). */
