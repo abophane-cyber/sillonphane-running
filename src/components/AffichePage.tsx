@@ -344,6 +344,11 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
           style={{ aspectRatio: `${POSTER_W} / ${posterHeight(settings)}` }}
           aria-label="Aperçu de l'affiche"
         />
+        <p className="aff-preview-note">
+          {format.print
+            ? <>Aperçu du tirage {format.label} : sans logo ni filigrane. Ils figurent sur le format <button type="button" onClick={() => set({ format: 'carre' })}>Carré</button>, pour les réseaux.</>
+            : 'Image pour les réseaux : logo Sillonphane et adresse du site en bas de l\'affiche.'}
+        </p>
       </div>
 
       <aside className="affiche__panel affiche__panel--right">
