@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /app.html
 
-Sitemap: https://sillonphane.fr/rando/sitemap.xml
+Sitemap: https://sillonphane.fr/running/sitemap.xml
