@@ -156,7 +156,14 @@ function waitForMapIdle(map: maplibregl.Map, signal?: AbortSignal): Promise<void
       clearTimeout(pollTimer); clearTimeout(renderTimer)
       map.off('render', onRender)
     }
-    const finish = () => { if (done) return; done = true; cleanup(); resolve() }
+    const finish = () => {
+      if (done) return
+      done = true; cleanup()
+      // Rendu synchrone au cadrage courant juste avant la capture : si l'onglet est ralenti (en arrière-plan), le
+      // dernier « render » pouvait dater du cadrage précédent -> vue décalée (ouverture dédoublée, secousses de zoom).
+      try { map.redraw() } catch { /* carte retirée */ }
+      resolve()
+    }
     const poll = () => {
       if (done) return
       ticks++
