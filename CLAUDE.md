@@ -26,10 +26,12 @@ marque ses sauvegardes (`app: 'running'` dans le manifeste) : une sauvegarde d'u
 .json de Rando, est refusée avec un message. Tout est centralisé dans `src/lib/appIdentity.ts`.
 
 Reste à faire :
-- **Rando** (, en ligne) : y ajouter le même contrôle des sauvegardes (refuser celles marquées
-   ≠ , donc celles de Running) et le marquage  ; mise en ligne au prochain push.
-- **Mentions de Rando restées dans l'appli Running** : écran « Comment ça marche » de l'appli (),
-  commentaires (, ), sillon d'exemple et photos filigranées   (, ), gabarit de couverture, , prototype .
+- **Rando** (`../Sillonphane-Rando`, en ligne) : y ajouter le même contrôle des sauvegardes (refuser celles dont
+  `app` ≠ `rando`, donc celles de Running) et le marquage `app: 'rando'` ; mise en ligne au prochain push.
+- **Mentions de Rando restées dans l'appli Running** : écran « Comment ça marche » de l'appli (`HowItWorks.tsx`),
+  commentaires (`AppLogoIcon`, `RibbonIcon`), sillon d'exemple et photos filigranées `sillonphane.fr/rando`
+  (`demoTrip.ts`, `scripts/demo-photos.mjs`), gabarit de couverture (`coverTemplates.ts`), `scripts/record.mjs`,
+  prototype `src/proto/`.
 
 ## Plan
 
