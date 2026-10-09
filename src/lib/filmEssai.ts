@@ -33,12 +33,14 @@ export function isFinFilm(): boolean {
   }
 }
 
-// Film promotionnel (concepteur) : « ?promo » dans l'URL -> pas de mention « Film personnel non officiel » sur la
+// Film promotionnel (concepteur) : « ?promo » dans l'URL -> pas de mention « Pour usage non commercial » sur la
 // barre de fin. Réservé à nos vidéos de promotion, avec le nom d'une épreuve seulement sur accord écrit de son
-// organisateur (cf. CLAUDE.md). Même mémorisation que ?essai ; « ?promo=0 » l'arrête.
+// organisateur (cf. CLAUDE.md). Même mémorisation que ?essai ; « ?promo=0 » l'arrête. Seulement sur l'appli lancée en
+// local (localhost) : en ligne, ?promo est sans effet, la mention reste sur tous les films des utilisateurs.
 const PROMO_KEY = 'sillonphane.promo'
 
 export function isPromoFilm(): boolean {
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(window.location.hostname)) return false
   const v = new URLSearchParams(window.location.search).get('promo')
   try {
     if (v === '0') sessionStorage.removeItem(PROMO_KEY)
