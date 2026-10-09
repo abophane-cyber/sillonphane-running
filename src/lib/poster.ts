@@ -11,12 +11,11 @@ import {
   parseEventName, type Borne, type RaceAnalysis,
 } from './raceSplits'
 import { BASEMAP_TILE_URL, IGN_TILE_URL } from './tileSources'
-import { drawCinematique } from './posterCinematique'
+import { drawOrigine } from './posterOrigine'
 
 /** Unités de dessin : l'affiche est conçue à 720 de large (hauteur selon le format) puis mise à l'échelle. */
 export const POSTER_W = 720
-/** 3 photos au plus : le modèle 4 en utilise trois (en-tête + deux à droite) ; les modèles 1 à 3 les deux premières. */
-export const POSTER_MAX_PHOTOS = 3
+export const POSTER_MAX_PHOTOS = 2
 
 export const POSTER_FORMATS: { id: PosterFormat; label: string; sub: string; ratio: number; exportW: number; print: boolean }[] = [
   { id: 'a3', label: 'A3', sub: '29,7 × 42 cm', ratio: Math.SQRT2, exportW: 3508, print: true },
@@ -31,19 +30,19 @@ export function posterHeight(s: PosterSettings): number {
   return Math.round(POSTER_W * posterFormat(s).ratio)
 }
 
-/** Modèles dans l'ordre de l'écran : 1 = éditorial (photo qui se dissout dans le papier), 2 = cinématique
- * (lib/posterCinematique.ts), 3 = souvenir (grande photo en noir et blanc). L'ancien modèle « sportif » a été retiré :
- * une affiche enregistrée avec lui passe au modèle 1 (posterStyle). */
+/** Modèles dans l'ordre de l'écran : 1 = éditorial (photo qui se dissout dans le papier), 2 = la première affiche,
+ * sombre (lib/posterOrigine.ts), 3 = souvenir (grande photo en noir et blanc). Les modèles retirés (« sportif »,
+ * « cinématique ») encore enregistrés sur une affiche passent au modèle 1 (posterStyle). */
 export const POSTER_STYLES: { id: PosterStyle; label: string }[] = [
   { id: 'editorial', label: 'Modèle 1' },
-  { id: 'cinematique', label: 'Modèle 2 — Cinématique' },
+  { id: 'origine', label: 'Modèle 2' },
   { id: 'souvenir', label: 'Modèle 3' },
 ]
 /** Réglages par défaut de chaque style (le choix d'un style les rétablit). */
 const STYLE_DEFAULTS: Record<PosterStyle, { fond: PosterFond; background: PosterBackground; ribbon: PosterRibbon }> = {
   editorial: { fond: 'blanc-casse', background: 'plan-nuit', ribbon: 'logo' },
   souvenir: { fond: 'blanc-casse', background: 'plan-nuit', ribbon: '#FFFFFF' },
-  cinematique: { fond: 'creme', background: 'plan-nuit', ribbon: '#F15A35' },
+  origine: { fond: 'nuit', background: 'sat', ribbon: 'logo' },
 }
 
 export const POSTER_FONDS: { id: PosterFond; label: string; color: string; texture?: 'grain' | 'lin' }[] = [
@@ -232,7 +231,7 @@ export function resolvePoster(data: PosterData, s: PosterSettings) {
 export type Resolved = ReturnType<typeof resolvePoster>
 
 /** Temps de passage affichés : 4 au plus, puis l'arrivée (pas de 1, 2, 5 ou 10 km selon la distance). */
-function posterSplits(data: PosterData, finishS: number | undefined, officialKm: number) {
+export function posterSplits(data: PosterData, finishS: number | undefined, officialKm: number) {
   const a = data.analysis
   if (!a) return []
   const cum = (km: number) => a.kmSplitsS.slice(0, km).reduce((s, v) => s + v, 0)
@@ -932,8 +931,8 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
 
   const ok = r.style === 'souvenir'
     ? await drawSouvenir(ctx, data, r, theme, photos, k, isLive, signature)
-    : r.style === 'cinematique'
-      ? await drawCinematique(ctx, data, r, theme, photos, k, isLive, signature)
+    : r.style === 'origine'
+      ? await drawOrigine(ctx, data, r, theme, photos, k, isLive, signature)
     : await drawClassic(ctx, data, r, theme, photos, k, isLive, signature)
   if (!ok || !isLive()) return false
   canvas.width = work.width; canvas.height = work.height
