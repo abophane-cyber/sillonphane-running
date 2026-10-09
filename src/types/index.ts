@@ -241,6 +241,27 @@ export interface VoyageTrack {
   panelRavitos?: string               // kilomètres des ravitaillements, tels que saisis
   panelStreets?: { name: string; startM: number; endM: number }[]  // rues empruntées affichées (cf. routeStreets.ts)
   panelBibNumber?: string              // numéro inscrit sur le dossard du personnage
+  poster?: PosterSettings              // affiche de course (cf. lib/poster.ts)
+}
+
+/** Fond de l'affiche : vues aériennes IGN assombries, Plan IGN de nuit, Plan IGN clair, uni. */
+export type PosterBackground = 'sat' | 'plan-nuit' | 'clair' | 'uni'
+/** Informations de l'affiche que l'utilisateur peut masquer. */
+export type PosterInfo = 'bib' | 'rank' | 'pace' | 'splits' | 'notes' | 'profile'
+
+/** Réglages de l'affiche d'une course, saisis par l'utilisateur (vides = valeurs tirées du tracé). */
+export interface PosterSettings {
+  title?: string
+  /** « 21,1 km · 25 octobre 2026 · Lille ». */
+  subtitle?: string
+  /** Temps officiel « 1:43:10 », saisi (jamais récupéré automatiquement). */
+  chrono?: string
+  bib?: string
+  rank?: string
+  background?: PosterBackground
+  hidden?: PosterInfo[]
+  /** 0 à 2 photos (arrivée, médaille), prises parmi les photos du sillon. */
+  photoIds?: string[]
 }
 
 export type PhotoTone = 'neutre' | 'culturel' | 'amusant' | 'poetique'

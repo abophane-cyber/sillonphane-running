@@ -42,7 +42,9 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
   dossard, classement, temps de passage tous les 5 km, meilleur et moins bon km, deux moitiés, profil ; photos
   facultatives (0 ou 2 : arrivée, médaille). Chaque information se masque (le classement peut ne pas être
   flatteur). Fond au choix : vues aériennes assombries, Plan IGN nuit, Plan IGN clair, uni. Formats : affiche 30 × 40 cm (impression), image carrée, story.
-  Maquette : `maquettes/affiche-course.html` (non publiée).
+  Maquette : `maquettes/affiche-course.html` (non publiée). Dans l'appli : écran `src/components/AffichePage.tsx`
+  (vue « album » de App.tsx), dessin sur canvas `src/lib/poster.ts` (aperçu et export JPEG 3543 × 4724 px), réglages
+  dans `VoyageTrack.poster`. Le code de l'album (AlbumPage…) reste dans le dépôt, sans être affiché.
 - **Impression de l'affiche** : WhiteWall (tirage, acrylique, aluminium) et Flexilivre (poster), avec code de
   réduction affiché seulement après l'enregistrement (comme pour Rando, `src/lib/printPartners.ts`).
 

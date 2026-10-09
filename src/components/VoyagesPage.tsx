@@ -542,7 +542,7 @@ function SillonDetail({
                               (export PDF, imprimeur, couverture), étape cochée. */}
                           {onCreateAlbum && (
                             <button className="vp-btn vp-btn--sm" onClick={() => onCreateAlbum(voyage.id, t.id)}>
-                              📷 Créer l'album
+                              🖼️ Créer l'affiche
                             </button>
                           )}
                         </>
@@ -551,7 +551,7 @@ function SillonDetail({
                           className="vp-btn vp-btn--sm"
                           onClick={() => onCreateAlbum ? onCreateAlbum(voyage.id, t.id) : setEditingAlbumTrack(t)}
                         >
-                          📷 Créer l'album
+                          🖼️ Créer l'affiche
                         </button>
                       )}
                     </div>
@@ -763,7 +763,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focus
           </button>
           <button className="vp-btn" onClick={() => setCreating(true)}>+ Nouveau dossier</button>
           {onAlbum && (
-            <button className="vp-btn vp-btn--ghost" onClick={onAlbum}><AlbumIcon size={18} /> Créer mon album</button>
+            <button className="vp-btn vp-btn--ghost" onClick={onAlbum}><AlbumIcon size={18} /> Créer mon affiche</button>
           )}
         </div>
       </div>

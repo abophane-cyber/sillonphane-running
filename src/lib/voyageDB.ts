@@ -1,4 +1,4 @@
-import type { Voyage, VoyageTrack, VoyageFilm, VoyagePhoto, ComposedAlbumPage, PanelLocality } from '../types'
+import type { Voyage, VoyageTrack, VoyageFilm, VoyagePhoto, ComposedAlbumPage, PanelLocality, PosterSettings } from '../types'
 import { migrateLegacyCover } from './albumPages'
 import { saveFileWithPicker } from './saveFile'
 import { uuid } from './uuid'
@@ -186,6 +186,16 @@ export async function renameTrack(voyageId: string, trackId: string, name: strin
     voyage.tracks = voyage.tracks.map(t => t.id === trackId ? { ...t, name, albumContentVersion } : t)
     await saveVoyage(voyage)
     return albumContentVersion
+  })
+}
+
+/** Mémorise les réglages de l'affiche d'un tracé (cf. lib/poster.ts). */
+export async function saveTrackPoster(voyageId: string, trackId: string, poster: PosterSettings): Promise<void> {
+  return withVoyageLock(voyageId, async () => {
+    const voyage = await getVoyage(voyageId)
+    if (!voyage) return
+    voyage.tracks = voyage.tracks.map(t => t.id === trackId ? { ...t, poster } : t)
+    await saveVoyage(voyage)
   })
 }
 

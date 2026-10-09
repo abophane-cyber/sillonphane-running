@@ -360,11 +360,11 @@ export function AnimationControls({
             </div>
           )}
 
-          {/* "Créer mon album" — bouton nu, dernier groupe de la rangée */}
+          {/* "Créer mon affiche" — bouton nu, dernier groupe de la rangée */}
           {onAlbum && (
             <div className={`ctrl-tile controls__album-tile${readyToCreate ? ' controls__album-tile--emphasize' : ''}`}>
-              <span className="ctrl-tile__label">Créer mon album</span>
-              <button className="ctrl-btn ctrl-btn--album-icon" onClick={onAlbum} title="Créer mon album-photo">
+              <span className="ctrl-tile__label">Créer mon affiche</span>
+              <button className="ctrl-btn ctrl-btn--album-icon" onClick={onAlbum} title="Créer l'affiche de ma course">
                 <AlbumIcon size={28} />
               </button>
             </div>

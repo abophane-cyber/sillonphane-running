@@ -17,8 +17,8 @@ export function SavedTracksBoxes({ onAlbum, onVoyages }: Props) {
 
       <div className="gpx-uploader gpx-uploader--album" onClick={onAlbum}>
         <div className="gpx-uploader__icon"><AlbumIcon size={48} /></div>
-        <p className="gpx-uploader__title">Créer mon album-photo</p>
-        <p className="gpx-uploader__hint">À partir de vos tracés déjà enregistrés</p>
+        <p className="gpx-uploader__title">Créer mon affiche</p>
+        <p className="gpx-uploader__hint">À partir de vos courses déjà enregistrées</p>
       </div>
     </>
   )

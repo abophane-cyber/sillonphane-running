@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { printPartnersFor, withPromos, PROMO_SCHEDULE, PROMO_URL, type PromoSchedule } from '../lib/printPartners'
+import { printPartnersFor, withPromos, POSTER_PARTNERS, PROMO_SCHEDULE, PROMO_URL, type PromoSchedule } from '../lib/printPartners'
 
 interface Props {
   onClose: () => void
@@ -10,11 +10,13 @@ interface Props {
   partnerId?: string
   /** Album issu de la rando d'exemple : pas de code de réduction, on prévient à la place. */
   demo?: boolean
+  /** Affiche de course (Running) : partenaires de tirage photo, libellés « affiche ». */
+  poster?: boolean
 }
 
 /** Proposée juste après l'enregistrement du PDF : liens (affiliés) vers des services d'impression
  * de livre photo acceptant l'upload direct d'un PDF. */
-export function PrintOfferOverlay({ onClose, pageNote, partnerId, demo = false }: Props) {
+export function PrintOfferOverlay({ onClose, pageNote, partnerId, demo = false, poster = false }: Props) {
   // Codes promo : calendrier embarqué tout de suite (secours hors connexion), remplacé par
   // public/promo.json dès qu'il est lu — les codes mensuels changent sans nouvelle APK.
   const [schedule, setSchedule] = useState<PromoSchedule>(PROMO_SCHEDULE)
@@ -27,7 +29,8 @@ export function PrintOfferOverlay({ onClose, pageNote, partnerId, demo = false }
     return () => { alive = false }
   }, [])
   // Rando d'exemple : les codes de réduction sont réservés aux albums de vos propres randonnées.
-  const partners = demo ? printPartnersFor(partnerId) : withPromos(printPartnersFor(partnerId), schedule)
+  const basePartners = poster ? POSTER_PARTNERS : printPartnersFor(partnerId)
+  const partners = demo ? basePartners : withPromos(basePartners, schedule)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   function copyCode(code: string) {
@@ -39,8 +42,8 @@ export function PrintOfferOverlay({ onClose, pageNote, partnerId, demo = false }
 
   return (
     <div className="backup-overlay">
-      <span className="backup-overlay__label">📷 Album enregistré !</span>
-      <span className="print-offer__subtitle">Envie de le faire imprimer ?</span>
+      <span className="backup-overlay__label">{poster ? '🖼️ Affiche enregistrée !' : '📷 Album enregistré !'}</span>
+      <span className="print-offer__subtitle">{poster ? 'Envie de la faire tirer ?' : 'Envie de le faire imprimer ?'}</span>
       {pageNote && <span className="print-offer__pagenote">{pageNote}</span>}
       {partners.length === 0 && (
         // Profil « Personnalisé » : format libre, non conforme aux exigences des imprimeurs
@@ -88,7 +91,7 @@ export function PrintOfferOverlay({ onClose, pageNote, partnerId, demo = false }
             </div>
           ))}
         </div>}
-        <button className="backup-overlay__save-btn print-offer__back-btn" onClick={onClose}>← Retour à l'album</button>
+        <button className="backup-overlay__save-btn print-offer__back-btn" onClick={onClose}>{poster ? '← Retour à l\'affiche' : '← Retour à l\'album'}</button>
       </div>
     </div>
   )

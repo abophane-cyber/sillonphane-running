@@ -18,7 +18,7 @@ import type { ParsedGpx, PanelLocality, GpxTrack } from './types'
 import { PWAPrompt } from './components/PWAPrompt'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { VoyagesPage } from './components/VoyagesPage'
-import { AlbumPage } from './components/AlbumPage'
+import { AffichePage } from './components/AffichePage'
 import { getDefaultSillon, getBackupStatus, saveTrackPanelSettings, addTrackToVoyage } from './lib/voyageDB'
 import { drawElevOverlay } from './lib/drawElevOverlay'
 import { SaveToSillonModal } from './components/SaveToSillonModal'
@@ -727,7 +727,7 @@ export default function App() {
         )}
 
         {view === 'album' && (
-          <AlbumPage
+          <AffichePage
             initialTrack={albumInitialTrack}
             onBack={() => {
               setAlbumInitialTrack(null)
