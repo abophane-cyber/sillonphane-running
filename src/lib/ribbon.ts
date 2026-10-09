@@ -54,10 +54,6 @@ export function ribbonColorAt(f: number): string {
  * l'échelle du personnage. Sinon il passait sous ses pieds, voire devant lui. */
 export const RIBBON_LAG_PX = 16
 
-/** Boule au bout du ruban (× largeur du ruban), avec le liseré : on voit bien le bout quand il repasse sur le tracé
- * déjà parcouru. */
-export const RIBBON_TIP_BALL = 1.75
-
 /** Longueur de la tête du ruban (m) : 2 % du parcours, entre 80 et 500 m. */
 export function ribbonHeadM(totalDistance: number): number {
   return Math.max(80, Math.min(500, totalDistance * 0.02))

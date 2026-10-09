@@ -13,7 +13,7 @@ import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './t
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPointsByDistance } from './gpx'
 import { BASEMAP_BACKGROUND } from './tileSources'
-import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, RIBBON_TIP_BALL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
+import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
@@ -290,15 +290,6 @@ function drawTrack(
     ctx.strokeStyle = fade(RIBBON_HEAD_FADE, RIBBON_HEAD_COLOR)
     ctx.lineWidth   = 4.5
     ctx.stroke(head)
-
-    // Boule au bout du ruban (cf. RIBBON_TIP_BALL), avec le liseré.
-    ctx.beginPath()
-    ctx.arc(tipPt.x, tipPt.y, (4.5 * RIBBON_TIP_BALL) / 2, 0, Math.PI * 2)
-    ctx.fillStyle   = RIBBON_HEAD_COLOR
-    ctx.fill()
-    ctx.strokeStyle = RIBBON_OUTLINE
-    ctx.lineWidth   = 1
-    ctx.stroke()
   }
 
   ctx.restore()

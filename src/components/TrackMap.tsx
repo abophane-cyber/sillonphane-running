@@ -646,13 +646,6 @@ export function TrackMap({
         ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: headCoords }, properties: {} }]
         : [],
     })
-    // Boule au bout du ruban (cf. RIBBON_TIP_BALL).
-    ;(map.getSource('track-tip') as maplibregl.GeoJSONSource | undefined)?.setData({
-      type: 'FeatureCollection',
-      features: headCoords.length > 1
-        ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: headCoords[headCoords.length - 1] }, properties: {} }]
-        : [],
-    })
 
     // Suivi caméra : glissement continu et amorti vers le coureur à chaque image (comme le film 2D, FOLLOW_K),
     // au lieu d'un rattrapage quand il approchait du bord. Amorti resserré s'il s'éloigne trop du centre.
