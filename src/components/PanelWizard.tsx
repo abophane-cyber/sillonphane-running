@@ -249,9 +249,14 @@ export function PanelWizard({
           {/* Nom de l'épreuve = titre du film (écran-titre, carton de fin, Mes sillons). */}
           <label className="pwiz-field-label" htmlFor="pwiz-film-title">Titre du film</label>
           <input
-            id="pwiz-film-title" className="pwiz-input" value={bannerDefaults.title} placeholder="Nom de l'épreuve"
+            id="pwiz-film-title" className="pwiz-input" value={bannerDefaults.title} placeholder="Mon semi-marathon à Lille"
             onChange={e => onFilmTitleChange(e.target.value)}
           />
+          {/* Noms d'épreuves : souvent des marques (cf. conditions d'utilisation, public/legal.html#conditions). */}
+          <span className="pwiz-race-hint">
+            Film personnel. Le nom officiel d'une épreuve est une marque de son organisateur : voir
+            les <a href={`${import.meta.env.BASE_URL}legal.html#conditions`} target="_blank" rel="noopener">conditions d'utilisation</a>.
+          </span>
           {/* Localité de l'épreuve : cartouche du film (« LILLE » au-dessus du titre). */}
           <label className="pwiz-field-label" htmlFor="pwiz-event-place">Localité de l'épreuve</label>
           <input

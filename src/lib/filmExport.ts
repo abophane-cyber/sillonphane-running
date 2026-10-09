@@ -799,11 +799,16 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
   ctx.fillText(dateLine, padX, baseY - ts - ch * 0.012)
   ctx.letterSpacing = '0px'
 
-  // Adresse du site, discrète, en haut à droite du bandeau.
+  // Adresse du site, discrète, en haut à droite du bandeau, précédée de la mention « film personnel non officiel » (le
+  // titre peut porter le nom d'une épreuve, marque de son organisateur : cf. conditions d'utilisation).
   ctx.textAlign = 'right'
   ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
   ctx.fillStyle = 'rgba(255,255,255,0.7)'
   ctx.fillText(SITE_ADDRESS, cw - padX, valY - ch * 0.055)
+  const addrW = ctx.measureText(SITE_ADDRESS).width
+  ctx.font = `500 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'
+  ctx.fillText('Film personnel non officiel  ·  ', cw - padX - addrW, valY - ch * 0.055)
   ctx.restore()
 }
 
