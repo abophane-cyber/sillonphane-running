@@ -37,15 +37,19 @@ Noms d'épreuves (souvent des marques de leurs organisateurs) :
 - **Film** : chrono qui tourne, bornes « 10 KM · 52'31" », carton final (temps officiel, dossard, classement saisis
   par l'utilisateur, jamais récupérés automatiquement).
 - **Fiche épreuve** : nom, date, heure de départ, points de contrôle, ravitaillements (saisie ou import du roadbook).
-- **Affiche de course** (remplace l'album : pas de livre pour une seule course) : une page par course, titre
-  personnel, distance · date · ville, tracé du ruban sur vues aériennes IGN assombries, bornes, temps officiel,
-  dossard, classement, temps de passage tous les 5 km, meilleur et moins bon km, deux moitiés, profil ; photos
-  facultatives (0 ou 2 : arrivée, médaille). Couleur du papier au choix (vert nuit par défaut). Signature
-  « Sillonphane » sur l'image pour les réseaux seulement, jamais sur le tirage. Chaque information se masque (le classement peut ne pas être
-  flatteur). Fond au choix : vues aériennes assombries, Plan IGN nuit, Plan IGN clair, uni. Formats : affiche 30 × 40 cm (impression), image carrée, story.
+- **Affiche de course** (remplace l'album : pas de livre pour une seule course) : une page par course. Écran
+  d'édition en 9 sections (01 la course, 02 votre nom, 03 vos performances, 04 vos photos (2 max), 05 éléments à
+  afficher | 06 style, 07 fond, 08 couleur du parcours, 09 format & export), réglages de part et d'autre de l'aperçu.
+  Trois modèles (libellés provisoires « 1er / 2e / 3e modèle ») : 1er = grande photo noir et blanc portant le tracé
+  blanc, ville et date à gauche, dossard, temps, distance et nom à droite ; 2e = 1re photo collée en haut à droite
+  qui se dissout dans le papier, carte presque carrée et 2e photo ; 3e = 1re photo en fond de la moitié haute, carte
+  collée au bord gauche aux bords dissous, temps et chiffres à droite. Fonds : blanc cassé, papier (grain), lin,
+  gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème ou couleur unie. Chaque élément se
+  masque (le classement peut ne pas être flatteur). Formats : A3, A4 (tirage, JPEG 300 dpi, sans signature) et carré
+  1080 px (réseaux, avec « Sillonphane » et la phrase « Une course. Des souvenirs. Toujours plus loin. »).
   Maquette : `maquettes/affiche-course.html` (non publiée). Dans l'appli : écran `src/components/AffichePage.tsx`
-  (vue « album » de App.tsx), dessin sur canvas `src/lib/poster.ts` (aperçu et export JPEG 3543 × 4724 px), réglages
-  dans `VoyageTrack.poster`. Le code de l'album (AlbumPage…) reste dans le dépôt, sans être affiché.
+  (vue « album » de App.tsx), dessin sur canvas `src/lib/poster.ts`, réglages dans `VoyageTrack.poster`. Le code de
+  l'album (AlbumPage…) reste dans le dépôt, sans être affiché.
 - **Impression de l'affiche** : WhiteWall (tirage, acrylique, aluminium) et Flexilivre (poster), avec code de
   réduction affiché seulement après l'enregistrement (comme pour Rando, `src/lib/printPartners.ts`).
 

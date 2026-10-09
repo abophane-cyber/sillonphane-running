@@ -1,5 +1,6 @@
-/* Affiche de course (AffichePage.tsx) — couleurs de l'appli (thème clair ou sombre). */
-.affiche { flex: 1; overflow-y: auto; padding: 24px 16px 60px; max-width: 1180px; width: 100%; margin: 0 auto; box-sizing: border-box; }
+/* Affiche de course (AffichePage.tsx) — couleurs de l'appli (thème clair ou sombre), accent orange de la maquette. */
+.affiche { --aff-accent: #EC6A2C; --aff-accent-soft: rgba(236,106,44,.14);
+  flex: 1; overflow-y: auto; padding: 24px 16px 60px; max-width: 1180px; width: 100%; margin: 0 auto; box-sizing: border-box; }
 .affiche__title { font-family: 'Playfair Display', Georgia, serif; font-size: 1.6rem; font-weight: 600; margin: 0 0 6px; }
 .affiche__lead { margin: 0 0 18px; color: var(--color-text-muted); line-height: 1.55; }
 .affiche__empty { color: var(--color-text-muted); }
@@ -7,18 +8,18 @@
 .affiche__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
 .affiche__item { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border-radius: 12px;
   border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; font: inherit; }
-.affiche__item:hover { border-color: var(--color-accent); }
+.affiche__item:hover { border-color: var(--aff-accent); }
 .affiche__item strong { font-size: 1rem; }
 .affiche__item span { font-size: .84rem; color: var(--color-text-muted); }
-.affiche__item em { font-style: normal; font-size: .84rem; font-weight: 600; color: var(--color-accent); margin-top: 4px; }
+.affiche__item em { font-style: normal; font-size: .84rem; font-weight: 600; color: var(--aff-accent); margin-top: 4px; }
 
-/* Réglages de part et d'autre de l'affiche : informations et photos à gauche, fond, enregistrement et
-   Mes dossards à droite. Écran moyen : les deux colonnes s'empilent à droite ; téléphone : tout sous l'affiche. */
-.affiche--editor { max-width: 1440px; display: grid; gap: 24px; align-items: start;
-  grid-template-columns: 320px minmax(0, 1fr) 320px; grid-template-areas: "left preview right"; }
+/* Réglages de part et d'autre de l'affiche (01 à 05 à gauche, 06 à 09 à droite). Écran moyen : les deux colonnes
+   s'empilent à droite ; téléphone : tout sous l'affiche. */
+.affiche--editor { max-width: 1480px; display: grid; gap: 20px; align-items: start;
+  grid-template-columns: 330px minmax(0, 1fr) 330px; grid-template-areas: "left preview right"; }
 .affiche__panel--left { grid-area: left; }
 .affiche__panel--right { grid-area: right; }
-.affiche__preview { grid-area: preview; position: sticky; top: 0; width: 100%; max-width: 640px; justify-self: center; }
+.affiche__preview { grid-area: preview; position: sticky; top: 0; width: 100%; max-width: 620px; justify-self: center; }
 @media (max-width: 1180px) {
   .affiche--editor { grid-template-columns: minmax(0, 1fr) 340px; grid-template-areas: "preview left" "preview right"; }
 }
@@ -26,48 +27,86 @@
   .affiche--editor { grid-template-columns: 1fr; grid-template-areas: "preview" "left" "right"; }
   .affiche__preview { position: static; }
 }
-.affiche__canvas { display: block; width: 100%; aspect-ratio: 3 / 4; border-radius: 3px; background: #121714; box-shadow: 0 16px 44px rgba(0,0,0,.35); }
+.affiche__canvas { display: block; width: 100%; border-radius: 3px; background: #F6F2EA; box-shadow: 0 16px 44px rgba(0,0,0,.35); }
 
-.affiche__panel { display: flex; flex-direction: column; gap: 14px; }
-.affiche__card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 16px; }
-.affiche__card h2 { font-family: 'Playfair Display', Georgia, serif; font-size: 1.08rem; font-weight: 600; margin: 0 0 4px; }
-.affiche__card p { margin: 4px 0 0; font-size: .84rem; line-height: 1.5; color: var(--color-text-muted); }
-.affiche__card--dossards { border-style: dashed; }
+.affiche__panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 14px; padding: 4px 18px; }
+.aff-sec { padding: 16px 0; border-top: 1px solid var(--color-border); }
+.aff-sec:first-child { border-top: 0; }
+.aff-head { display: flex; align-items: baseline; gap: 12px; margin: 0 0 8px; font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.05rem; font-weight: 600; }
+.aff-head span { font-family: inherit; font-size: .95rem; color: var(--color-text-muted); min-width: 20px; }
+.aff-head small { font-family: system-ui, sans-serif; font-size: .78rem; font-weight: 400; color: var(--color-text-muted); }
 
-.affiche__field { display: grid; gap: 4px; margin-top: 10px; font-size: .76rem; font-weight: 600; color: var(--color-text-muted); }
-.affiche__field input { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-weight: 500; font-size: .92rem; color: var(--color-text);
-  background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px 10px; }
-.affiche__row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.affiche__label { font-size: .76rem !important; font-weight: 600; margin-top: 14px !important; }
-.affiche__checks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; margin-top: 6px; font-size: .84rem; }
-.affiche__checks label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
-.affiche__checks label.is-off { opacity: .45; cursor: default; }
-.affiche__checks input { accent-color: var(--color-accent); width: 16px; height: 16px; }
-.affiche__hint { font-size: .76rem !important; margin-top: 10px !important; }
+.aff-field { display: grid; gap: 5px; margin-top: 10px; font-size: .76rem; font-weight: 500; color: var(--color-text-muted); }
+.aff-field input { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-weight: 500; font-size: .9rem; color: var(--color-text);
+  background: var(--color-bg); border: 1px solid var(--color-border); border-radius: 7px; padding: 8px 10px; color-scheme: dark; }
+:root[data-theme="light"] .aff-field input { color-scheme: light; }
+.aff-field input:focus { outline: none; border-color: var(--aff-accent); }
+.aff-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.aff-hint { margin: 8px 0 0; font-size: .74rem; line-height: 1.5; color: var(--color-text-muted); }
+.aff-hint--dossards { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--color-border); }
+.aff-label { margin: 14px 0 6px; font-size: .76rem; font-weight: 600; color: var(--color-text-muted); }
 
-.affiche__seg { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.affiche__seg button { font: inherit; font-size: .82rem; font-weight: 600; border: 1px solid var(--color-border); background: transparent;
-  color: var(--color-text); padding: 6px 12px; border-radius: 999px; cursor: pointer; }
-.affiche__seg button[aria-pressed="true"] { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+/* 04 Photos */
+.aff-photos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 6px; }
+.aff-photo { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--color-bg); }
+.aff-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.aff-photo button { position: absolute; top: 4px; right: 4px; width: 20px; height: 20px; border-radius: 50%; border: 0; padding: 0;
+  background: rgba(0,0,0,.65); color: #fff; font-size: .9rem; line-height: 20px; cursor: pointer; }
+.aff-photo--add { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;
+  border: 1px dashed var(--color-border); color: var(--color-text-muted); font: inherit; font-size: .72rem; text-align: center; padding: 6px; }
+.aff-photo--add span { font-size: 1.4rem; line-height: 1; color: var(--color-text); }
+.aff-photo--add:hover { border-color: var(--aff-accent); }
+.aff-link { margin-top: 8px; padding: 0; border: 0; background: none; font: inherit; font-size: .76rem; color: var(--aff-accent); cursor: pointer; text-decoration: underline; }
+.aff-pick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-top: 8px; }
+.aff-pick button { padding: 0; border: 0; aspect-ratio: 1; border-radius: 5px; overflow: hidden; cursor: pointer; background: none; }
+.aff-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
-.affiche__photos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 10px; }
-.affiche__photos button { position: relative; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; cursor: pointer; aspect-ratio: 1; background: none; }
-.affiche__photos button.is-on { border-color: var(--color-accent); }
-.affiche__photos img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.affiche__photos span { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--color-accent);
-  color: #fff; font-size: .7rem; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+/* 05 Éléments à afficher */
+.aff-checks { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 10px; margin-top: 4px; font-size: .8rem; }
+.aff-checks label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.aff-checks label.is-off { opacity: .45; cursor: default; }
+.aff-checks input { accent-color: var(--aff-accent); width: 15px; height: 15px; }
 
-.affiche__btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.affiche__btn { font: inherit; font-size: .86rem; font-weight: 600; border-radius: 999px; padding: 9px 16px; cursor: pointer; margin-top: 10px;
-  border: 1px solid var(--color-accent); background: var(--color-accent); color: #fff; }
-.affiche__btns .affiche__btn { margin-top: 0; }
-.affiche__btn--ghost { background: transparent; color: var(--color-text); border-color: var(--color-border); }
-.affiche__btn:disabled { opacity: .6; cursor: progress; }
+/* 06 Style, sélecteurs segmentés */
+.aff-seg { display: flex; border: 1px solid var(--color-border); border-radius: 8px; overflow: hidden; }
+.aff-seg button { flex: 1; font: inherit; font-size: .8rem; font-weight: 600; border: 0; border-left: 1px solid var(--color-border);
+  background: transparent; color: var(--color-text); padding: 8px 6px; cursor: pointer; }
+.aff-seg button:first-child { border-left: 0; }
+.aff-seg button[aria-pressed="true"] { background: var(--aff-accent-soft); color: var(--aff-accent); box-shadow: inset 0 0 0 1.5px var(--aff-accent); }
+.aff-seg--small button { font-size: .74rem; padding: 6px 4px; }
+.aff-thumbs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+.aff-thumbs button { padding: 0; border: 1.5px solid transparent; border-radius: 5px; overflow: hidden; cursor: pointer; background: none; }
+.aff-thumbs button.is-on { border-color: var(--aff-accent); }
+.aff-thumbs canvas { display: block; width: 100%; background: var(--color-bg); }
 
-.affiche__papers { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: center; }
-.affiche__papers button { width: 30px; height: 30px; border-radius: 50%; cursor: pointer; padding: 0;
-  border: 1px solid var(--color-border); box-shadow: inset 0 0 0 1px rgba(128,128,128,.35); }
-.affiche__papers button[aria-pressed="true"] { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-.affiche__paper-custom { position: relative; width: 30px; height: 30px; border-radius: 50%; overflow: hidden; cursor: pointer;
-  background: conic-gradient(#d33, #dd3, #3d3, #3dd, #33d, #d3d, #d33); border: 1px solid var(--color-border); }
-.affiche__paper-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+/* 07 Fond de l'affiche */
+.aff-fonds { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.aff-fonds button { display: grid; gap: 4px; padding: 0 0 4px; border: 0; background: none; cursor: pointer; font: inherit; font-size: .72rem;
+  color: var(--color-text-muted); text-align: center; }
+.aff-fond { display: block; height: 40px; border-radius: 5px; border: 1.5px solid var(--color-border); }
+.aff-fonds button[aria-pressed="true"] { color: var(--aff-accent); }
+.aff-fonds button[aria-pressed="true"] .aff-fond { border-color: var(--aff-accent); }
+.aff-fond--grain { background-image: radial-gradient(rgba(70,55,30,.18) .6px, transparent .8px), radial-gradient(rgba(255,255,255,.4) .6px, transparent .8px);
+  background-size: 5px 5px, 7px 7px; background-position: 0 0, 2px 3px; }
+.aff-fond--lin { background-image: repeating-linear-gradient(0deg, rgba(80,65,40,.08) 0 1px, transparent 1px 3px),
+  repeating-linear-gradient(90deg, rgba(80,65,40,.07) 0 1px, transparent 1px 3px); }
+
+/* 08 Couleur du parcours */
+.aff-colors { display: flex; flex-wrap: wrap; gap: 10px; }
+.aff-colors button { width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; border: 1px solid rgba(128,128,128,.4); }
+.aff-colors button[aria-pressed="true"] { outline: 2px solid var(--aff-accent); outline-offset: 3px; }
+
+/* 09 Format & export */
+.aff-formats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.aff-formats button { display: grid; justify-items: center; gap: 3px; padding: 10px 4px; border: 1px solid var(--color-border); border-radius: 8px;
+  background: transparent; color: var(--color-text); cursor: pointer; font: inherit; }
+.aff-formats button strong { font-size: .84rem; }
+.aff-formats button small { font-size: .66rem; color: var(--color-text-muted); }
+.aff-formats button[aria-pressed="true"] { border-color: var(--aff-accent); background: var(--aff-accent-soft); box-shadow: inset 0 0 0 1px var(--aff-accent); }
+.aff-format-ic { width: 14px; height: 18px; border: 1.5px solid currentColor; border-radius: 2px; }
+.aff-format-ic--carre { height: 14px; margin: 2px 0; }
+.aff-download { width: 100%; margin-top: 14px; padding: 12px; border: 0; border-radius: 999px; background: var(--aff-accent); color: #fff;
+  font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; box-shadow: 0 6px 18px rgba(236,106,44,.3); }
+.aff-download:hover { filter: brightness(1.06); }
+.aff-download:disabled { opacity: .6; cursor: progress; }

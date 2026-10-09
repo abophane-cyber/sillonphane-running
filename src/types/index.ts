@@ -246,29 +246,48 @@ export interface VoyageTrack {
 
 /** Fond de l'affiche : vues aériennes IGN assombries, Plan IGN de nuit, Plan IGN clair, uni. */
 export type PosterBackground = 'sat' | 'plan-nuit' | 'clair' | 'uni'
-/** Style du ruban de l'affiche : dégradé vertical du logo, ou vert · orange · crème le long du parcours (un tiers
- * chacun). */
-export type PosterRibbon = 'logo' | 'trois-couleurs'
-/** Informations de l'affiche que l'utilisateur peut masquer. */
-export type PosterInfo = 'bib' | 'rank' | 'pace' | 'splits' | 'notes' | 'profile'
+/** Ruban de l'affiche : dégradé vertical du logo, vert · orange · crème le long du parcours (un tiers chacun), ou
+ * couleur unie « #RRGGBB ». */
+export type PosterRibbon = 'logo' | 'trois-couleurs' | string
+/** Style de l'affiche : éditorial (papier clair, titres à empattements), sportif (fond sombre, titres bâton),
+ * souvenir (grande photo en tête). */
+export type PosterStyle = 'editorial' | 'sportif' | 'souvenir'
+/** Fond (papier) de l'affiche. */
+export type PosterFond = 'blanc-casse' | 'papier' | 'lin' | 'gris-clair' | 'nuit' | 'noir'
+/** Format : A3 et A4 (tirage, sans signature), carré (réseaux, signé). */
+export type PosterFormat = 'a3' | 'a4' | 'carre'
+/** Éléments de l'affiche que l'utilisateur peut masquer. */
+export type PosterInfo = 'map' | 'bornes' | 'profile' | 'bib' | 'photos' | 'rank' | 'splits' | 'notes'
 
 /** Réglages de l'affiche d'une course, saisis par l'utilisateur (vides = valeurs tirées du tracé). */
 export interface PosterSettings {
+  /** Nom de la course : « Mon semi-marathon à Lille ». */
   title?: string
-  /** « 21,1 km · 25 octobre 2026 · Lille ». */
-  subtitle?: string
+  /** Nom ou pseudo du coureur, en tête de l'affiche (facultatif). */
+  name?: string
+  /** « 21,1 km ». */
+  distance?: string
+  /** Date de la course « AAAA-MM-JJ ». */
+  date?: string
+  city?: string
   /** Temps officiel « 1:43:10 », saisi (jamais récupéré automatiquement). */
   chrono?: string
   bib?: string
   rank?: string
+  /** Allure moyenne « 4'53" / km » ; absente = calculée d'après le temps. */
+  pace?: string
+  style?: PosterStyle
+  fond?: PosterFond
+  format?: PosterFormat
+  /** Fond de carte ; absent = selon le style. */
   background?: PosterBackground
-  /** Couleur du papier « #RRGGBB » ; absente = selon le fond (crème avec le Plan clair, vert nuit sinon). */
-  paper?: string
-  /** Style du ruban ; absent = « Comme le logo ». */
   ribbon?: PosterRibbon
   hidden?: PosterInfo[]
   /** 0 à 2 photos (arrivée, médaille), prises parmi les photos du sillon. */
   photoIds?: string[]
+  /** Anciens réglages (première version de l'affiche), encore lus : couleur de papier libre. */
+  paper?: string
+  subtitle?: string
 }
 
 export type PhotoTone = 'neutre' | 'culturel' | 'amusant' | 'poetique'

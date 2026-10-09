@@ -34,8 +34,8 @@ export const PRINT_PARTNERS: PrintPartner[] = [
   },
 ]
 
-/** Partenaires proposés après l'enregistrement d'une AFFICHE de course (tirage photo ou poster, fichier JPEG 30 × 40
- * cm). ⚠️ LIENS À REVOIR : pages d'accueil provisoires — à remplacer par les pages de tirage à partir d'un fichier
+/** Partenaires proposés après l'enregistrement d'une AFFICHE de course (tirage photo ou poster, fichier JPEG A3 ou A4
+ * à 300 dpi). ⚠️ LIENS À REVOIR : pages d'accueil provisoires — à remplacer par les pages de tirage à partir d'un fichier
  * (et, pour WhiteWall, par le lien Awin correspondant) ; codes de réduction à confirmer pour les affiches Running
  * (SILLONRANDO porte le nom de Rando). */
 export const POSTER_PARTNERS: PrintPartner[] = [
@@ -43,13 +43,13 @@ export const POSTER_PARTNERS: PrintPartner[] = [
     id: 'whitewall',
     name: 'WhiteWall',
     url: 'https://www.awin1.com/cread.php?awinmid=113542&awinaffid=3087427&ued=https%3A%2F%2Fwww.whitewall.com%2Ffr',
-    description: 'Tirage photo, sous verre acrylique ou sur aluminium : choisissez le format 30 × 40 cm et téléversez l’affiche (lien affilié)',
+    description: 'Tirage photo, sous verre acrylique ou sur aluminium : choisissez le format A3 ou A4 et téléversez l’affiche (lien affilié)',
   },
   {
     id: 'flexilivre',
     name: 'Flexilivre',
     url: 'https://www.flexilivre.com/',
-    description: 'Tirage poster sur papier photo : choisissez le format 30 × 40 cm et téléversez l’affiche',
+    description: 'Tirage poster sur papier photo : choisissez le format A3 ou A4 et téléversez l’affiche',
   },
 ]
 
