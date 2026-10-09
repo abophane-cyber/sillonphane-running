@@ -225,10 +225,10 @@ function logoColorAt(f: number): string {
 const BRIGHT_STOPS: [number, string][] = [
   [0, '#3DB54A'], [0.06, '#3DB54A'], [0.14, '#E8C531'], [0.22, '#F07D1A'], [0.5, '#F07D1A'], [0.8, '#F7EBD3'], [1, '#F7EBD3'],
 ]
-/** Ruban « vert · orange · crème » (2e photo de référence) : les trois couleurs définies pour le ruban, vives — long
- * vert au départ, fondu vers l'orange, orange qui s'éclaircit en crème vers l'arrivée. */
+/** Ruban « vert · orange · crème » (2e photo de référence) : les trois couleurs définies pour le ruban, vives, à parts
+ * égales — un tiers du parcours chacune, avec un fondu court centré sur chaque limite (1/3 et 2/3). */
 const THREE_STOPS: [number, string][] = [
-  [0, '#3DB54A'], [0.2, '#3DB54A'], [0.35, '#F07D1A'], [0.6, '#F07D1A'], [0.85, '#F7EBD3'], [1, '#F7EBD3'],
+  [0, '#3DB54A'], [0.28, '#3DB54A'], [0.38, '#F07D1A'], [0.62, '#F07D1A'], [0.72, '#F7EBD3'], [1, '#F7EBD3'],
 ]
 
 function colorAtStops(stops: [number, string][], f: number): string {
