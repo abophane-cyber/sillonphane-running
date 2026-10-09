@@ -25,6 +25,12 @@ son identifiant Android (`app.sillonphane.running`), ses URLs (`/running/downloa
 marque ses sauvegardes (`app: 'running'` dans le manifeste) : une sauvegarde d'une autre appli, ou l'ancien format
 .json de Rando, est refusée avec un message. Tout est centralisé dans `src/lib/appIdentity.ts`.
 
+Reste à faire :
+- **Rando** (, en ligne) : y ajouter le même contrôle des sauvegardes (refuser celles marquées
+   ≠ , donc celles de Running) et le marquage  ; mise en ligne au prochain push.
+- **Mentions de Rando restées dans l'appli Running** : écran « Comment ça marche » de l'appli (),
+  commentaires (, ), sillon d'exemple et photos filigranées   (, ), gabarit de couverture, , prototype .
+
 ## Plan
 
 ### Avant la course (parcours de l'épreuve)
