@@ -2419,7 +2419,9 @@ function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: number, o
 }
 // ─── Overlays 2D (port canvas des cartels HTML de index.html) ────────────────────────────────
 
-/** Ouverture : nom du lieu de départ (lettres blanches cernées, comme les noms au sol ; italique pour un lieu-dit)
+/** Nom du départ en haut de l'écran, rendu une fois par nom. */
+const startHeaderCache = new Map<string, ReturnType<typeof renderGroundLabel>>()
+/** Ouverture : nom du lieu de départ (style des villes sur la carte : capitales vertes et point ; lieu-dit en italique)
  * et horloge de départ en dessous, centrés dans la bande haute de l'écran, sous le titre. */
 function drawStartHeader(
   ctx: CanvasRenderingContext2D, name: string | null, lieudit: boolean | undefined,
@@ -2429,20 +2431,18 @@ function drawStartHeader(
   const cx = OUT_W / 2
   let top = 150
   if (name) {
-    const size = 54
+    // Même code couleur que les villes sur la carte (renderGroundLabel) : capitales vertes, point vert ; lieu-dit en
+    // italique. Agrandi ×K (lettres de ~54 px).
+    const style = lieudit ? 'lieudit' : 'standard'
+    const key = style + '|' + name
+    let lab = startHeaderCache.get(key)
+    if (!lab) { lab = renderGroundLabel(name, style, 3); startHeaderCache.set(key, lab) }
+    const K = 2.8
     ctx.save()
     ctx.globalAlpha = alpha
-    ctx.font = `${lieudit ? 'italic ' : ''}700 ${size}px Arial, Helvetica, sans-serif`
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
-    ctx.lineJoin = 'round'
-    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 6; ctx.shadowOffsetY = 2
-    ctx.strokeStyle = '#1b1b1b'; ctx.lineWidth = size * 0.2
-    ctx.strokeText(name, cx, top)
-    ctx.shadowColor = 'transparent'
-    ctx.fillStyle = '#fff'
-    ctx.fillText(name, cx, top)
+    ctx.drawImage(lab.canvas, cx - lab.ax * K, top - lab.ay * K, lab.w * K, lab.h * K)
     ctx.restore()
-    top += size * 0.75
+    top += (lab.h / 2 - 7) * K // 7 : marge du rendu autour du halo
   }
   if (start) drawStartTimePill(ctx, start, cx, top, 40, Math.min(alpha, clockAlpha))
 }
