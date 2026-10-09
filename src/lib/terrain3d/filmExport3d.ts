@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S } from '../routeStreets'
-import { PLACE_HOLD_S, boxesHit, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
+import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -1435,6 +1435,7 @@ async function exportFilm3dImpl(
       label = mesh
     }
     label.position.set(anchor.x, anchor.y + 2, anchor.z)
+    label.userData.anchor = label.position.clone() // nom de commune : écarté d'une borne qu'il chevauche (cf. townShift)
     label.visible = false
     label.layers.set(NO_REFLECT_LAYER)
     scene.add(label)
@@ -2202,6 +2203,7 @@ async function exportFilm3dImpl(
     return { name: p.name, pos: new THREE.Vector3(px, meshHeightAt(px, pz), pz) }
   })
   const _poiV = new THREE.Vector3()
+  const _townRay = new THREE.Raycaster(), _townPlane = new THREE.Plane(), _townUp = new THREE.Vector3(0, 1, 0), _townHit = new THREE.Vector3()
   let simElapsed = 0
   let lastOverlay: Overlay = { distanceM: 0, profileT: 0 }
   while (simElapsed < RENDER_FROM) { simElapsed += SIM_DT; lastOverlay = simStep(simElapsed) }
@@ -2324,6 +2326,36 @@ async function exportFilm3dImpl(
       const cur = p.sprite.userData.lift ?? 0
       p.sprite.userData.lift = cur + (target - cur) * 0.2
       drawPoiStem(ctx2d, p.sx, p.sy, p.sprite.userData.lift, 1)
+    }
+    // Noms de commune et de lieu-dit couchés au sol sur une borne (« LILLE » sous la médaille du 10 km) : écartés à
+    // l'écran du plus petit pas qui la dégage (vers le bas d'abord), en douceur, puis reposés au sol sous ce point
+    // (effet à l'image suivante). Hors survol : retour à leur place.
+    for (const lab of [...panelSprites.map(p => p.sprite), departurePanel, arrivalPanel]) {
+      if (!(lab instanceof THREE.Mesh) || !lab.visible) continue
+      const anchor = lab.userData.anchor as THREE.Vector3
+      const cur = (lab.userData.shift as [number, number] | undefined) ?? [0, 0]
+      let target: [number, number] = [0, 0]
+      if (inFlight && borneOcc.length) {
+        // Rectangle à l'écran du nom posé à son ancre : ses 4 coins projetés.
+        lab.position.copy(anchor); lab.updateMatrixWorld()
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, behind = false
+        for (const [cx, cz] of [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]]) {
+          _poiV.set(cx, 0, cz).applyMatrix4(lab.matrixWorld).project(camera)
+          if (_poiV.z >= 1) behind = true
+          const sx = (_poiV.x + 1) / 2 * OUT_W, sy = (1 - _poiV.y) / 2 * OUT_H
+          x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy)
+        }
+        if (!behind) target = clearOffset({ x: x0, y: y0, w: x1 - x0, h: y1 - y0 }, borneOcc)
+      }
+      const s: [number, number] = [cur[0] + (target[0] - cur[0]) * 0.2, cur[1] + (target[1] - cur[1]) * 0.2]
+      lab.userData.shift = s
+      lab.position.copy(anchor)
+      if (Math.abs(s[0]) + Math.abs(s[1]) < 0.5) continue
+      // Point du sol (plan de l'ancre) sous l'écran décalé : rayon caméra → plan horizontal.
+      _poiV.copy(anchor).project(camera)
+      _townRay.setFromCamera(new THREE.Vector2(_poiV.x + s[0] * 2 / OUT_W, _poiV.y - s[1] * 2 / OUT_H), camera)
+      _townPlane.set(_townUp, -anchor.y)
+      if (_townRay.ray.intersectPlane(_townPlane, _townHit)) lab.position.copy(_townHit)
     }
     const intoWatermark = simElapsed - (TOTAL_CYCLE - WATERMARK_LEAD)
     const intoEndCard = simElapsed - (TOTAL_CYCLE - END_CARD_LEAD)

@@ -268,6 +268,16 @@ const STEP = 4
 export type Box = { x: number; y: number; w: number; h: number }
 export const boxesHit = (a: Box, list: readonly Box[]) =>
   list.some(b => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y)
+/** Plus petit décalage (px, par pas de 8, `max` au plus) qui dégage `a` de `list` : vers le bas d'abord (la borne se
+ * dresse au-dessus de son point), puis à droite, à gauche, en haut. [0, 0] si rien ne gêne ou si rien ne dégage. */
+export function clearOffset(a: Box, list: readonly Box[], max = 220): [number, number] {
+  if (!list.length || !boxesHit(a, list)) return [0, 0]
+  const dirs = [[0, 1], [1, 0], [-1, 0], [0, -1]]
+  for (let d = 8; d <= max; d += 8)
+    for (const [dx, dy] of dirs)
+      if (!boxesHit({ ...a, x: a.x + dx * d, y: a.y + dy * d }, list)) return [dx * d, dy * d]
+  return [0, 0]
+}
 const boxOf = (ps: Pt[], pad: number): Box => {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   for (const p of ps) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y) }

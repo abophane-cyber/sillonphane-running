@@ -28,7 +28,7 @@ import {
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
-import { PLACE_HOLD_S, boxesHit, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from './mapLabels'
+import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from './mapLabels'
 import { FIN_FILM_S, isPromoFilm } from './filmEssai'
 
 export interface FilmExportOptions {
@@ -670,18 +670,23 @@ function signAlpha(f: number, showFrame: number, hideFrame: number, fadeFrames: 
 
 /** Encart du haut à droite : sigle Sillonphane, coureur jaune et météo. `weatherA` (1 pendant la course) : en le faisant
  * descendre à 0 (vue d'ensemble finale), coureur et météo s'effacent et l'encart se resserre sur le sigle, qui reste ;
- * sans météo, l'encart n'apparaît que réduit au sigle, en fondu (1 - weatherA). */
+ * sans météo, l'encart garde le sigle et le coureur (le coureur s'efface de même quand weatherA descend). */
 export function drawWeatherCard(ctx: CanvasRenderingContext2D, cw: number, weather: FilmExportOptions['weather'], progress: number, weatherA = 1) {
   const H = 66, Y = 26, PAD = 16, LOGO_W = 30, RUN_W = 40, GAP = 14, PILL_H = 38
   const cy = Y + H / 2
   const WC = PAD * 2 + LOGO_W
   if (!weather) {
-    if (weatherA >= 1) return
+    const k = Math.max(0, Math.min(1, weatherA))
+    const W = WC + (GAP + RUN_W) * k
+    const X = cw - W - 24
     ctx.save()
-    ctx.globalAlpha *= 1 - weatherA
-    const X = cw - WC - 24
-    drawCardBox(ctx, X, Y, WC, H)
+    drawCardBox(ctx, X, Y, W, H)
     drawSillonSigle(ctx, X + PAD, cy)
+    if (k > 0) {
+      ctx.beginPath(); ctx.roundRect(X, Y, W, H, 14); ctx.clip()
+      ctx.globalAlpha *= k
+      drawRunnerIcon(ctx, X + PAD + LOGO_W + GAP + RUN_W / 2, cy, '#f7b500', 0.62)
+    }
     ctx.restore()
     return
   }
@@ -1396,6 +1401,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
    * rectangles des places dessinées (les lieux remontent au-dessus, cf. poiLift). */
   /** Remontée (px) de chaque lieu connu affiché, lissée d'une image à l'autre. */
   const poiLift = new Map<LocalityEvent, number>()
+  /** Décalage (px) de chaque nom de commune ou de lieu-dit posé sur une borne, lissé d'une image à l'autre. */
+  const townShift = new Map<unknown, [number, number]>()
   const placeOrder = [...streetLabels].sort((a, b) => Number(!!b.label.place) - Number(!!a.label.place))
   const drawStreetLabels = (project: ProjectFn, m: number, avoid: Box[] = [], avoidStreets: Box[] = []): Box[] => {
     const placeBoxes: Box[] = []
@@ -1977,7 +1984,18 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
           poiLift.set(ev, lift)
           drawPoiStem(ctx, pt.x, pt.y, lift, signA)
         }
-        drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, 1) - lift, ev.style, ev.ele, signA, endK(ev))
+        let dx = 0
+        if (ev.style === 'standard' || ev.style === 'lieudit') {
+          // Nom de commune sur une borne (« LILLE » sous la médaille du 10 km) : écarté du plus petit pas qui la
+          // dégage, vers le bas d'abord, en douceur.
+          const y0 = signY(ev, pt.y, 1)
+          const [tx, ty] = clearOffset(signBox(locSignCache, ev.name, ev.style, pt.x, y0, endK(ev)), borneOcc)
+          const [cx, cy] = townShift.get(ev) ?? [tx, ty]
+          const s: [number, number] = [cx + (tx - cx) * 0.2, cy + (ty - cy) * 0.2]
+          townShift.set(ev, s)
+          dx = s[0]; lift = -s[1]
+        }
+        drawLocSign(ctx, locSignCache, ev.name, pt.x + dx, signY(ev, pt.y, 1) - lift, ev.style, ev.ele, signA, endK(ev))
       }
     }
 
