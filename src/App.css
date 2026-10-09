@@ -4855,3 +4855,43 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .viewer__map-wrap .maplibregl-ctrl-bottom-left { bottom: 30%; }
 /* Échelle de MapLibre masquée : l'aperçu dessine celle des films (drawScaleNorth). */
 .viewer__map-wrap .maplibregl-ctrl-scale { display: none; }
+
+/* Mes sillons : records (5 km, 10 km, semi, marathon), miniatures d'affiches, badge de l'affiche */
+.vp-records {
+  margin-top: 20px; padding: 12px 14px;
+  background: var(--color-surface); border: 1px solid var(--color-border);
+  border-left: 3px solid #3DB54A; border-radius: var(--radius);
+}
+.vp-records__title {
+  font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--color-text-muted); margin: 0 0 8px;
+}
+.vp-records__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.vp-records__cell { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vp-records__cell--empty { opacity: 0.45; }
+.vp-records__cat { font-size: 0.78rem; color: var(--color-text-muted); }
+.vp-records__time { font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.vp-records__time small { font-size: 0.6rem; font-weight: 600; letter-spacing: 0.05em; opacity: 0.6; }
+.vp-records__race { font-size: 0.72rem; color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 520px) { .vp-records__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.app-main--light .vp-records { background: #fff; border-color: rgba(43,41,39,0.14); border-left-color: #3DB54A; }
+.app-main--light .vp-records__time { color: #191817; }
+.app-main--light .vp-records__title,
+.app-main--light .vp-records__cat,
+.app-main--light .vp-records__race { color: rgba(43,41,39,0.62); }
+
+.vp-poster-thumb {
+  display: block; flex-shrink: 0; overflow: hidden; border-radius: 3px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25); background: rgba(127,127,127,0.18);
+}
+.vp-poster-thumb img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: top; }
+.vp-poster-thumb__wait { display: block; width: 100%; height: 100%; }
+.vp-item__poster { width: 42px; height: 59px; }
+.vp-card__poster { width: 36px; height: 51px; }
+
+.vp-badge {
+  align-self: flex-start; margin-top: 2px; padding: 1px 7px; border-radius: 999px;
+  font-size: 0.68rem; font-weight: 600;
+  color: #C15C3D; border: 1px solid rgba(193,92,61,0.45);
+}
+.vp-badge--done { color: #2E8A3A; border-color: rgba(61,181,74,0.5); }

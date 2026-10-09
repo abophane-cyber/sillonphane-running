@@ -17,6 +17,7 @@ import { AlbumComposedPageContent } from './AlbumComposedPage'
 import { AlbumSpreadContent } from './AlbumSpread'
 import { sanitizeTrackPages, resolvePageBoxes } from '../lib/albumPages'
 import { AlbumIcon } from './AlbumIcon'
+import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { AppLogoIcon } from './AppLogoIcon'
 import { isRecordedGpx } from '../lib/gpx'
 import { saveFileWithPicker } from '../lib/saveFile'
@@ -438,10 +439,10 @@ function SillonDetail({
       </div>
 
       <div className="vp-detail__stats">
-        <span>{voyage.tracks.length} tracé{voyage.tracks.length !== 1 ? 's' : ''}</span>
-        <span>·</span>
-        <span>{voyage.films.length} film{voyage.films.length !== 1 ? 's' : ''}</span>
+        <span>{countLabel(voyage)}</span>
       </div>
+
+      <RecordsBanner voyages={[voyage]} title="Records de ce sillon" />
 
       <input
         ref={mixFileInputRef}
@@ -488,13 +489,18 @@ function SillonDetail({
                 </label>
                 <div className="vp-track-card__body">
                   <div className="vp-item vp-item--track">
-                    <div className="vp-item__icon">🗺</div>
+                    {t.poster
+                      ? <PosterThumb track={t} className="vp-item__poster" />
+                      : <div className="vp-item__icon">🗺</div>}
                     <div className="vp-item__info">
                       <span className="vp-item__date">{formatDate(t.date || t.addedAt)}</span>
                       <span className="vp-item__name">{t.name}</span>
                       <span className="vp-item__meta">
                         {formatDist(t.distanceM)}
                         {t.elevGainM ? ` · ↑ ${Math.round(t.elevGainM)} m` : ''}
+                      </span>
+                      <span className={`vp-badge${t.poster ? ' vp-badge--done' : ''}`}>
+                        {t.poster ? 'Affiche faite' : 'Affiche à faire'}
                       </span>
                     </div>
                     <div className="vp-item__actions">
@@ -542,7 +548,7 @@ function SillonDetail({
                               (export PDF, imprimeur, couverture), étape cochée. */}
                           {onCreateAlbum && (
                             <button className="vp-btn vp-btn--sm" onClick={() => onCreateAlbum(voyage.id, t.id)}>
-                              🖼️ Créer l'affiche
+                              🖼️ {t.poster ? 'Modifier l\'affiche' : 'Créer l\'affiche'}
                             </button>
                           )}
                         </>
@@ -551,7 +557,7 @@ function SillonDetail({
                           className="vp-btn vp-btn--sm"
                           onClick={() => onCreateAlbum ? onCreateAlbum(voyage.id, t.id) : setEditingAlbumTrack(t)}
                         >
-                          🖼️ Créer l'affiche
+                          🖼️ {t.poster ? 'Modifier l\'affiche' : 'Créer l\'affiche'}
                         </button>
                       )}
                     </div>
@@ -652,6 +658,18 @@ function SillonDetail({
 }
 
 // ── Page principale Mes sillons ──────────────────────────────────────────────
+/** « 6 courses · 4 affiches · 2 films ». */
+function countLabel(v: Voyage): string {
+  const n = v.tracks.length, p = v.tracks.filter(t => t.poster).length, f = v.films.length
+  return [`${n} course${n !== 1 ? 's' : ''}`, `${p} affiche${p !== 1 ? 's' : ''}`, `${f} film${f !== 1 ? 's' : ''}`].join(' · ')
+}
+
+/** Course la plus récente du sillon qui a une affiche (vignette du sillon). */
+function latestPoster(v: Voyage): VoyageTrack | undefined {
+  return v.tracks.filter(t => t.poster)
+    .sort((a, b) => (b.date || b.addedAt).localeCompare(a.date || a.addedAt))[0]
+}
+
 export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focusTarget, onFocusConsumed }: Props) {
   const [voyages, setVoyages]   = useState<Voyage[]>([])
   const [selected, setSelected] = useState<Voyage | null>(null)
@@ -783,7 +801,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focus
           <input
             className="vp-create__input"
             autoFocus
-            placeholder="Nom du sillon (ex: Loire, Alpes…)"
+            placeholder="Nom du sillon (ex : Saison 2026, Mes marathons…)"
             value={newName}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setCreating(false) }}
@@ -792,6 +810,8 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focus
           <button className="vp-btn vp-btn--ghost" onClick={() => setCreating(false)}>Annuler</button>
         </div>
       )}
+
+      {!loading && <RecordsBanner voyages={voyages} title="Mes records" />}
 
       {loading ? (
         <p className="vp-empty">Chargement…</p>
@@ -802,7 +822,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focus
           {voyages.map(v => (
             <div key={v.id} className="vp-card" onClick={() => setSelected(v)}>
               <div className="vp-card__icon">
-                <svg viewBox="0 0 512 512" width="36" height="36" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 6, display: 'block' }}>
+                {latestPoster(v) ? <PosterThumb track={latestPoster(v)!} className="vp-card__poster" /> : <svg viewBox="0 0 512 512" width="36" height="36" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 6, display: 'block' }}>
                   <defs>
                     <linearGradient id="sg-vp" x1="330" y1="140" x2="180" y2="390" gradientUnits="userSpaceOnUse">
                       <stop offset="0%" stopColor="#f0cfa8"/>
@@ -815,14 +835,12 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focus
                   <path d="M 330 140 C 175 80, 50 215, 256 258 C 462 300, 340 450, 182 390" fill="none" stroke="url(#sg-vp)" strokeWidth="62" strokeLinecap="round"/>
                   <circle cx="330" cy="140" r="20" fill="#f0e0c8"/>
                   <circle cx="182" cy="390" r="20" fill="#f0f0f0"/>
-                </svg>
+                </svg>}
               </div>
               <div className="vp-card__body">
                 <span className="vp-card__name">{v.name}</span>
                 <span className="vp-card__meta">
-                  {v.tracks.length} tracé{v.tracks.length !== 1 ? 's' : ''}
-                  {' · '}
-                  {v.films.length} film{v.films.length !== 1 ? 's' : ''}
+                  {countLabel(v)}
                 </span>
               </div>
               <button

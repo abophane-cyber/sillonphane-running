@@ -75,6 +75,16 @@ Reste à faire :
 - **Le livre de Mes sillons** (au lieu de « Mes dossards », abandonné : un seul nom, comme dans les autres applis) :
   livre réunissant les affiches d'une ou plusieurs saisons rangées dans « Mes sillons » de Running, avec les records
   (5 km, 10 km, semi, marathon) et la progression ; annoncé sur l'écran de l'affiche et sur la page d'accueil
-  (« Bientôt »).
+  (« Bientôt »). Architecture reprise de Rando (sillon → tracés, couverture/dos, `MultiAlbumExport`,
+  `printProfiles`) :
+  1. *Fait* — Mes sillons : un sillon = une saison ou un objectif ; miniatures des affiches
+     (`lib/posterThumbs.ts`), badge « Affiche faite / à faire », records de la saison et records personnels
+     (`lib/records.ts` : temps saisi sur l'affiche, sinon durée du GPX marquée « GPS »).
+  2. Écran de l'affiche : l'encadré « Bientôt » devient « Livre » (case « Inclure dans le livre », `poster.inBook`).
+  3. Écran « Créer le livre », bouton en haut de Mes sillons : courses choisies **dans tous les sillons** (filtre par
+     période), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28). Une double page par
+     course (affiche + carnet : temps de passage, profil, photos, notes), double page photos en option ; en tête
+     records, progression, palmarès, sommaire. Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
+  4. Retirer le « Bientôt » de l'accueil.
 - Comparaison avec un autre coureur ou l'édition précédente (deuxième ruban).
 - Offre organisateurs : film officiel du parcours aux couleurs de l'épreuve (logo et sponsors fournis par eux).

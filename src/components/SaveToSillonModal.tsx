@@ -103,7 +103,7 @@ export function SaveToSillonModal({ track, gpxData, trackName, manualDate, depar
           <div className="ssm-new-row">
             <input
               className={`ssm-input${selected === 'new' ? ' ssm-input--active' : ''}`}
-              placeholder="Nom du sillon (ex: Alpes, Bretagne, GR20…)"
+              placeholder="Nom du sillon (ex : Saison 2026, Mes marathons…)"
               value={newName}
               onFocus={() => setSelected('new')}
               onChange={e => { setNewName(e.target.value); setSelected('new') }}

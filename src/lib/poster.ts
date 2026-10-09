@@ -106,7 +106,8 @@ export interface PosterData {
   defaults: { title: string; distance: string; date: string; city: string; chrono: string; bib: string }
 }
 
-function officialDistanceM(m: number): number {
+/** Distance de l'épreuve reconnue (5 km, 10 km, semi, marathon) d'après la distance mesurée, sinon celle-ci. */
+export function officialDistanceM(m: number): number {
   for (const [d, tol] of [[5000, 250], [10000, 400], [21097.5, 600], [42195, 1000]] as const)
     if (Math.abs(m - d) < tol) return d
   return m
