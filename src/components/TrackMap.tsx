@@ -20,7 +20,7 @@ import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } fro
 import { CAPTION_HOLD_S, type StreetRun } from '../lib/routeStreets'
 import { PLACE_HOLD_S, drawStreetAlongPath, poiIconFor, poiLines, streetLabel, streetLabelAlpha } from '../lib/mapLabels'
 import { ANIM_SETTINGS } from '../hooks/useAnimationSettings'
-import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, RIBBON_TIP_PX, ribbonGradient, ribbonHeadM, tailByPixels } from '../lib/ribbon'
+import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 import { makeStyle, EMPTY_FC } from '../lib/mapStyle'
 
 // Randonneurs 3D (cf. hiker3dSprite.ts) dès que l'appareil a WebGL2 ; sinon, le ruban seul.
@@ -646,13 +646,11 @@ export function TrackMap({
         ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: headCoords }, properties: {} }]
         : [],
     })
-    // Renflement au bout du ruban (cf. RIBBON_TIP_PX).
-    const tipCoords = tailByPixels(headCoords, RIBBON_TIP_PX, (c) => map.project(c),
-      (a, b, t): [number, number] => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t])
+    // Boule au bout du ruban (cf. RIBBON_TIP_BALL).
     ;(map.getSource('track-tip') as maplibregl.GeoJSONSource | undefined)?.setData({
       type: 'FeatureCollection',
-      features: tipCoords.length > 1
-        ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: tipCoords }, properties: {} }]
+      features: headCoords.length > 1
+        ? [{ type: 'Feature', geometry: { type: 'Point', coordinates: headCoords[headCoords.length - 1] }, properties: {} }]
         : [],
     })
 

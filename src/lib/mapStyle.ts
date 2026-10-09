@@ -2,7 +2,7 @@ import maplibregl from 'maplibre-gl'
 import type { FeatureCollection } from 'geojson'
 import { ensureVegetationProtocol, VEG_PROTOCOL } from './vegetation'
 import { BASEMAP_ADJUST, BASEMAP_BACKGROUND, BASEMAP_TILE_URL } from './tileSources'
-import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_TIP_SWELL } from './ribbon'
+import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_OUTLINE, RIBBON_TIP_BALL } from './ribbon'
 
 // Style MapLibre commun à la carte de l'aperçu (TrackMap.tsx) et au film 2D (filmExport.ts).
 
@@ -21,7 +21,7 @@ export function makeStyle(): maplibregl.StyleSpecification {
       // Tête du ruban (derniers mètres parcourus), redessinée par-dessus : sur une boucle, le ruban repasse sur
       // lui-même et sa tête disparaissait sous un passage antérieur.
       'track-head': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
-      'track-tip': { type: 'geojson', data: EMPTY_FC, lineMetrics: true },
+      'track-tip': { type: 'geojson', data: EMPTY_FC },
     },
     layers: [
       { id: 'background', type: 'background', paint: { 'background-color': BASEMAP_BACKGROUND } },
@@ -69,21 +69,12 @@ export function makeStyle(): maplibregl.StyleSpecification {
         layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
       {
-        // Renflement au bout du ruban (RIBBON_TIP_PX derniers px, plus larges), en fondu depuis son début.
-        id: 'track-tip-halo', type: 'line', source: 'track-tip',
+        // Boule au bout du ruban (RIBBON_TIP_BALL), avec le liseré.
+        id: 'track-tip', type: 'circle', source: 'track-tip',
         paint: {
-          'line-width': 5.5 * RIBBON_TIP_SWELL + 2,
-          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, 'rgba(20,30,20,0)', 0.6, RIBBON_OUTLINE],
+          'circle-radius': (5.5 * RIBBON_TIP_BALL) / 2, 'circle-color': RIBBON_HEAD_COLOR,
+          'circle-stroke-width': 1, 'circle-stroke-color': RIBBON_OUTLINE,
         },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-      },
-      {
-        id: 'track-tip-line', type: 'line', source: 'track-tip',
-        paint: {
-          'line-width': 5.5 * RIBBON_TIP_SWELL,
-          'line-gradient': ['interpolate', ['linear'], ['line-progress'], 0, RIBBON_HEAD_FADE, 0.6, RIBBON_HEAD_COLOR],
-        },
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
       },
     ],
   }
