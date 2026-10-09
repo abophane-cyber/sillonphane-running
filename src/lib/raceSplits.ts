@@ -40,8 +40,9 @@ export interface BannerText {
 }
 
 /** Titre et localité de l'épreuve tirés du nom du GPX : « Parcours Semi-marathon Lille 2026-24554019 » ->
- * { title: « Semi-marathon 2026 », place: « Lille » } (localité reconnue = `placeHint`, le lieu de départ). Préfixe
- * « Parcours » / « Tracé » et numéro final de l'outil de tracé retirés. */
+ * { title: « Mon semi-marathon à Lille », place: « Lille » } (localité reconnue = `placeHint`, le lieu de départ). Préfixe
+ * « Parcours » / « Tracé » et numéro final de l'outil de tracé retirés. Type de course reconnu (marathon, semi-marathon,
+ * 10 km…) : titre personnel « Mon <type> à <ville> » — récit du coureur, et non le nom (souvent déposé) de l'épreuve. */
 export function parseEventName(name: string | undefined, placeHint?: string): { title?: string; place?: string } {
   let t = (name ?? '').trim()
     .replace(/[\s_-]+\d{5,}$/, '')
@@ -55,7 +56,26 @@ export function parseEventName(name: string | undefined, placeHint?: string): { 
     const re = new RegExp(`(\\s+(de|du|d')\\s*)?(^|\\s)${esc}(?=\\s|$)`, 'i')
     if (re.test(t)) { place = hint; t = t.replace(re, ' ').replace(/\s+/g, ' ').trim() }
   }
+  const type = raceType(t)
+  if (type) return { title: place ? `Mon ${type} à ${place}` : `Mon ${type}`, place }
   return { title: t ? t.charAt(0).toUpperCase() + t.slice(1) : undefined, place }
+}
+
+/** Type de course nommé dans un titre : « semi-marathon », « marathon », « 10 km » ; undefined sinon. */
+function raceType(t: string): string | undefined {
+  if (/\bsemi[\s-]?marathon\b|\bsemi\b/i.test(t)) return 'semi-marathon'
+  if (/\bmarathon\b/i.test(t)) return 'marathon'
+  const km = /\b(\d+(?:[.,]\d+)?)\s?km\b/i.exec(t)
+  return km ? `${km[1].replace('.', ',')} km` : undefined
+}
+
+/** Titre sans la ville quand celle-ci est affichée à part (cartouche, ouverture) : « Mon semi-marathon à Lille » +
+ * « Lille » -> « Mon semi-marathon ». */
+export function titleWithoutPlace(title: string, place: string | undefined): string {
+  const p = place?.trim()
+  if (!p) return title
+  const esc = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return title.replace(new RegExp(`(\\s+(à|a|de|du|d')\\s*)?(^|\\s)${esc}(?=\\s|$)`, 'i'), ' ').replace(/\s+/g, ' ').trim()
 }
 
 export const DEFAULT_RACE_SETTINGS: RaceSettings = { bornesOff: false, plannedTimes: false, speeds: [] }

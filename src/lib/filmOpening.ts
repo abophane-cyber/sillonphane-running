@@ -298,7 +298,7 @@ export function openingText(o: {
   title = title.replace(yearRe, ' ')
   if (place) {
     const esc = place.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    title = title.replace(new RegExp(`(\\s+(de|du|d')\\s*)?(^|\\s)${esc}(?=\\s|$)`, 'i'), ' ')
+    title = title.replace(new RegExp(`(\\s+(à|a|de|du|d')\\s*)?(^|\\s)${esc}(?=\\s|$)`, 'i'), ' ')
   }
   title = title.replace(/\s+/g, ' ').replace(/^[\s·–-]+|[\s·–-]+$/g, '').trim()
   const up = (s: string) => s.toLocaleUpperCase('fr-FR')

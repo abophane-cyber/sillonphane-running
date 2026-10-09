@@ -30,7 +30,7 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, computeRavitos, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, DEFAULT_RACE_SETTINGS,
+  computeBornes, computeRavitos, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ANIM_ZOOM, animSpeed } from './hooks/useAnimationSettings'
@@ -119,7 +119,10 @@ export default function App() {
     distance: activeTrack ? formatBannerDistance(activeTrack.distance) : undefined,
   }), [customTitle, activeTrack, manualDate, gpxEvent, race.eventPlace, startName])
   // Cartouche d'épreuve (films et fenêtre d'animation) et chrono de l'encart du haut.
-  const eventCartouche = useMemo(() => ({ place: bannerDefaults.place?.trim() ?? '', title: bannerDefaults.title }), [bannerDefaults])
+  // Ville en grand, titre en dessous sans la ville (« LILLE / MON SEMI-MARATHON »).
+  const eventCartouche = useMemo(() => ({
+    place: bannerDefaults.place?.trim() ?? '', title: titleWithoutPlace(bannerDefaults.title, bannerDefaults.place),
+  }), [bannerDefaults])
   const raceTiming = useMemo(() => ({ useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds }), [realTimes, race.plannedTimes, race.speeds])
   const clock = useMemo(() => raceClock(points, distances, raceTiming), [points, distances, raceTiming])
   // Carton de fin du film : intitulé, date, distance, dénivelé, temps mis (réel ou prévu) et moyenne.
