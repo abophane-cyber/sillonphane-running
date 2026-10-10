@@ -1399,14 +1399,14 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const filmMps = totalDistance / Math.max(1, walkS)
   /** Noms de place puis de rue. `avoid` : rectangles déjà pris (bornes, lieux) ; places : évitent bornes et lieux (sinon
    * restent au milieu, prioritaires) ; rues : glissent le long de la rue pour éviter aussi les places. Renvoie les
-   * rectangles des places dessinées (les lieux remontent au-dessus, cf. poiLift). */
+   * rectangles des places et des rues dessinées (les lieux remontent au-dessus, cf. poiLift). */
   /** Remontée (px) de chaque lieu connu affiché, lissée d'une image à l'autre. */
   const poiLift = new Map<LocalityEvent, number>()
   /** Décalage (px) de chaque nom de commune ou de lieu-dit posé sur une borne, lissé d'une image à l'autre. */
   const townShift = new Map<unknown, [number, number]>()
   const placeOrder = [...streetLabels].sort((a, b) => Number(!!b.label.place) - Number(!!a.label.place))
   const drawStreetLabels = (project: ProjectFn, m: number, avoid: Box[] = [], avoidStreets: Box[] = []): Box[] => {
-    const placeBoxes: Box[] = []
+    const placeBoxes: Box[] = [], streetBoxes: Box[] = []
     for (const st of placeOrder) {
       // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
       const a = streetLabelAlpha(m, st.startM, st.endM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * filmMps, 0.6 * filmMps)
@@ -1414,11 +1414,14 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const pts: { x: number; y: number }[] = []
       for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
         if (distances[i] >= st.startM) pts.push(project(visualPoints[i].lon, visualPoints[i].lat))
-      const box = drawStreetAlongPath(ctx, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H }, undefined,
-        st.label.place ? avoid : [...avoid, ...avoidStreets, ...placeBoxes])
-      if (box && st.label.place) placeBoxes.push(box)
+      const draw = (av: Box[]) => drawStreetAlongPath(ctx, st.label, pts, a, OUT_H / 1080, 20, { w: OUT_W, h: OUT_H }, undefined, av)
+      let box = draw(st.label.place ? avoid : [...avoid, ...avoidStreets, ...placeBoxes])
+      // Rue sans place libre à cause des lieux connus (plusieurs le long de la rue Nationale) : posée quand même, en
+      // évitant seulement bornes et places ; les lieux remontent alors au-dessus de son nom (poiLift).
+      if (!box && !st.label.place && !st.label.fix) box = draw([...avoid, ...placeBoxes])
+      if (box) (st.label.place ? placeBoxes : streetBoxes).push(box)
     }
-    return placeBoxes
+    return [...placeBoxes, ...streetBoxes]
   }
 
   const totalFrames       = Math.ceil(walkS * fps)
@@ -1981,7 +1984,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
         let lift = 0
         if (ev.style === 'poi') {
-          // Lieu connu sur une borne ou une place : remonté par pas de 8 px jusqu'à les dégager (220 px au plus),
+          // Lieu connu sur une borne, une place ou un nom de rue : remonté par pas de 8 px jusqu'à les dégager (220 px au plus),
           // en douceur si la cible change (une place qui apparaît).
           const base = signBox(locSignCache, ev.name, 'poi', pt.x, pt.y), obst = [...borneOcc, ...placeOcc]
           let target = 0
