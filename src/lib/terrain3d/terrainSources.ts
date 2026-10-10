@@ -172,33 +172,40 @@ export async function fetchOrthoTiles(
   ctx.fillStyle = ORTHO_VOID_TINT
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   const ok = new Array<boolean>(nxP * nyP).fill(false)
-  const jobs: (() => Promise<void>)[] = []
-  for (let jy = 0; jy < nyP; jy++) {
-    for (let jx = 0; jx < nxP; jx++) {
-      const x = txMinP + jx
-      const y = tyMinP + jy
-      const url = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX=${zoom}&TILEROW=${y}&TILECOL=${x}`
-      const slot = jy * nxP + jx
-      // Tuile IGN absente (404, hors couverture) : marquée, le voisinage la comble (voir inpaintOrthoHoles).
-      // Hors France (Suisse, Italie…) l'IGN ne renvoie PAS de 404 mais une tuile 200 toute blanche, et les tuiles
-      // frontalières sont blanches au-delà de la frontière : ces pixels blancs sont rendus transparents (teinte de
-      // repli dessous) ; une tuile plus qu'à moitié vide est laissée au comblement.
-      jobs.push(() => {
-        if (signal?.aborted) return Promise.resolve()
-        return loadImageWithRetry(url, signal)
-          .then(img => {
-            const { tile, blankFrac } = maskBlankOrtho(img)
-            // Tuile quasi vide (hors couverture IGN) : laissée au comblement de voisinage.
-            if (blankFrac > 0.5) { console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`); return }
-            ctx.drawImage(tile, jx * TILE, jy * TILE)
-            ok[slot] = true
-          })
-          .catch(() => console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`))
-          .finally(() => onTileDone?.())
+  /** Tuiles en échec de chargement (réseau, serveur saturé), à la différence des tuiles hors couverture. */
+  const failed: [number, number][] = []
+  const load = (jx: number, jy: number, tries: number, onFail: () => void) => {
+    const x = txMinP + jx
+    const y = tyMinP + jy
+    const url = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX=${zoom}&TILEROW=${y}&TILECOL=${x}`
+    // Tuile IGN absente (404, hors couverture) : marquée, le voisinage la comble (voir inpaintOrthoHoles).
+    // Hors France (Suisse, Italie…) l'IGN ne renvoie PAS de 404 mais une tuile 200 toute blanche, et les tuiles
+    // frontalières sont blanches au-delà de la frontière : ces pixels blancs sont rendus transparents (teinte de
+    // repli dessous) ; une tuile plus qu'à moitié vide est laissée au comblement.
+    if (signal?.aborted) return Promise.resolve()
+    return loadImageWithRetry(url, signal, tries)
+      .then(img => {
+        const { tile, blankFrac } = maskBlankOrtho(img)
+        // Tuile quasi vide (hors couverture IGN) : laissée au comblement de voisinage.
+        if (blankFrac > 0.5) { console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`); return }
+        ctx.drawImage(tile, jx * TILE, jy * TILE)
+        ok[jy * nxP + jx] = true
       })
-    }
+      .catch(onFail)
   }
+  const jobs: (() => Promise<void>)[] = []
+  for (let jy = 0; jy < nyP; jy++)
+    for (let jx = 0; jx < nxP; jx++)
+      jobs.push(() => load(jx, jy, 2, () => failed.push([jx, jy])).finally(() => onTileDone?.()))
   await runPooled(jobs, concurrency)
+  // Seconde passe sur les tuiles en échec, après une pause et à faible concurrence : le serveur IGN, sollicité par
+  // le terrain détaillé et le terrain de fond en même temps, en refusait quelques-unes (aplat de teinte de repli
+  // sur la vue d'ensemble, Mont Ventoux).
+  if (failed.length && !signal?.aborted) {
+    await sleep(800)
+    await runPooled(failed.map(([jx, jy]) => () => load(jx, jy, 3, () =>
+      console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${txMinP + jx},${tyMinP + jy}`))), 2)
+  }
   return { canvas, ok, cols: nxP, rows: nyP }
 }
 
@@ -901,6 +908,9 @@ export async function fetchFarTerrain(cov: Coverage, sideM: number, signal?: Abo
       }
     }
   } catch { /* canvas inaccessible (CORS) : masque vide, on s'en remet au seul relief */ }
+  // Tuiles restées absentes : comblées par le voisinage (comme le terrain détaillé), APRÈS le masque d'eau qui lit la
+  // teinte de repli. Sinon, sur terre, une tuile manquante restait un aplat uni bien visible sur la vue d'ensemble.
+  inpaintOrthoHoles(ortho.canvas, ortho.ok, ortho.cols, ortho.rows)
   const isWaterAt = (lon: number, lat: number): boolean => {
     const x = Math.floor(((lon2tileX(lon, zoom) - g.x0) * TILE) / MS)
     const y = Math.floor(((lat2tileY(lat, zoom) - g.y0) * TILE) / MS)
