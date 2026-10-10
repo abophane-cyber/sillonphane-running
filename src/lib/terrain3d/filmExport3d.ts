@@ -1319,6 +1319,18 @@ async function exportFilm3dImpl(
   tipCap.frustumCulled = false
   tipCap.visible = false
   scene.add(tipCap)
+  // Boule sur le bout du ruban (sphère un peu aplatie, plus large que lui) : elle dépasse du ruban, donc reste
+  // visible quand il repasse sur un passage antérieur (boucle, aller-retour), où les deux rubans se confondaient.
+  const TIP_BALL_R = RIBBON_WIDTH * 0.8
+  const tipBall = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18), new THREE.MeshStandardMaterial({
+    roughness: 0.3, metalness: 0, emissiveIntensity: 0.35,
+  }))
+  tipBall.scale.set(TIP_BALL_R, TIP_BALL_R * 0.6, TIP_BALL_R)
+  tipBall.layers.set(NO_REFLECT_LAYER)
+  tipBall.renderOrder = 3
+  tipBall.frustumCulled = false
+  tipBall.visible = false
+  scene.add(tipBall)
   // Le capuchon est calé sur la DERNIÈRE ARÊTE VISIBLE du ruban (ses 2 sommets de bord), pas sur
   // la courbe : sinon, sur une pente raide, le disque plat flottait/perçait le ruban incliné
   // -> pointes et encoches au bout. On reconstruit ici le repère local exact du ruban à son bout.
@@ -1357,19 +1369,25 @@ async function exportFilm3dImpl(
     // produire un quaternion NaN qui polluerait tout le rendu de l'image.
     if (_cZ.lengthSq() < 1e-6 || _cX.lengthSq() < 1e-6 ||
         !Number.isFinite(midX) || !Number.isFinite(midY) || !Number.isFinite(midZ)) {
-      tipCap.visible = false
+      tipCap.visible = false; tipBall.visible = false
       return
     }
     _cZ.normalize(); _cX.normalize()
     _cY.crossVectors(_cZ, _cX)
-    if (_cY.lengthSq() < 1e-6) { tipCap.visible = false; return }
+    if (_cY.lengthSq() < 1e-6) { tipCap.visible = false; tipBall.visible = false; return }
     _cY.normalize()
     _cX.crossVectors(_cY, _cZ).normalize()                           // ré-orthogonalise -> repère propre
     _cMat.makeBasis(_cX, _cY, _cZ)
     tipCap.quaternion.setFromRotationMatrix(_cMat)
     tipCap.position.set(midX, midY, midZ).addScaledVector(_cY, 0.4)  // décollé d'un cheveu (anti z-fight)
-    ;(tipCap.material as THREE.MeshStandardMaterial).color.copy(cyclicBrandColor(colorT))
+    const tipColor = cyclicBrandColor(colorT)
+    ;(tipCap.material as THREE.MeshStandardMaterial).color.copy(tipColor)
     tipCap.visible = true
+    tipBall.quaternion.copy(tipCap.quaternion)
+    tipBall.position.set(midX, midY, midZ).addScaledVector(_cY, TIP_BALL_R * 0.25)
+    const ballMat = tipBall.material as THREE.MeshStandardMaterial
+    ballMat.color.copy(tipColor); ballMat.emissive.copy(tipColor)
+    tipBall.visible = true
   }
 
   // Marqueurs départ / arrivée
@@ -1835,6 +1853,7 @@ async function exportFilm3dImpl(
       ribbonGeom.setDrawRange(0, 6)
       coreGeom.instanceCount = 1
       tipCap.visible = false
+      tipBall.visible = false
       for (const { sprite } of panelSprites) sprite.visible = false
       if (departurePanel) departurePanel.visible = false // écrit en haut de l'écran (drawStartHeader)
       if (arrivalPanel) arrivalPanel.visible = false
@@ -1944,6 +1963,7 @@ async function exportFilm3dImpl(
       ribbonGeom.setDrawRange(0, ribbonIndices.length)
       coreGeom.instanceCount = RIBBON_SEGMENTS
       updateTipCap(RIBBON_SEGMENTS, 1)
+      tipBall.visible = false // vue d'ensemble : plus de tête à suivre
       // Localités : fondu de sortie. Cols : restent affichés sur la vue d'ensemble (comme le film 2D+),
       // avec le départ et l'arrivée.
       const panelA = 1 - Math.min(1, u / 0.35)
