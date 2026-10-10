@@ -4,6 +4,7 @@
 // film. Ajoutés d'office comme points d'intérêt (modifiables et supprimables dans l'assistant des panneaux).
 // Mis en cache par tracé.
 import type { GpxPoint } from '../types'
+import { ignStreetName, isPlaceName, type StreetRun } from './routeStreets'
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 // v3 : lieux moins connus gardés aussi en cache (liste « Lieux connus » de l'assistant des panneaux).
@@ -56,6 +57,19 @@ function weightOf(tags: Record<string, string>): number {
   if (!w && tags.bridge && tags.bridge !== 'no') w = WEIGHTS.bridge
   if (tags.name && SQUARE_NAME_RE.test(tags.name)) w = Math.max(w, WEIGHTS['place=square'])
   return w
+}
+
+/** Place déjà écrite sur le tracé comme rue empruntée (« PL DU GENERAL DE GAULLE » en cercle) : son point d'intérêt
+ * ferait doublon. Même nom au format IGN, ou lieu nommé comme une place (« Grand-Place ») à moins de 150 m de la
+ * portion de tracé de cette place. */
+export function isPoiOnChosenPlace(poi: RoutePoi, streets: StreetRun[], points: GpxPoint[], distances: number[]): boolean {
+  const places = streets.filter(s => isPlaceName(s.name))
+  if (!places.length) return false
+  const ign = ignStreetName(poi.name)
+  if (places.some(s => s.name === ign)) return true
+  if (!SQUARE_NAME_RE.test(poi.name.trim())) return false
+  return places.some(s => points.some((p, i) =>
+    distances[i] >= s.startM - 50 && distances[i] <= s.endM + 50 && distM(p.lon, p.lat, poi.lon, poi.lat) < 150))
 }
 
 function distM(lon1: number, lat1: number, lon2: number, lat2: number): number {

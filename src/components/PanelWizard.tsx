@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { LocalityInfo, ColMarker } from '../hooks/useLocality'
 import type { AddPanelInfo } from './AnimationControls'
 import { OnboardingBubble } from './OnboardingBubble'
@@ -9,7 +9,7 @@ import {
   type BannerText, type RaceSettings,
 } from '../lib/raceSplits'
 import { fetchRouteStreets, isMainStreet, type StreetRun } from '../lib/routeStreets'
-import { fetchRoutePoiCandidates, isWellKnownPoi, type RoutePoiCandidate } from '../lib/routePois'
+import { fetchRoutePoiCandidates, isPoiOnChosenPlace, isWellKnownPoi, type RoutePoiCandidate } from '../lib/routePois'
 import type { GpxPoint } from '../types'
 
 /** « 12 h 41 (3 h 41'00") », ou la durée seule sans heure de départ. */
@@ -131,7 +131,12 @@ export function PanelWizard({
   const [poiState, setPoiState] = useState<'idle' | 'loading' | 'error'>('idle')
   const [allPois, setAllPois] = useState(false) // lieux moins connus affichés aussi
   const poiChosen = (name: string) => customLocalities.some(l => l.name === name)
-  const shownPois = (poiList ?? []).filter(p => allPois || isWellKnownPoi(p) || poiChosen(p.name))
+  const onPlace = (p: { name: string; lon: number; lat: number }) => isPoiOnChosenPlace(p, chosenStreets, points, distances)
+  const shownPois = (poiList ?? []).filter(p => !onPlace(p) && (allPois || isWellKnownPoi(p) || poiChosen(p.name)))
+  // Place cochée dans les rues (nom écrit sur le tracé) : son point d'intérêt, ajouté d'office ou à la main, est retiré.
+  useEffect(() => {
+    for (const l of customLocalities) if (l.placeType === 'poi' && onPlace(l)) onRemoveCustomLocality(l.name)
+  }, [race.streets, customLocalities]) // eslint-disable-line react-hooks/exhaustive-deps
   const lesserPoiCount = (poiList ?? []).filter(p => !isWellKnownPoi(p)).length
   const findPois = () => {
     setPoiState('loading')
