@@ -325,7 +325,7 @@ export function drawStreetAlongPath(
     const cum = [0]
     for (let i = i0 + 1; i <= i1; i++) cum.push(cum[cum.length - 1] + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y))
     const total = cum[cum.length - 1]
-    const base = 13.5 * k
+    const base = 15.5 * k
     let size = base
     for (; size >= base * 0.7; size -= 0.5 * k) if (measure(size).textW <= total * 0.85) break
     const textW = measure(size).textW

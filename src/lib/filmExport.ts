@@ -532,17 +532,17 @@ function drawArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: nu
  * et 3D. `place` : position à l'écran d'une borne ou d'un ravitaillement (null = hors champ, derrière la caméra).
  * `coveredM` : pendant la course, seules les bornes approchées (borneReached) ; sans, toutes (fin, vue d'ensemble).
  * `overview` (vue d'ensemble de fin) : une borne qui chevauche une autre borne ou un ravitaillement est décalée
- * du plus petit écart qui la dégage, et une flèche pointe son endroit sur le tracé. */
+ * du plus petit écart qui la dégage, et une flèche pointe son endroit sur le tracé. Renvoie les rectangles occupés
+ * (vue d'ensemble seulement ; vide sinon), que le nom de la ville évite. */
 export function drawBorneLayer(
   ctx: CanvasRenderingContext2D, locSignCache: LocSignCache, bornes: Borne[], ravitos: Ravito[],
   place: (it: Borne | Ravito) => { x: number; y: number } | null,
   scale: number, alpha = 1, coveredM = Infinity, overview = false,
-) {
+): Box[] {
   const outW = ctx.canvas.width, outH = ctx.canvas.height
-  if (alpha <= 0) return
-  const s = Math.max(1, scale)
-  type Box = { x: number; y: number; w: number; h: number }
   const placed: Box[] = []
+  if (alpha <= 0) return placed
+  const s = Math.max(1, scale)
   const hits = (a: Box) => placed.some(p => a.x < p.x + p.w && a.x + a.w > p.x && a.y < p.y + p.h && a.y + a.h > p.y)
   const sprite = (name: string, style: SignStyle, sub?: string) => {
     const key = `${style}|${name}||${sub ?? ''}`
@@ -588,6 +588,7 @@ export function drawBorneLayer(
     }
     drawLocSign(ctx, locSignCache, num, x, y, 'borne', undefined, alpha, s, sub)
   }
+  return placed
 }
 
 /** Rectangle occupé à l'écran par un panneau (sprite de `drawLocSign`, sans sa marge d'ombre de 8 px). */
@@ -1404,6 +1405,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const poiLift = new Map<LocalityEvent, number>()
   /** Décalage (px) de chaque nom de commune ou de lieu-dit posé sur une borne, lissé d'une image à l'autre. */
   const townShift = new Map<unknown, [number, number]>()
+  /** Même chose sur la vue d'ensemble de fin (bornes agrandies et écartées les unes des autres). */
+  const ovTownShift = new Map<unknown, [number, number]>()
   const placeOrder = [...streetLabels].sort((a, b) => Number(!!b.label.place) - Number(!!a.label.place))
   const drawStreetLabels = (project: ProjectFn, m: number, avoid: Box[] = [], avoidStreets: Box[] = []): Box[] => {
     const placeBoxes: Box[] = []
@@ -1536,7 +1539,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   }
   /** Bornes et ravitaillements (cf. drawBorneLayer), à leur point lon/lat. */
   function drawBornes(project: (lon: number, lat: number) => { x: number; y: number }, scale: number, alpha = 1, coveredM = Infinity, overview = false) {
-    drawBorneLayer(ctx, locSignCache, opts.bornes ?? [], opts.ravitos ?? [], it => project(it.lon, it.lat), scale, alpha, coveredM, overview)
+    return drawBorneLayer(ctx, locSignCache, opts.bornes ?? [], opts.ravitos ?? [], it => project(it.lon, it.lat), scale, alpha, coveredM, overview)
   }
   const lngLatAtM = (m: number) => lngLatAtProgress(visualPoints, distances, totalDistance, Math.max(0, Math.min(1, m / totalDistance)))
   /** Avance les personnages d'une image et les dessine, pieds en (x, y). `scale` : 1 = taille de marche. */
@@ -2191,8 +2194,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       // Bornes : s'effacent avec les localités pendant le dézoom, puis reviennent agrandies (km et temps de passage
       // lisibles) après OVERVIEW_CLEAN_S de vue d'ensemble sans infos, en même temps que le carton du bas.
       const infoA = Math.max(0, Math.min(1, (f - EASE_OV - OVERVIEW_CLEAN_S * fps) / WATERMARK_FADE_FRAMES))
-      if (f < EASE_OV) drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale(), locFade)
-      else drawBornes((lon, lat) => exportMap.project([lon, lat]), Math.max(signScale(), OVERVIEW_BORNE_SCALE), infoA, Infinity, true)
+      const ovBorneOcc = f < EASE_OV
+        ? drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale(), locFade)
+        : drawBornes((lon, lat) => exportMap.project([lon, lat]), Math.max(signScale(), OVERVIEW_BORNE_SCALE), infoA, Infinity, true)
       for (const ev of [...localitySpots, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const isEndpoint = ev === departureEvent || ev === arrivalEvent
         const a = isEndpoint || ev.style === 'col' ? 1 : locFade
@@ -2201,7 +2205,16 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
           ctx.save()
           ctx.globalAlpha = a
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale() * endK(ev))
+          // Nom de la ville (départ, arrivée) sous une borne ou un ravitaillement (« LILLE » sous la médaille du 10 km) :
+          // écarté du plus petit pas qui le dégage, en douceur quand les bornes reviennent.
+          const y0 = signY(ev, pt.y, signScale())
+          const [tx, ty] = ovBorneOcc.length
+            ? clearOffset(signBox(locSignCache, ev.name, ev.style, pt.x, y0, signScale() * endK(ev), undefined, ev.ele), ovBorneOcc, 400)
+            : [0, 0]
+          const [cx, cy] = ovTownShift.get(ev) ?? [0, 0]
+          const sh: [number, number] = [cx + (tx - cx) * 0.2, cy + (ty - cy) * 0.2]
+          ovTownShift.set(ev, sh)
+          drawLocSign(ctx, locSignCache, ev.name, pt.x + sh[0], y0 + sh[1], ev.style, ev.ele, 1, signScale() * endK(ev))
           ctx.restore()
         }
       }
