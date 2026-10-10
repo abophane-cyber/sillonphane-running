@@ -57,7 +57,12 @@ export function parseEventName(name: string | undefined, placeHint?: string): { 
     if (re.test(t)) { place = hint; t = t.replace(re, ' ').replace(/\s+/g, ' ').trim() }
   }
   const type = raceType(t)
-  if (type) return { title: place ? `Mon ${type} à ${place}` : `Mon ${type}`, place }
+  // Ville absente du nom du GPX : celle du départ. « Mon semi-marathon » seul ne distinguerait pas les courses
+  // d'un même sillon (« Mon semi-marathon à Lille », « Mon semi-marathon à Chambolle-Musigny »).
+  if (type) {
+    const p = place ?? hint
+    return { title: p ? `Mon ${type} à ${p}` : `Mon ${type}`, place: p }
+  }
   return { title: t ? t.charAt(0).toUpperCase() + t.slice(1) : undefined, place }
 }
 
