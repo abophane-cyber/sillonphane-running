@@ -1487,7 +1487,7 @@ async function exportFilm3dImpl(
         // POI : taille constante à l'écran (étiquette flottante, toujours face à la caméra).
         const k = (d * POI_ANGULAR_H) / h
         sprite.scale.set(w * k, h * k, 1)
-        sprite.center.y = sprite.userData.cy0 - (sprite.userData.lift ?? 0) / POI_PX_H
+        ;(sprite as THREE.Sprite).center.y = sprite.userData.cy0 - (sprite.userData.lift ?? 0) / POI_PX_H
         continue
       }
       if (isLabel) {
@@ -2296,7 +2296,7 @@ async function exportFilm3dImpl(
       if (_poiV.z >= 1) return null
       const sx = (_poiV.x + 1) / 2 * OUT_W, sy = (1 - _poiV.y) / 2 * OUT_H
       const wpx = POI_PX_H * (sprite.scale.x / sprite.scale.y)
-      const box = (lift: number): Box => ({ x: sx - sprite.center.x * wpx, y: sy - (1 - sprite.userData.cy0) * POI_PX_H - lift, w: wpx, h: POI_PX_H })
+      const box = (lift: number): Box => ({ x: sx - (sprite as THREE.Sprite).center.x * wpx, y: sy - (1 - sprite.userData.cy0) * POI_PX_H - lift, w: wpx, h: POI_PX_H })
       return { sprite, sx, sy, box }
     }).filter(p => p != null) : []
     const placeOcc: Box[] = []
