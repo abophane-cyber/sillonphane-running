@@ -110,6 +110,7 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({})
   const [photoImgs, setPhotoImgs] = useState<HTMLImageElement[]>([])
   const [pickFromSillon, setPickFromSillon] = useState(false)
+  const [dragId, setDragId] = useState<string | null>(null)
   const [busy, setBusy] = useState<'print' | 'social' | null>(null)
   const [printOffer, setPrintOffer] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -206,6 +207,14 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
     if (chosenIds.includes(id)) set({ photoIds: chosenIds.filter(x => x !== id) })
     else if (chosenIds.length < POSTER_MAX_PHOTOS) set({ photoIds: [...chosenIds, id] })
   }
+  /** Place la photo `id` à l'emplacement `to` (ordre = placement sur l'affiche) ; l'autre photo prend sa place. */
+  const swapPhoto = (id: string, to: number) => {
+    const from = chosenIds.indexOf(id)
+    if (from < 0 || to < 0 || to >= chosenIds.length || to === from) return
+    const next = [...chosenIds]
+    ;[next[from], next[to]] = [next[to], next[from]]
+    set({ photoIds: next })
+  }
 
   async function addPhotos(files: FileList | null) {
     if (!files?.length) return
@@ -282,10 +291,26 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
         <section className="aff-sec">
           <Head n="04" note={`(${POSTER_MAX_PHOTOS} max)`}>Vos photos</Head>
           <div className="aff-photos">
-            {chosenIds.map(id => (
-              <div key={id} className="aff-photo">
-                {photoUrls[id] && <img src={photoUrls[id]} alt="" />}
+            {chosenIds.map((id, i) => (
+              <div
+                key={id}
+                className={`aff-photo${dragId === id ? ' is-drag' : ''}`}
+                draggable={chosenIds.length > 1}
+                title={chosenIds.length > 1 ? 'Glisser pour intervertir' : undefined}
+                onDragStart={e => { setDragId(id); e.dataTransfer.effectAllowed = 'move' }}
+                onDragEnd={() => setDragId(null)}
+                onDragOver={e => { if (dragId && dragId !== id) e.preventDefault() }}
+                onDrop={e => { e.preventDefault(); if (dragId) swapPhoto(dragId, i); setDragId(null) }}
+              >
+                {photoUrls[id] && <img src={photoUrls[id]} alt="" draggable={false} />}
+                {chosenIds.length > 1 && <span className="aff-photo-num">{i + 1}</span>}
                 <button type="button" aria-label="Retirer la photo" onClick={() => togglePhoto(id)}>×</button>
+                {chosenIds.length > 1 && (
+                  <div className="aff-photo-move">
+                    <button type="button" aria-label="Avancer la photo" disabled={i === 0} onClick={() => swapPhoto(id, i - 1)}>‹</button>
+                    <button type="button" aria-label="Reculer la photo" disabled={i === chosenIds.length - 1} onClick={() => swapPhoto(id, i + 1)}>›</button>
+                  </div>
+                )}
               </div>
             ))}
             {chosenIds.length < POSTER_MAX_PHOTOS && (
