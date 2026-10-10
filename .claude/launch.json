@@ -18,6 +18,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--", "--port", "5222", "--strictPort"],
       "port": 5222
+    },
+    {
+      "name": "running-dev-4",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--port", "5223", "--strictPort"],
+      "port": 5223
     }
   ]
 }
