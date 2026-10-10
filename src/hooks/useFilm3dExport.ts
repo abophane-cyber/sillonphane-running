@@ -183,11 +183,9 @@ export function useFilm3dExport() {
           if (sillonId) {
             let trackId = ctx.activeSillonTrackId ?? undefined
             if (!trackId) {
-              const { getVoyage } = await import('../lib/voyageDB')
+              const { getVoyage, findTrackByUniqueName } = await import('../lib/voyageDB')
               const sillon = await getVoyage(sillonId)
-              trackId = sillon?.tracks.find(t =>
-                t.name.trim().toLowerCase() === ctx.trackName.trim().toLowerCase()
-              )?.id
+              trackId = findTrackByUniqueName(sillon?.tracks ?? [], ctx.trackName)?.id
             }
             await addFilmToVoyage(sillonId, {
               name: `${filmName}_3d.mp4`,

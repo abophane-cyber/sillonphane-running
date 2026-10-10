@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { GpxTrack } from '../types'
-import { getDefaultSillon, addTrackToVoyage } from '../lib/voyageDB'
+import { getDefaultSillon, addTrackToVoyage, findSameTrack } from '../lib/voyageDB'
 
 interface Props {
   track: GpxTrack
@@ -16,7 +16,7 @@ export function AddToVoyageButton({ track, gpxData, trackName }: Props) {
     setState('saving')
     try {
       const sillon = await getDefaultSillon()
-      const already = sillon.tracks.some(t => t.name === trackName)
+      const already = !!findSameTrack(sillon.tracks, gpxData)
       if (!already) {
         await addTrackToVoyage(sillon.id, {
           name: trackName,

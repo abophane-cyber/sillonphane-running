@@ -132,6 +132,20 @@ export function createVoyage(name: string): Voyage {
 
 // ── Tracés ────────────────────────────────────────────────────────────────────
 
+/** Tracé déjà rangé dans le sillon pour ce même fichier GPX (réenregistrement), sinon undefined.
+ * Jamais par le nom : deux courses différentes portent souvent le même titre (« Mon semi-marathon »)
+ * et doivent rester deux tracés distincts, chacun avec son affiche et ses films. */
+export function findSameTrack(tracks: VoyageTrack[], gpxData: string): VoyageTrack | undefined {
+  return gpxData ? tracks.find(t => t.gpxData === gpxData) : undefined
+}
+
+/** Repli des films sans id de tracé connu : rapprochement par nom, seulement s'il est sans ambiguïté. */
+export function findTrackByUniqueName(tracks: VoyageTrack[], name: string): VoyageTrack | undefined {
+  const key = name.trim().toLowerCase()
+  const matches = tracks.filter(t => t.name.trim().toLowerCase() === key)
+  return matches.length === 1 ? matches[0] : undefined
+}
+
 export async function addTrackToVoyage(
   voyageId: string,
   track: Omit<VoyageTrack, 'id' | 'addedAt'>,

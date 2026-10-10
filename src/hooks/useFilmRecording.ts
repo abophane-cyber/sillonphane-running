@@ -184,14 +184,12 @@ export function useFilmRecording() {
           const sillonId = ctx.activeSillonId
           if (sillonId && !filmDebug) {
             // Id réel du tracé si on le connaît. Repli sur le rapprochement par nom seulement
-            // pour les cas anciens où il n'a pas été posé (jamais deux tracés homonymes alors).
+            // pour les cas anciens où il n'a pas été posé, et seulement si un seul tracé porte ce nom.
             let trackId = ctx.activeSillonTrackId ?? undefined
             if (!trackId) {
-              const { getVoyage } = await import('../lib/voyageDB')
+              const { getVoyage, findTrackByUniqueName } = await import('../lib/voyageDB')
               const sillon = await getVoyage(sillonId)
-              trackId = sillon?.tracks.find(t =>
-                t.name.trim().toLowerCase() === ctx.trackName.trim().toLowerCase()
-              )?.id
+              trackId = findTrackByUniqueName(sillon?.tracks ?? [], ctx.trackName)?.id
             }
             const meta = {
               name: `${filmName}_2D.${ext}`,

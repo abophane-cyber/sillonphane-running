@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { Voyage } from '../types'
-import { getAllVoyages, saveVoyage, createVoyage, addTrackToVoyage } from '../lib/voyageDB'
+import { getAllVoyages, saveVoyage, createVoyage, addTrackToVoyage, findSameTrack } from '../lib/voyageDB'
 import type { GpxTrack } from '../types'
 
 interface Props {
@@ -49,7 +49,7 @@ export function SaveToSillonModal({ track, gpxData, trackName, manualDate, depar
       } else {
         sillonId = selected
       }
-      const existing = sillons.find(v => v.id === sillonId)?.tracks.find(t => t.name === trackName)
+      const existing = findSameTrack(sillons.find(v => v.id === sillonId)?.tracks ?? [], gpxData)
       let trackId: string
       if (existing) {
         trackId = existing.id
