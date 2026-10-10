@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { LocalityInfo, ColMarker } from '../hooks/useLocality'
 import type { AddPanelInfo } from './AnimationControls'
 import { OnboardingBubble } from './OnboardingBubble'
@@ -112,19 +112,39 @@ export function PanelWizard({
     for (const g of shownGroups) if (allShownChosen) next.delete(g.name); else next.add(g.name)
     setChosen(next)
   }
+  // Recherche en cours (requêtes IGN, plusieurs secondes sur un semi) : abandonnée à la fermeture de l'assistant ou au
+  // changement de tracé, sinon sa réponse s'appliquait au tracé ouvert entre-temps (rues de Chambolle cochées sur le
+  // semi de Lille, réglages de course de l'ancien tracé recopiés).
+  const streetAbortRef = useRef<AbortController | null>(null)
+  useEffect(() => {
+    setStreetList(null); setStreetState('idle')
+    return () => { streetAbortRef.current?.abort(); streetAbortRef.current = null }
+  }, [points])
   const findStreets = () => {
+    streetAbortRef.current?.abort()
+    const ctrl = new AbortController()
+    streetAbortRef.current = ctrl
     setStreetState('loading')
-    fetchRouteStreets(points, distances)
+    fetchRouteStreets(points, distances, ctrl.signal)
       .then(list => {
+        if (ctrl.signal.aborted) return
         setStreetList(list); setStreetState('idle')
-        // Première recherche : rues d'au moins 400 m et places cochées d'office (leurs noms s'affichent dans le film).
-        if (!chosenStreets.length) {
-          const runsOf = (name: string) => list.filter(r => r.name === name)
-          const main = new Set(list.map(r => r.name).filter(n => isMainStreet(runsOf(n))))
-          onRaceChange({ ...race, streets: list.filter(r => main.has(r.name)) })
+        // Rues cochées absentes de la liste trouvée : venues d'un autre tracé, retirées.
+        const names = new Set(list.map(r => r.name))
+        const kept = chosenStreets.filter(c => names.has(c.name))
+        if (kept.length) {
+          if (kept.length < chosenStreets.length) onRaceChange({ ...race, streets: kept })
+          return
         }
+        // Première recherche : rues d'au moins 400 m et places cochées d'office (leurs noms s'affichent dans le film).
+        const runsOf = (name: string) => list.filter(r => r.name === name)
+        const main = new Set(list.map(r => r.name).filter(n => isMainStreet(runsOf(n))))
+        onRaceChange({ ...race, streets: list.filter(r => main.has(r.name)) })
       })
-      .catch(e => { console.error('[rues]', e); setStreetState('error') })
+      .catch(e => {
+        if (ctrl.signal.aborted) return
+        console.error('[rues]', e); setStreetState('error')
+      })
   }
   // Lieux connus le long du parcours (OpenStreetMap), trouvés à la demande ; cochés = présents parmi les panneaux ajoutés.
   const [poiList, setPoiList] = useState<RoutePoiCandidate[] | null>(null)

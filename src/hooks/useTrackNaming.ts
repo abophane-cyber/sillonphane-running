@@ -31,13 +31,18 @@ export function useTrackNaming(activeTrack: GpxTrack | null, startCol?: string, 
     if (!activeTrack) return
     const first = activeTrack.points[0]
     const last  = activeTrack.points[activeTrack.points.length - 1]
+    // Réponse arrivée après le changement de tracé ignorée (sinon « Dijon », arrivée du tracé précédent, devenait
+    // celle du semi de Lille).
+    let stale = false
     Promise.all([
       fetchLocalityInfo(first.lon, first.lat),
       fetchLocalityInfo(last.lon, last.lat),
     ]).then(([start, end]) => {
+      if (stale) return
       if (start?.name) { setGeoStart(start.name); setGeoStartType(start.placeType); setStartNameRaw(n => n || start.name) }
       if (end?.name)   { setGeoEnd(end.name);     setGeoEndType(end.placeType);     setEndNameRaw(n => n || end.name) }
     })
+    return () => { stale = true }
   }, [activeTrack])
 
   // Réévalué à chaque changement : le nom du col, le géocodage et la restauration arrivent dans n'importe quel ordre.
