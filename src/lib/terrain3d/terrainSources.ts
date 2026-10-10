@@ -172,12 +172,15 @@ export async function fetchOrthoTiles(
   ctx.fillStyle = ORTHO_VOID_TINT
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   const ok = new Array<boolean>(nxP * nyP).fill(false)
-  /** Tuiles en échec de chargement (réseau, serveur saturé), à la différence des tuiles hors couverture. */
-  const failed: [number, number][] = []
-  const load = (jx: number, jy: number, tries: number, onFail: () => void) => {
+  /** Tuiles à reprendre : en échec de chargement (réseau, serveur saturé) ou reçues quasi blanches. */
+  const retry: [number, number][] = []
+  /** `bust` : paramètre ajouté à l'URL pour passer outre le cache du navigateur. L'IGN fait garder ses tuiles
+   * 21 jours (max-age=1814400) : une tuile reçue un jour blanche ou en erreur (serveur saturé) était resservie à
+   * chaque export, toujours au même endroit (aplat à l'ouest de Bédoin, Mont Ventoux). */
+  const load = (jx: number, jy: number, tries: number, onMiss: (why: string) => void, bust = '') => {
     const x = txMinP + jx
     const y = tyMinP + jy
-    const url = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX=${zoom}&TILEROW=${y}&TILECOL=${x}`
+    const url = `https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX=${zoom}&TILEROW=${y}&TILECOL=${x}${bust}`
     // Tuile IGN absente (404, hors couverture) : marquée, le voisinage la comble (voir inpaintOrthoHoles).
     // Hors France (Suisse, Italie…) l'IGN ne renvoie PAS de 404 mais une tuile 200 toute blanche, et les tuiles
     // frontalières sont blanches au-delà de la frontière : ces pixels blancs sont rendus transparents (teinte de
@@ -186,25 +189,25 @@ export async function fetchOrthoTiles(
     return loadImageWithRetry(url, signal, tries)
       .then(img => {
         const { tile, blankFrac } = maskBlankOrtho(img)
-        // Tuile quasi vide (hors couverture IGN) : laissée au comblement de voisinage.
-        if (blankFrac > 0.5) { console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${x},${y}`); return }
+        // Tuile quasi vide (hors couverture IGN, ou blanche reçue d'un serveur saturé) : reprise, puis comblement.
+        if (blankFrac > 0.5) { onMiss(`blanche à ${Math.round(blankFrac * 100)} %`); return }
         ctx.drawImage(tile, jx * TILE, jy * TILE)
         ok[jy * nxP + jx] = true
       })
-      .catch(onFail)
+      .catch(() => onMiss('erreur de chargement'))
   }
   const jobs: (() => Promise<void>)[] = []
   for (let jy = 0; jy < nyP; jy++)
     for (let jx = 0; jx < nxP; jx++)
-      jobs.push(() => load(jx, jy, 2, () => failed.push([jx, jy])).finally(() => onTileDone?.()))
+      jobs.push(() => load(jx, jy, 2, () => retry.push([jx, jy])).finally(() => onTileDone?.()))
   await runPooled(jobs, concurrency)
-  // Seconde passe sur les tuiles en échec, après une pause et à faible concurrence : le serveur IGN, sollicité par
-  // le terrain détaillé et le terrain de fond en même temps, en refusait quelques-unes (aplat de teinte de repli
-  // sur la vue d'ensemble, Mont Ventoux).
-  if (failed.length && !signal?.aborted) {
+  // Seconde passe, hors cache, après une pause et à faible concurrence. Une tuile hors couverture (étranger) ne
+  // coûte qu'une requête de plus.
+  if (retry.length && !signal?.aborted) {
     await sleep(800)
-    await runPooled(failed.map(([jx, jy]) => () => load(jx, jy, 3, () =>
-      console.warn(`Tuile ortho manquante (comblée) : z${zoom} ${txMinP + jx},${tyMinP + jy}`))), 2)
+    const bust = `&_=${Date.now()}`
+    await runPooled(retry.map(([jx, jy]) => () => load(jx, jy, 3, why =>
+      console.warn(`Tuile ortho manquante (comblée, ${why}) : z${zoom} ${txMinP + jx},${tyMinP + jy}`), bust)), 2)
   }
   return { canvas, ok, cols: nxP, rows: nyP }
 }
