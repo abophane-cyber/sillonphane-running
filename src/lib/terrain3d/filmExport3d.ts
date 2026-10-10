@@ -448,11 +448,14 @@ async function exportFilm3dImpl(
     (cov.covLatMax - cov.covLatMin) * 110540,
   )
   const farSideM = Math.min(400_000, Math.max(40_000, covSpanM * FAR_SPAN_K))
-  const farPromise = fetchFarTerrain(cov, farSideM, signal).catch(() => null)
   const [ortho, elevGrid] = await Promise.all([
     fetchOrthoTiles(cov.txMin, cov.tyMin, cov.nx, cov.ny, cov.ZOOM_ORTHO, signal, undefined, onTileDone),
     fetchElevationTiles(cov.ecolMin, cov.erowMin, cov.enx, cov.eny, cov.ZOOM_ELEV, signal, undefined, onTileDone),
   ])
+  // Fond lancé APRÈS les tuiles détaillées (il reste en parallèle de l'hydrographie et de l'assemblage) : lancé en
+  // même temps, ses requêtes attendaient derrière les centaines de tuiles détaillées, vers le même serveur IGN,
+  // jusqu'au délai maximal -> tuile absente, aplat sur la vue d'ensemble (Mont Ventoux, à l'ouest de Bédoin).
+  const farPromise = signal?.aborted ? Promise.resolve(null) : fetchFarTerrain(cov, farSideM, signal).catch(() => null)
   // Après les tuiles : repli relief mondial + comblements (sans progression fine) -> glisse vers 70 %.
   etaStage = 'post'; dlEnd = performance.now()
   report('prepare', dlRatio(nTiles), DL_LABEL, 0.7)
