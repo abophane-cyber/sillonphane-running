@@ -1,7 +1,8 @@
 // Affiche de course (remplace l'album pour Running) : une page par course, dessinée sur un canvas à n'importe quelle
-// taille (aperçu, A3/A4 pour le tirage, carré pour les réseaux). Trois modèles : souvenir (grande photo en noir et
-// blanc portant le tracé), éditorial (photo qui se dissout dans le papier, carte et photo côte à côte) et cinématique
-// (modèle 4, lib/posterCinematique.ts). Maquette d'origine : maquettes/affiche-course.html.
+// taille (aperçu, A3/A4 pour le tirage, carré pour les réseaux). Quatre modèles : éditorial (photo qui se dissout dans
+// le papier, carte et photo côte à côte), origine (première affiche, sombre, lib/posterOrigine.ts), souvenir (grande
+// photo en noir et blanc portant le tracé) et carte (grande carte sombre bordée de blanc, lib/posterCarte.ts).
+// Maquette d'origine : maquettes/affiche-course.html.
 import type {
   GpxPoint, VoyageTrack, PosterSettings, PosterBackground, PosterInfo, PosterRibbon, PosterStyle, PosterFond, PosterFormat,
 } from '../types'
@@ -12,6 +13,7 @@ import {
 } from './raceSplits'
 import { BASEMAP_TILE_URL, IGN_TILE_URL } from './tileSources'
 import { drawOrigine } from './posterOrigine'
+import { drawCarte } from './posterCarte'
 
 /** Unités de dessin : l'affiche est conçue à 720 de large (hauteur selon le format) puis mise à l'échelle. */
 export const POSTER_W = 720
@@ -32,18 +34,21 @@ export function posterHeight(s: PosterSettings): number {
 }
 
 /** Modèles dans l'ordre de l'écran : 1 = éditorial (photo qui se dissout dans le papier), 2 = la première affiche,
- * sombre (lib/posterOrigine.ts), 3 = souvenir (grande photo en noir et blanc). Les modèles retirés (« sportif »,
+ * sombre (lib/posterOrigine.ts), 3 = souvenir (grande photo en noir et blanc), 4 = carte (grande carte sombre au
+ * tracé lumineux, lib/posterCarte.ts). Les modèles retirés (« sportif »,
  * « cinématique ») encore enregistrés sur une affiche passent au modèle 1 (posterStyle). */
 export const POSTER_STYLES: { id: PosterStyle; label: string }[] = [
   { id: 'editorial', label: 'Modèle 1' },
   { id: 'origine', label: 'Modèle 2' },
   { id: 'souvenir', label: 'Modèle 3' },
+  { id: 'carte', label: 'Modèle 4' },
 ]
 /** Réglages par défaut de chaque style (le choix d'un style les rétablit). */
 const STYLE_DEFAULTS: Record<PosterStyle, { fond: PosterFond; background: PosterBackground; ribbon: PosterRibbon }> = {
   editorial: { fond: 'blanc-casse', background: 'plan-nuit', ribbon: 'logo' },
   souvenir: { fond: 'blanc-casse', background: 'plan-nuit', ribbon: '#FFFFFF' },
   origine: { fond: 'nuit', background: 'sat', ribbon: 'logo' },
+  carte: { fond: 'blanc-casse', background: 'sat', ribbon: '#F2C94C' },
 }
 
 export const POSTER_FONDS: { id: PosterFond; label: string; color: string; texture?: 'grain' | 'lin' }[] = [
@@ -303,7 +308,7 @@ function mixHex(a: string, b: string, t: number): string {
   const c = [16, 8, 0].map(sh => Math.round(((pa >> sh) & 255) * (1 - t) + ((pb >> sh) & 255) * t))
   return `rgb(${c.join(',')})`
 }
-function colorAtStops(stops: [number, string][], f: number): string {
+export function colorAtStops(stops: [number, string][], f: number): string {
   const x = Math.max(0, Math.min(1, f))
   for (let i = 1; i < stops.length; i++) {
     const [a, ca] = stops[i - 1], [b, cb] = stops[i]
@@ -312,7 +317,7 @@ function colorAtStops(stops: [number, string][], f: number): string {
   return stops[stops.length - 1][1]
 }
 /** Dégradé du ruban posé de gauche à droite (profil, bande de couleur) ; couleur unie : deux arrêts identiques. */
-function ribbonStops(ribbon: PosterRibbon): [number, string][] {
+export function ribbonStops(ribbon: PosterRibbon): [number, string][] {
   if (ribbon === 'logo' || ribbon === 'aucun') return LOGO_STOPS
   if (ribbon === 'trois-couleurs') return THREE_STOPS
   return [[0, ribbon], [1, ribbon]]
@@ -395,13 +400,13 @@ const wy = (lat: number, z: number) => {
   return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * 2 ** z
 }
 
-/** Projection Mercator du tracé, centré dans un cadre W × H (pixels) avec une marge. */
-function project(points: GpxPoint[], W: number, H: number, pad: number) {
+/** Projection Mercator du tracé, centré dans un cadre W × H (pixels) avec une marge (plus grande en bas si demandé). */
+function project(points: GpxPoint[], W: number, H: number, pad: number, padBottom = pad) {
   const lats = points.map(p => p.lat), lons = points.map(p => p.lon)
   const x0 = wx(Math.min(...lons), 0), x1 = wx(Math.max(...lons), 0)
   const y0 = wy(Math.max(...lats), 0), y1 = wy(Math.min(...lats), 0)
-  const zf = Math.min(18, Math.log2(Math.min((W - 2 * pad) / Math.max(1e-9, x1 - x0), (H - 2 * pad) / Math.max(1e-9, y1 - y0))))
-  const cx = (x0 + x1) / 2 * 2 ** zf, cy = (y0 + y1) / 2 * 2 ** zf
+  const zf = Math.min(18, Math.log2(Math.min((W - 2 * pad) / Math.max(1e-9, x1 - x0), (H - pad - padBottom) / Math.max(1e-9, y1 - y0))))
+  const cx = (x0 + x1) / 2 * 2 ** zf, cy = (y0 + y1) / 2 * 2 ** zf + (padBottom - pad) / 2
   return {
     zf, cx, cy,
     px: (p: { lat: number; lon: number }) => wx(p.lon, zf) - cx + W / 2,
@@ -440,6 +445,74 @@ export interface MapOptions {
   /** Fond = cette photo (noir et blanc) au lieu des tuiles de carte (style souvenir). */
   photo?: HTMLImageElement
   radius: number
+  /** Marge supplémentaire sous le tracé (unités) : place laissée aux textes posés sur le bas de la carte. */
+  padBottom?: number
+  /** Ruban fin avec un halo lumineux (modèle 4). */
+  glow?: boolean
+  /** Kilomètres écrits à côté du tracé (« 2 KM ») au lieu des pastilles rondes, et noms du départ et de l'arrivée. */
+  labels?: { stepKm: number; start?: string; finish?: string }
+}
+
+/** Côté où écrire une étiquette près du point i du tracé : perpendiculaire au parcours, du côté le plus dégagé. */
+function labelSide(points: GpxPoint[], i: number, px: (p: GpxPoint) => number, py: (p: GpxPoint) => number, off: number) {
+  const a = points[Math.max(0, i - 3)], b = points[Math.min(points.length - 1, i + 3)]
+  let tx = px(b) - px(a), ty = py(b) - py(a)
+  const n = Math.hypot(tx, ty) || 1
+  tx /= n; ty /= n
+  const x = px(points[i]), y = py(points[i])
+  const step = Math.max(1, Math.round(points.length / 300))
+  const room = (sx: number, sy: number) => {
+    let best = Infinity
+    for (let j = 0; j < points.length; j += step) best = Math.min(best, Math.hypot(px(points[j]) - sx, py(points[j]) - sy))
+    return best
+  }
+  const c1 = { x: x - ty * off, y: y + tx * off }, c2 = { x: x + ty * off, y: y - tx * off }
+  return room(c1.x, c1.y) >= room(c2.x, c2.y) ? c1 : c2
+}
+
+/** Kilomètres écrits le long du tracé (« 2 KM »), chacun marqué d'un petit point blanc sur le parcours. */
+function drawKmLabels(m: CanvasRenderingContext2D, data: PosterData, stepKm: number,
+  px: (p: GpxPoint) => number, py: (p: GpxPoint) => number, k: number) {
+  const { points, distances, total } = data
+  m.textAlign = 'center'; m.textBaseline = 'middle'
+  let i = 0
+  for (let km = stepKm; km * 1000 < total - 400; km += stepKm) {
+    while (i < points.length - 1 && distances[i] < km * 1000) i++
+    const p = points[i]
+    m.beginPath(); m.arc(px(p), py(p), 2.6 * k, 0, Math.PI * 2); m.fillStyle = '#FFFFFF'; m.fill()
+    const at = labelSide(points, i, px, py, 20 * k)
+    m.font = `700 ${10 * k}px ${SANS}`; m.fillStyle = 'rgba(255,255,255,0.92)'
+    m.shadowColor = 'rgba(0,0,0,0.75)'; m.shadowBlur = 4 * k
+    m.fillText(`${km} KM`, at.x, at.y)
+    m.shadowBlur = 0
+  }
+}
+
+/** Noms du départ et de l'arrivée près de leurs pastilles (un seul nom si la boucle revient au départ). */
+function drawEndLabels(m: CanvasRenderingContext2D, points: GpxPoint[], o: { start?: string; finish?: string },
+  px: (p: GpxPoint) => number, py: (p: GpxPoint) => number, W: number, k: number) {
+  const a = points[0], z = points[points.length - 1]
+  const loop = Math.hypot(px(a) - px(z), py(a) - py(z)) < 40 * k
+  const ends: [GpxPoint, string, string][] = loop
+    ? [[a, o.start ?? '', 'DÉPART · ARRIVÉE']]
+    : [[a, o.start ?? '', 'DÉPART'], [z, o.finish ?? '', 'ARRIVÉE']]
+  m.textBaseline = 'alphabetic'
+  for (const [p, name, sub] of ends) {
+    const x = px(p), y = py(p)
+    m.font = `800 ${11 * k}px ${SANS}`
+    const nw = m.measureText(name.toUpperCase()).width
+    m.font = `500 ${8.5 * k}px ${SANS}`
+    const w = Math.max(nw, m.measureText(sub).width)
+    // À droite de la pastille, à gauche s'il manque de place.
+    const right = x + 16 * k + w < W - 8 * k
+    m.textAlign = right ? 'left' : 'right'
+    const tx = x + (right ? 15 : -15) * k
+    m.shadowColor = 'rgba(0,0,0,0.8)'; m.shadowBlur = 4 * k
+    if (name) { m.font = `800 ${11 * k}px ${SANS}`; m.fillStyle = '#FFFFFF'; m.fillText(name.toUpperCase(), tx, y - 2 * k) }
+    m.font = `500 ${8.5 * k}px ${SANS}`; m.fillStyle = 'rgba(255,255,255,0.85)'
+    m.fillText(sub, tx, name ? y + 9 * k : y + 3 * k)
+    m.shadowBlur = 0
+  }
 }
 
 /** Carte (fond + ruban + bornes) dans le rectangle (x, y, w, h) en unités, `k` = pixels par unité. */
@@ -447,7 +520,8 @@ export async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o
   x: number, y: number, w: number, h: number, k: number, isLive: () => boolean): Promise<boolean> {
   const { points, distances, total } = data
   const W = Math.max(1, Math.round(w * k)), H = Math.max(1, Math.round(h * k))
-  const { zf, cx, cy, px, py } = project(points, W, H, (o.photo ? 56 : 34) * k)
+  const pad = (o.photo ? 56 : o.labels ? 64 : 34) * k
+  const { zf, cx, cy, px, py } = project(points, W, H, pad, pad + (o.padBottom ?? 0) * k)
   const lightPaper = o.theme.light
 
   // Fond sur un canvas à part : les opérations de couleur (désaturation, inversion) ne touchent que la carte.
@@ -495,8 +569,15 @@ export async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o
         : o.ribbon === 'trois-couleurs' ? colorAtStops(THREE_STOPS, atM / total) : o.ribbon
     m.lineJoin = 'round'; m.lineCap = 'round'
     const trace = () => { m.beginPath(); points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p)))) }
-    trace(); m.strokeStyle = o.photo ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.4)'; m.lineWidth = 10 * k; m.stroke()
-    m.lineWidth = 6 * k
+    trace(); m.strokeStyle = o.photo ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.4)'; m.lineWidth = (o.glow ? 7 : 10) * k; m.stroke()
+    if (o.glow) {
+      const halo = colorAtStops(ribbonStops(o.ribbon), 0.5)
+      m.save()
+      m.shadowColor = halo; m.shadowBlur = 14 * k; m.globalAlpha = 0.6
+      trace(); m.strokeStyle = halo; m.lineWidth = 4 * k; m.stroke()
+      m.restore()
+    }
+    m.lineWidth = (o.glow ? 3.5 : 6) * k
     if (o.ribbon === 'logo') {
       const grad = m.createLinearGradient(0, yBottom, 0, yTop)
       LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
@@ -515,7 +596,8 @@ export async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o
     }
 
     // Bornes tous les 5 km (le semi n'est pas repris : la borne des 20 km suffit).
-    if (o.bornes) {
+    if (o.bornes && o.labels) drawKmLabels(m, data, o.labels.stepKm, px, py, k)
+    else if (o.bornes) {
       m.textAlign = 'center'; m.textBaseline = 'middle'
       for (const b of data.bornes.filter(b => Number.isInteger(b.km))) {
         const bx = px(b), by = py(b)
@@ -540,6 +622,7 @@ export async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o
     }
     m.restore()
     m.beginPath(); m.arc(fx, fy, fr, 0, Math.PI * 2); m.lineWidth = 2 * k; m.strokeStyle = '#FFFFFF'; m.stroke()
+    if (o.labels) drawEndLabels(m, points, o.labels, px, py, W, k)
   }
 
   if (!o.photo && o.bg !== 'uni') {
@@ -884,15 +967,17 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
   ctx.fillStyle = band
   ctx.fillRect(L, 30, bandW, 6)
 
-  // Gauche : ville (sinon nom de la course) et date
+  // Gauche : nom de la course (sinon ville), deux lignes au plus, puis date (et ville si le titre ne la cite pas)
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left'; ctx.fillStyle = fg(1)
-  const head = r.city || r.title
-  const hs = fitFont(ctx, head, 800, SANS, sq ? 46 : 60, 26, CW * 0.55)
-  const headY = 46 + hs * 0.86
-  ctx.fillText(head, L, headY)
+  const head = r.title || r.city
+  const { size: hs, lines } = wrapFit(ctx, head, 800, SANS, sq ? 40 : 48, 20, CW * 0.58, 2)
+  let headY = 46 + hs * 0.86
+  lines.forEach((line, i) => { if (i) headY += hs * 1.05; ctx.fillText(line, L, headY) })
   const d = /^(\d{4})-(\d{2})-(\d{2})/.exec(r.dateISO)
+  const cityShown = !r.city || head.toLowerCase().includes(r.city.toLowerCase())
   ctx.font = `500 ${sq ? 18 : 22}px ${SANS}`; ctx.fillStyle = fg(0.85)
-  ctx.fillText(d ? `${d[3]}.${d[2]}.${d[1]}` : r.dateText, L, headY + (sq ? 28 : 34))
+  ctx.fillText([d ? `${d[3]}.${d[2]}.${d[1]}` : r.dateText, cityShown ? '' : r.city].filter(Boolean).join(' · '),
+    L, headY + (sq ? 28 : 34))
 
   // Droite : dossard, temps et distance, nom
   ctx.textAlign = 'right'
@@ -916,9 +1001,11 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
     sx -= Math.max(vw, lw, 30) + 20
   }
   ry += sq ? 40 : 46
-  const who = r.name || r.title
-  fitFont(ctx, who, 700, SANS, sq ? 18 : 22, 12, CW * 0.42); ctx.fillStyle = fg(1)
-  ctx.fillText(who, R, ry)
+  // Nom du coureur (le titre est déjà à gauche)
+  if (r.name) {
+    fitFont(ctx, r.name, 700, SANS, sq ? 18 : 22, 12, CW * 0.38); ctx.fillStyle = fg(1)
+    ctx.fillText(r.name, R, ry)
+  } else ry -= sq ? 22 : 26
 
   // Grande photo (ou carte) portant le tracé, profil éventuel dessous
   const top = Math.max(headY + (sq ? 50 : 60), ry + 22)
@@ -959,6 +1046,8 @@ export async function drawPoster(canvas: HTMLCanvasElement, widthPx: number, dat
     ? await drawSouvenir(ctx, data, r, theme, photos, k, isLive, signature)
     : r.style === 'origine'
       ? await drawOrigine(ctx, data, r, theme, photos, k, isLive, signature)
+    : r.style === 'carte'
+      ? await drawCarte(ctx, data, r, theme, k, isLive, signature)
     : await drawClassic(ctx, data, r, theme, photos, k, isLive, signature)
   if (!ok || !isLive()) return false
   // Fichier pour l'impression : ni logo ni marque, seulement l'adresse du site, toute petite dans la marge du bas

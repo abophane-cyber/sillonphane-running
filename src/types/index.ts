@@ -250,8 +250,8 @@ export type PosterBackground = 'sat' | 'plan-nuit' | 'clair' | 'uni'
  * couleur unie « #RRGGBB », ou « aucun » (carte sans tracé). */
 export type PosterRibbon = 'logo' | 'trois-couleurs' | 'aucun' | string
 /** Style de l'affiche : éditorial (photo fondue dans le papier), origine (première affiche, sombre), souvenir
- * (grande photo noir et blanc). */
-export type PosterStyle = 'editorial' | 'origine' | 'souvenir'
+ * (grande photo noir et blanc), carte (grande carte sombre au tracé lumineux, sans photo). */
+export type PosterStyle = 'editorial' | 'origine' | 'souvenir' | 'carte'
 /** Fond (papier) de l'affiche. */
 export type PosterFond = 'blanc-casse' | 'creme' | 'papier' | 'lin' | 'gris-clair' | 'nuit' | 'noir'
 /** Format : A3, A4 ou carré (30 × 30 cm), chacun téléchargeable pour l'impression ou pour les réseaux. */

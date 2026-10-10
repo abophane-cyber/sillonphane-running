@@ -44,7 +44,7 @@ function windowIndices(dist: number[], i: number, halfW: number): [number, numbe
   return [lo, hi]
 }
 
-function computeElevGainLoss(points: GpxPoint[], dist: number[]): { elevGain: number; elevLoss: number } {
+export function computeElevGainLoss(points: GpxPoint[], dist: number[]): { elevGain: number; elevLoss: number } {
   const raw = points.map(p => p.ele)
   const median = raw.map((_, i) => {
     const [lo, hi] = windowIndices(dist, i, ELE_MEDIAN_WINDOW_M / 2)

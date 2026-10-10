@@ -56,10 +56,14 @@ Reste à faire :
 - **Affiche de course** (remplace l'album : pas de livre pour une seule course) : une page par course. Écran
   d'édition en 9 sections (01 la course, 02 votre nom, 03 vos performances, 04 vos photos (3 max), 05 éléments à
   afficher | 06 style, 07 fond, 08 couleur du parcours, 09 format & export), réglages de part et d'autre de l'aperçu.
-  Trois modèles : Modèle 1 = 1re photo collée en haut à droite qui se dissout dans le papier, carte presque carrée et
+  Quatre modèles : Modèle 1 = 1re photo collée en haut à droite qui se dissout dans le papier, carte presque carrée et
   2e photo ; Modèle 2 = la première affiche, sombre (`src/lib/posterOrigine.ts`) : papier vert nuit, vues aériennes
   assombries, carte et colonne de photos, grand temps, temps de passage, profil ; Modèle 3 = grande photo noir et blanc
-  portant le tracé blanc, ville et date à gauche, dossard, temps, distance et nom à droite. 3 photos au plus (le Modèle 3 n'en prend qu'une). Fonds : blanc cassé, crème chaud, papier (grain), lin,
+  portant le tracé blanc, titre et date à gauche, dossard, temps, distance et nom à droite ; Modèle 4 = la carte
+  (`src/lib/posterCarte.ts`) : titre en capitales, date, petite carte de France avec la ville de départ, grande carte
+  sombre bordée de papier au tracé lumineux (jaune par défaut), kilomètres écrits le long du parcours, départ et
+  arrivée nommés, grand temps, nom, dossard, allure et profil (distance, D+) posés sur le bas de la carte, sans photo.
+  3 photos au plus (le Modèle 3 n'en prend qu'une, le Modèle 4 aucune). Fonds : blanc cassé, crème chaud, papier (grain), lin,
   gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème, couleur unie choisie à la roue de couleur, ou sans tracé. Chaque élément se
   masque (le classement peut ne pas être flatteur). Formats : A3, A4 et carré (30 × 30 cm), chacun téléchargeable
   pour l'impression (JPEG 300 dpi, sans logo ni marque ; seulement « sillonphane.fr/running » en tout petit dans la
