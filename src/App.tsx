@@ -14,6 +14,7 @@ import { HIKER3D_ENABLED } from './lib/hiker3dStaging'
 import { parseGpx } from './lib/gpx'
 import { openDemoTrip } from './lib/demoTrip'
 import { fetchStartLandmark } from './lib/startLandmark'
+import { fetchRoutePois } from './lib/routePois'
 import type { ParsedGpx, PanelLocality, GpxTrack } from './types'
 import { PWAPrompt } from './components/PWAPrompt'
 import { UpdatePrompt } from './components/UpdatePrompt'
@@ -360,11 +361,17 @@ export default function App() {
     // Nouveau tracé (pas une réouverture avec ses panneaux) : repère le plus proche du départ ajouté d'office comme
     // point d'intérêt, visible dès l'ouverture (ex. « Porte de Paris » au départ du semi de Lille).
     const p0 = parsed.tracks[0]?.points[0]
+    // Puis les lieux connus à moins de 200 m du parcours (monuments, mairie, musées, stades…), espacés le long du tracé.
     if (p0 && !restore?.customLocalities) {
-      fetchStartLandmark(p0.lon, p0.lat).then(lm => {
-        if (lm) setCustomLocalities(prev => prev.some(l => l.name === lm.name) ? prev
-          : [...prev, { type: 'locality', name: lm.name, lon: lm.lon, lat: lm.lat, placeType: 'poi' }])
-      }).catch(() => { /* repère facultatif */ })
+      const pts = parsed.tracks[0].points
+      const addPois = (pois: { name: string; lon: number; lat: number }[]) => {
+        if (pois.length) setCustomLocalities(prev => [...prev, ...pois.filter(p => !prev.some(l => l.name === p.name))
+          .map(p => ({ type: 'locality' as const, name: p.name, lon: p.lon, lat: p.lat, placeType: 'poi' }))])
+      }
+      fetchStartLandmark(p0.lon, p0.lat).catch(() => null).then(lm => {
+        if (lm) addPois([lm])
+        return fetchRoutePois(pts, lm ? [lm] : [])
+      }).then(addPois).catch(() => { /* points d'intérêt facultatifs */ })
     }
     setRace(restore?.race ?? DEFAULT_RACE_SETTINGS)
     pendingPanelRestoreRef.current = restore ? { suppressed: restore.suppressed, wizardDone: restore.wizardDone } : null
