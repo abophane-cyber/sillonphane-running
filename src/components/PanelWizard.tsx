@@ -116,10 +116,9 @@ export function PanelWizard({
   // changement de tracé, sinon sa réponse s'appliquait au tracé ouvert entre-temps (rues de Chambolle cochées sur le
   // semi de Lille, réglages de course de l'ancien tracé recopiés).
   const streetAbortRef = useRef<AbortController | null>(null)
-  useEffect(() => {
-    setStreetList(null); setStreetState('idle')
-    return () => { streetAbortRef.current?.abort(); streetAbortRef.current = null }
-  }, [points])
+  // Réglages à jour à l'arrivée de la réponse (modifiés entre-temps dans l'assistant).
+  const raceRef = useRef(race)
+  raceRef.current = race
   const findStreets = () => {
     streetAbortRef.current?.abort()
     const ctrl = new AbortController()
@@ -129,23 +128,32 @@ export function PanelWizard({
       .then(list => {
         if (ctrl.signal.aborted) return
         setStreetList(list); setStreetState('idle')
+        const cur = raceRef.current
+        const chosen = cur.streets ?? []
         // Rues cochées absentes de la liste trouvée : venues d'un autre tracé, retirées.
         const names = new Set(list.map(r => r.name))
-        const kept = chosenStreets.filter(c => names.has(c.name))
+        const kept = chosen.filter(c => names.has(c.name))
         if (kept.length) {
-          if (kept.length < chosenStreets.length) onRaceChange({ ...race, streets: kept })
+          if (kept.length < chosen.length) onRaceChange({ ...cur, streets: kept })
           return
         }
         // Première recherche : rues d'au moins 400 m et places cochées d'office (leurs noms s'affichent dans le film).
         const runsOf = (name: string) => list.filter(r => r.name === name)
         const main = new Set(list.map(r => r.name).filter(n => isMainStreet(runsOf(n))))
-        onRaceChange({ ...race, streets: list.filter(r => main.has(r.name)) })
+        onRaceChange({ ...cur, streets: list.filter(r => main.has(r.name)) })
       })
       .catch(e => {
         if (ctrl.signal.aborted) return
         console.error('[rues]', e); setStreetState('error')
       })
   }
+  // Rues déjà cochées (tracé rouvert) : liste recherchée d'office à l'ouverture, ce qui retire celles d'un autre tracé
+  // enregistrées par erreur avant cette correction.
+  useEffect(() => {
+    setStreetList(null); setStreetState('idle')
+    if (raceRef.current.streets?.length) findStreets()
+    return () => { streetAbortRef.current?.abort(); streetAbortRef.current = null }
+  }, [points]) // eslint-disable-line react-hooks/exhaustive-deps
   // Lieux connus le long du parcours (OpenStreetMap), trouvés à la demande ; cochés = présents parmi les panneaux ajoutés.
   const [poiList, setPoiList] = useState<RoutePoiCandidate[] | null>(null)
   const [poiState, setPoiState] = useState<'idle' | 'loading' | 'error'>('idle')
