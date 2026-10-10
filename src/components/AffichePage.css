@@ -95,6 +95,14 @@
 .aff-colors { display: flex; flex-wrap: wrap; gap: 10px; }
 .aff-colors button { width: 28px; height: 28px; border-radius: 50%; padding: 0; cursor: pointer; border: 1px solid rgba(128,128,128,.4); }
 .aff-colors button[aria-pressed="true"] { outline: 2px solid var(--aff-accent); outline-offset: 3px; }
+/* Roue de couleur (couleur unie) : le sélecteur natif est invisible, posé sur toute la pastille */
+.aff-wheel { position: relative; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; border: 1px solid rgba(128,128,128,.4);
+  background: conic-gradient(red, #ff0, lime, cyan, blue, #f0f, red); }
+.aff-wheel[aria-pressed="true"] { outline: 2px solid var(--aff-accent); outline-offset: 3px; }
+.aff-wheel span { position: absolute; inset: 7px; border-radius: 50%; border: 2px solid #fff; pointer-events: none; }
+.aff-wheel input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; padding: 0; border: 0; }
+/* Sans tracé : pastille barrée */
+.aff-colors .aff-notrace { background: linear-gradient(135deg, transparent 45%, #d9453b 45% 55%, transparent 55%), rgba(128,128,128,.12); }
 
 /* 09 Format & export */
 .aff-formats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

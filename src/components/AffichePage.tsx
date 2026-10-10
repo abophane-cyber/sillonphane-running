@@ -426,6 +426,27 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
                 onClick={() => set({ ribbon: c.id })}
               />
             ))}
+            <label
+              className="aff-wheel"
+              title="Couleur unie : choisir à la roue"
+              aria-pressed={ribbon.startsWith('#')}
+            >
+              {ribbon.startsWith('#') && <span style={{ background: ribbon }} />}
+              <input
+                type="color"
+                aria-label="Couleur unie"
+                value={ribbon.startsWith('#') ? ribbon.toLowerCase() : '#ec6a2c'}
+                onChange={e => set({ ribbon: e.target.value })}
+              />
+            </label>
+            <button
+              type="button"
+              className="aff-notrace"
+              title="Sans tracé"
+              aria-label="Sans tracé"
+              aria-pressed={ribbon === 'aucun'}
+              onClick={() => set({ ribbon: 'aucun' })}
+            />
           </div>
         </section>
 

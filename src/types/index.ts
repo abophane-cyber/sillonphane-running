@@ -247,8 +247,8 @@ export interface VoyageTrack {
 /** Fond de l'affiche : vues aériennes IGN assombries, Plan IGN de nuit, Plan IGN clair, uni. */
 export type PosterBackground = 'sat' | 'plan-nuit' | 'clair' | 'uni'
 /** Ruban de l'affiche : dégradé vertical du logo, vert · orange · crème le long du parcours (un tiers chacun), ou
- * couleur unie « #RRGGBB ». */
-export type PosterRibbon = 'logo' | 'trois-couleurs' | string
+ * couleur unie « #RRGGBB », ou « aucun » (carte sans tracé). */
+export type PosterRibbon = 'logo' | 'trois-couleurs' | 'aucun' | string
 /** Style de l'affiche : éditorial (photo fondue dans le papier), origine (première affiche, sombre), souvenir
  * (grande photo noir et blanc). */
 export type PosterStyle = 'editorial' | 'origine' | 'souvenir'

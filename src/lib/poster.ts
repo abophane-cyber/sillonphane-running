@@ -63,18 +63,11 @@ export const POSTER_BACKGROUNDS: { id: PosterBackground; label: string }[] = [
   { id: 'uni', label: 'Uni' },
 ]
 
-/** Couleurs du parcours : dégradés (logo, vert · orange · crème) puis couleurs unies. */
+/** Couleurs du parcours : dégradés (logo, vert · orange · crème) ; la couleur unie se choisit à la roue de couleur,
+ * « aucun » retire le tracé de la carte. */
 export const POSTER_RIBBONS: { id: PosterRibbon; label: string }[] = [
   { id: 'logo', label: 'Couleurs du logo' },
   { id: 'trois-couleurs', label: 'Vert · orange · crème' },
-  { id: '#F15A35', label: 'Terracotta' },
-  { id: '#EC6A2C', label: 'Orange' },
-  { id: '#F2A27A', label: 'Pêche' },
-  { id: '#2F5C45', label: 'Vert foncé' },
-  { id: '#4E9B6E', label: 'Vert' },
-  { id: '#3B6FE0', label: 'Bleu' },
-  { id: '#9B5DE5', label: 'Violet' },
-  { id: '#FFFFFF', label: 'Blanc' },
 ]
 
 export const POSTER_INFOS: { id: PosterInfo; label: string; needsTimes?: boolean }[] = [
@@ -178,7 +171,7 @@ export function posterStyle(s: PosterSettings): PosterStyle {
 export function posterRibbon(s: PosterSettings): PosterRibbon {
   const r = s.ribbon
   if (!r) return STYLE_DEFAULTS[posterStyle(s)].ribbon
-  return r === 'logo' || r === 'trois-couleurs' || /^#[0-9a-f]{6}$/i.test(r) ? r : 'trois-couleurs'
+  return r === 'logo' || r === 'trois-couleurs' || r === 'aucun' || /^#[0-9a-f]{6}$/i.test(r) ? r : 'trois-couleurs'
 }
 
 /** Fond effectif : id de la liste, ou ancienne couleur libre (première version de l'affiche). */
@@ -320,7 +313,7 @@ function colorAtStops(stops: [number, string][], f: number): string {
 }
 /** Dégradé du ruban posé de gauche à droite (profil, bande de couleur) ; couleur unie : deux arrêts identiques. */
 function ribbonStops(ribbon: PosterRibbon): [number, string][] {
-  if (ribbon === 'logo') return LOGO_STOPS
+  if (ribbon === 'logo' || ribbon === 'aucun') return LOGO_STOPS
   if (ribbon === 'trois-couleurs') return THREE_STOPS
   return [[0, ribbon], [1, ribbon]]
 }
@@ -490,61 +483,64 @@ export async function drawMap(ctx: CanvasRenderingContext2D, data: PosterData, o
     m.globalCompositeOperation = 'source-over'
   }
 
-  // Ruban, sur un liseré sombre. « Couleurs du logo » : dégradé vertical sur l'emprise du tracé (vert forêt en bas,
-  // terracotta au milieu, crème en haut) ; « vert · orange · crème » : le long du parcours ; sinon couleur unie.
-  const ys = points.map(py)
-  const yBottom = Math.max(...ys), yTop = Math.min(...ys)
-  const heightAt = (yy: number) => (yBottom - yy) / Math.max(1, yBottom - yTop)
-  const ribbonColor = (yy: number, atM: number) =>
-    o.ribbon === 'logo' ? colorAtStops(LOGO_STOPS, heightAt(yy))
-      : o.ribbon === 'trois-couleurs' ? colorAtStops(THREE_STOPS, atM / total) : o.ribbon
-  m.lineJoin = 'round'; m.lineCap = 'round'
-  const trace = () => { m.beginPath(); points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p)))) }
-  trace(); m.strokeStyle = o.photo ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.4)'; m.lineWidth = 10 * k; m.stroke()
-  m.lineWidth = 6 * k
-  if (o.ribbon === 'logo') {
-    const grad = m.createLinearGradient(0, yBottom, 0, yTop)
-    LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
-    trace(); m.strokeStyle = grad; m.stroke()
-  } else if (o.ribbon === 'trois-couleurs') {
-    const STEP = Math.max(1, Math.round(points.length / 400))
-    for (let i = 0; i < points.length - 1; i += STEP) {
-      m.strokeStyle = colorAtStops(THREE_STOPS, distances[i] / total)
-      m.beginPath()
-      m.moveTo(px(points[i]), py(points[i]))
-      for (let j = i + 1; j <= Math.min(points.length - 1, i + STEP); j++) m.lineTo(px(points[j]), py(points[j]))
-      m.stroke()
+  // « Sans tracé » : la carte seule, sans ruban, bornes ni départ/arrivée.
+  if (o.ribbon !== 'aucun') {
+    // Ruban, sur un liseré sombre. « Couleurs du logo » : dégradé vertical sur l'emprise du tracé (vert forêt en bas,
+    // terracotta au milieu, crème en haut) ; « vert · orange · crème » : le long du parcours ; sinon couleur unie.
+    const ys = points.map(py)
+    const yBottom = Math.max(...ys), yTop = Math.min(...ys)
+    const heightAt = (yy: number) => (yBottom - yy) / Math.max(1, yBottom - yTop)
+    const ribbonColor = (yy: number, atM: number) =>
+      o.ribbon === 'logo' ? colorAtStops(LOGO_STOPS, heightAt(yy))
+        : o.ribbon === 'trois-couleurs' ? colorAtStops(THREE_STOPS, atM / total) : o.ribbon
+    m.lineJoin = 'round'; m.lineCap = 'round'
+    const trace = () => { m.beginPath(); points.forEach((p, i) => (i ? m.lineTo(px(p), py(p)) : m.moveTo(px(p), py(p)))) }
+    trace(); m.strokeStyle = o.photo ? 'rgba(0,0,0,0.35)' : 'rgba(0,0,0,0.4)'; m.lineWidth = 10 * k; m.stroke()
+    m.lineWidth = 6 * k
+    if (o.ribbon === 'logo') {
+      const grad = m.createLinearGradient(0, yBottom, 0, yTop)
+      LOGO_STOPS.forEach(([at, c]) => grad.addColorStop(at, c))
+      trace(); m.strokeStyle = grad; m.stroke()
+    } else if (o.ribbon === 'trois-couleurs') {
+      const STEP = Math.max(1, Math.round(points.length / 400))
+      for (let i = 0; i < points.length - 1; i += STEP) {
+        m.strokeStyle = colorAtStops(THREE_STOPS, distances[i] / total)
+        m.beginPath()
+        m.moveTo(px(points[i]), py(points[i]))
+        for (let j = i + 1; j <= Math.min(points.length - 1, i + STEP); j++) m.lineTo(px(points[j]), py(points[j]))
+        m.stroke()
+      }
+    } else {
+      trace(); m.strokeStyle = o.ribbon; m.stroke()
     }
-  } else {
-    trace(); m.strokeStyle = o.ribbon; m.stroke()
-  }
 
-  // Bornes tous les 5 km (le semi n'est pas repris : la borne des 20 km suffit).
-  if (o.bornes) {
-    m.textAlign = 'center'; m.textBaseline = 'middle'
-    for (const b of data.bornes.filter(b => Number.isInteger(b.km))) {
-      const bx = px(b), by = py(b)
-      m.beginPath(); m.arc(bx, by, 12 * k, 0, Math.PI * 2)
-      m.fillStyle = '#FFFFFF'; m.fill()
-      m.lineWidth = 2.2 * k; m.strokeStyle = ribbonColor(by, b.km * 1000); m.stroke()
-      m.fillStyle = '#191817'; m.font = `800 ${11 * k}px ${SANS}`
-      m.fillText(String(b.km), bx, by + 0.5 * k)
+    // Bornes tous les 5 km (le semi n'est pas repris : la borne des 20 km suffit).
+    if (o.bornes) {
+      m.textAlign = 'center'; m.textBaseline = 'middle'
+      for (const b of data.bornes.filter(b => Number.isInteger(b.km))) {
+        const bx = px(b), by = py(b)
+        m.beginPath(); m.arc(bx, by, 12 * k, 0, Math.PI * 2)
+        m.fillStyle = '#FFFFFF'; m.fill()
+        m.lineWidth = 2.2 * k; m.strokeStyle = ribbonColor(by, b.km * 1000); m.stroke()
+        m.fillStyle = '#191817'; m.font = `800 ${11 * k}px ${SANS}`
+        m.fillText(String(b.km), bx, by + 0.5 * k)
+      }
     }
+    // Départ : pastille blanche ; arrivée : drapeau à damier.
+    const a = points[0], z = points[points.length - 1]
+    m.beginPath(); m.arc(px(a), py(a), 7 * k, 0, Math.PI * 2)
+    m.fillStyle = '#FFFFFF'; m.fill(); m.lineWidth = 2.5 * k; m.strokeStyle = '#191817'; m.stroke()
+    const fx = px(z), fy = py(z), fr = 10 * k
+    m.save()
+    m.beginPath(); m.arc(fx, fy, fr, 0, Math.PI * 2); m.clip()
+    const sq = fr / 2.2
+    for (let i = -3; i < 3; i++) for (let j = -3; j < 3; j++) {
+      m.fillStyle = (i + j) % 2 === 0 ? '#191817' : '#FFFFFF'
+      m.fillRect(fx + i * sq, fy + j * sq, sq, sq)
+    }
+    m.restore()
+    m.beginPath(); m.arc(fx, fy, fr, 0, Math.PI * 2); m.lineWidth = 2 * k; m.strokeStyle = '#FFFFFF'; m.stroke()
   }
-  // Départ : pastille blanche ; arrivée : drapeau à damier.
-  const a = points[0], z = points[points.length - 1]
-  m.beginPath(); m.arc(px(a), py(a), 7 * k, 0, Math.PI * 2)
-  m.fillStyle = '#FFFFFF'; m.fill(); m.lineWidth = 2.5 * k; m.strokeStyle = '#191817'; m.stroke()
-  const fx = px(z), fy = py(z), fr = 10 * k
-  m.save()
-  m.beginPath(); m.arc(fx, fy, fr, 0, Math.PI * 2); m.clip()
-  const sq = fr / 2.2
-  for (let i = -3; i < 3; i++) for (let j = -3; j < 3; j++) {
-    m.fillStyle = (i + j) % 2 === 0 ? '#191817' : '#FFFFFF'
-    m.fillRect(fx + i * sq, fy + j * sq, sq, sq)
-  }
-  m.restore()
-  m.beginPath(); m.arc(fx, fy, fr, 0, Math.PI * 2); m.lineWidth = 2 * k; m.strokeStyle = '#FFFFFF'; m.stroke()
 
   if (!o.photo && o.bg !== 'uni') {
     m.textAlign = 'right'; m.textBaseline = 'alphabetic'

@@ -60,7 +60,7 @@ Reste à faire :
   2e photo ; Modèle 2 = la première affiche, sombre (`src/lib/posterOrigine.ts`) : papier vert nuit, vues aériennes
   assombries, carte et colonne de photos, grand temps, temps de passage, profil ; Modèle 3 = grande photo noir et blanc
   portant le tracé blanc, ville et date à gauche, dossard, temps, distance et nom à droite. 3 photos au plus (le Modèle 3 n'en prend qu'une). Fonds : blanc cassé, crème chaud, papier (grain), lin,
-  gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème ou couleur unie. Chaque élément se
+  gris clair, vert nuit, noir. Parcours : couleurs du logo, vert · orange · crème, couleur unie choisie à la roue de couleur, ou sans tracé. Chaque élément se
   masque (le classement peut ne pas être flatteur). Formats : A3, A4 et carré (30 × 30 cm), chacun téléchargeable
   pour l'impression (JPEG 300 dpi, sans logo ni marque ; seulement « sillonphane.fr/running » en tout petit dans la
   marge du bas) ou pour les réseaux (1080 px de large, avec le logo et « Sillonphane.fr » en bas, aussi visibles à
