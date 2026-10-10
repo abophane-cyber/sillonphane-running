@@ -351,8 +351,8 @@ export function drawStreetAlongPath(
     }
     // Virage sous le nom : somme des changements de cap (degrés) entre s ± (textW / 2 + size). Dans un virage, les
     // lettres se tassent et se tordent à l'intérieur de la courbe (« BD VAUBAN » illisible) : on cherche une partie droite.
-    const turnAt = (s: number) => {
-      const lo = s - textW / 2 - 2 * size, hi = s + textW / 2 + 2 * size
+    const turnAt = (s: number, margin: number) => {
+      const lo = s - textW / 2 - margin, hi = s + textW / 2 + margin
       let sum = 0
       for (let i = i0 + 1; i < i1; i++) {
         const d = cum[i - i0]
@@ -367,20 +367,24 @@ export function drawStreetAlongPath(
     // Candidats du milieu vers les bords : le premier libre et presque droit (≤ 15°) ; à défaut le plus droit des
     // libres s'il reste lisible (≤ 35°) ; sinon réessai à l'image suivante.
     // Marge aux deux bouts de la rue, souvent un carrefour où le parcours tourne : la première ou la dernière lettre y
-    // passait à l'intérieur du virage, sous le ruban (« BD VICTOR HUGO » lu « ID VICTOR HUGO »). Réduite si la rue est courte.
-    const endPad = Math.min(3 * size, (total - textW) / 2)
-    let sAt = -1, bestTurn = 35
-    for (let n = 0; n <= 12; n++) {
-      for (const sgn of n ? [1, -1] : [1]) {
-        const s = total / 2 + sgn * n * 0.08 * total
-        if (s - textW / 2 < endPad || s + textW / 2 > total - endPad) continue
-        if (avoid.length && boxesHit(footprint(s), avoid)) continue
-        const turn = turnAt(s)
-        if (turn <= 15) { sAt = s; bestTurn = -1; break }
-        if (turn <= bestTurn) { sAt = s; bestTurn = turn }
+    // passait à l'intérieur du virage, sous le ruban (« BD VICTOR HUGO » lu « ID VICTOR HUGO »). Marge et virages vérifiés
+    // plus loin autour du nom d'abord ; à défaut (rue courte ou vue en partie, ex. au début du film), sans marge.
+    const search = (endPad: number, margin: number) => {
+      let sAt = -1, bestTurn = 35
+      for (let n = 0; n <= 12; n++) {
+        for (const sgn of n ? [1, -1] : [1]) {
+          const s = total / 2 + sgn * n * 0.08 * total
+          if (s - textW / 2 < endPad || s + textW / 2 > total - endPad) continue
+          if (avoid.length && boxesHit(footprint(s), avoid)) continue
+          const turn = turnAt(s, margin)
+          if (turn <= 15) return s
+          if (turn <= bestTurn) { sAt = s; bestTurn = turn }
+        }
       }
-      if (bestTurn < 0) break
+      return sAt
     }
+    let sAt = search(Math.min(3 * size, (total - textW) / 2), 2 * size)
+    if (sAt < 0) sAt = search(0, size)
     if (sAt < 0) { ctx.restore(); return null }
     label.fix = { at: idxAt(sAt), size, flip: pts[i1]!.x < pts[i0]!.x }
   }
