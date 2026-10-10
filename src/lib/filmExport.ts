@@ -591,10 +591,10 @@ export function drawBorneLayer(
 }
 
 /** Rectangle occupé à l'écran par un panneau (sprite de `drawLocSign`, sans sa marge d'ombre de 8 px). */
-function signBox(cache: LocSignCache, name: string, style: SignStyle, px: number, py: number, scale = 1, sub?: string): Box {
-  const key = `${style}|${name}||${sub ?? ''}`
+function signBox(cache: LocSignCache, name: string, style: SignStyle, px: number, py: number, scale = 1, sub?: string, ele?: number): Box {
+  const key = `${style}|${name}|${ele ?? ''}|${sub ?? ''}`
   let sp = cache.get(key)
-  if (!sp) { sp = buildLocSignSprite(name, style, undefined, sub); cache.set(key, sp) }
+  if (!sp) { sp = buildLocSignSprite(name, style, ele, sub); cache.set(key, sp) }
   return {
     x: px - (sp.offX - 8) * scale, y: py - (sp.offY - 8) * scale,
     w: (sp.canvas.width / SIGN_RES - 16) * scale, h: (sp.canvas.height / SIGN_RES - 16) * scale,
@@ -1519,7 +1519,19 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const ev = landmarks.length ? landmarks.reduce((a, b) => (d2(b) < d2(a) ? b : a)) : departureEvent!
       const pt = exportMap.project([ev.lon, ev.lat])
       const s = signScale()
-      drawStartTimePill(ctx, startTimeText, pt.x, signY(ev, pt.y, s) + START_TIME_DY * s, 30 * s, timeAlpha * alpha)
+      const fontPx = 30 * s
+      let cx = pt.x, top = signY(ev, pt.y, s) + START_TIME_DY * s
+      // Pastille sous un repère, mais chevauchant le panneau de départ (avancé vers le bas, cf. signY) : elle passe
+      // sous ce panneau.
+      if (ev !== departureEvent && departureEvent) {
+        const dp = exportMap.project([departureEvent.lon, departureEvent.lat])
+        const b = signBox(locSignCache, departureEvent.name, departureEvent.style, dp.x,
+          signY(departureEvent, dp.y, s), s * endK(departureEvent), undefined, departureEvent.ele)
+        const halfW = fontPx * 4, h = fontPx * 1.3
+        if (top < b.y + b.h && top + h > b.y && pt.x - halfW < b.x + b.w && pt.x + halfW > b.x)
+          { cx = dp.x; top = b.y + b.h + START_TIME_DY * s }
+      }
+      drawStartTimePill(ctx, startTimeText, cx, top, fontPx, timeAlpha * alpha)
     }
   }
   /** Bornes et ravitaillements (cf. drawBorneLayer), à leur point lon/lat. */
