@@ -69,3 +69,16 @@
   border: 1px solid var(--livre-line); border-radius: 8px; background: #fff; color: var(--livre-ink); }
 .livre__printers button span { font-size: .78rem; color: var(--livre-muted); }
 .livre__printers button[aria-pressed='true'] { border-color: var(--livre-accent); box-shadow: inset 0 0 0 1px var(--livre-accent); background: rgba(193,92,61,.05); }
+
+/* Aperçu du livre : doubles pages dessinées comme l'export, sur un plateau gris. */
+.livre-apercu { outline: none; }
+.livre-apercu:focus-visible .livre-apercu__stage { box-shadow: 0 0 0 2px var(--livre-accent); }
+.livre-apercu__stage { position: relative; width: 100%; border-radius: 6px; background: #E4E0D8; overflow: hidden; }
+.livre-apercu__stage img { display: block; width: 100%; height: 100%; filter: drop-shadow(0 4px 10px rgba(0,0,0,.18)); transition: opacity .2s; }
+.livre-apercu__stage img.is-stale { opacity: .35; }
+.livre-apercu__wait { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: .85rem; color: var(--livre-muted); }
+.livre-apercu__nav { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.livre-apercu__nav input[type='range'] { flex: 1; min-width: 60px; accent-color: var(--livre-accent); }
+.livre-apercu__label { font-size: .85rem; font-weight: 600; white-space: nowrap; }
+.livre-apercu__label small { font-weight: 400; color: var(--livre-muted); }

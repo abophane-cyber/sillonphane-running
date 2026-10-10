@@ -11,6 +11,7 @@ import { saveFileWithPicker } from '../lib/saveFile'
 import { useHeaderBack } from '../hooks/useHeaderBack'
 import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { PrintOfferOverlay } from './PrintOfferOverlay'
+import { LivreApercu } from './LivreApercu'
 import './LivrePage.css'
 
 interface Props {
@@ -100,6 +101,9 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
 
   const title = prefs.title?.trim() || 'Mes courses'
   const name = prefs.name ?? runnerDefault
+  // Tout ce que l'aperçu dessine : choix, réglages, affiches et notes des courses.
+  const previewKey = JSON.stringify([chosenKey, photoSpreads, title, name.trim(), printer.id,
+    chosen.map(c => [c.track.bookNote, c.track.poster])])
 
   async function startExport() {
     exportedKey.current = choiceKey
@@ -205,6 +209,18 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
               </button>
             )}
           </section>
+
+          {chosen.length > 0 && (
+            <section className="livre__sec">
+              <h2 className="livre__h">Aperçu du livre</h2>
+              <LivreApercu
+                courses={chosen}
+                options={{ title, name: name.trim(), photoSpreads, printer }}
+                bookKey={previewKey}
+                paused={busy}
+              />
+            </section>
+          )}
 
           <section className="livre__sec">
             <h2 className="livre__h">Le livre</h2>

@@ -514,12 +514,12 @@ function drawPhotosPage(ctx: CanvasRenderingContext2D, imgs: HTMLImageElement[],
 
 const COVER_SAFE = 15
 
-/** Toile en millimètres (300 dpi), peinte en vert nuit. */
-function coverCanvas(wMm: number, hMm: number) {
+/** Toile en millimètres (300 dpi, moins pour l'aperçu), peinte en vert nuit. */
+function coverCanvas(wMm: number, hMm: number, pxPerMm = PX_PER_MM) {
   const canvas = document.createElement('canvas')
-  canvas.width = Math.round(wMm * PX_PER_MM); canvas.height = Math.round(hMm * PX_PER_MM)
+  canvas.width = Math.round(wMm * pxPerMm); canvas.height = Math.round(hMm * pxPerMm)
   const ctx = canvas.getContext('2d')!
-  ctx.scale(PX_PER_MM, PX_PER_MM)
+  ctx.scale(pxPerMm, pxPerMm)
   ctx.fillStyle = NIGHT; ctx.fillRect(0, 0, wMm, hMm)
   return { canvas, ctx }
 }
@@ -582,9 +582,9 @@ async function renderWrapCover(entries: Entry[], o: BookOptions, pages: number):
 }
 
 /** Flexilivre : 1re ou 4e de couverture sur une page du format du livre (1re et dernière page du PDF unique). */
-function renderCoverPage(entries: Entry[], o: BookOptions, side: 'front' | 'back'): HTMLCanvasElement {
+function renderCoverPage(entries: Entry[], o: BookOptions, side: 'front' | 'back', pxPerMm = PX_PER_MM): HTMLCanvasElement {
   const { w, h } = o.printer.profile.pageCm
-  const { canvas, ctx } = coverCanvas(w * 10, h * 10)
+  const { canvas, ctx } = coverCanvas(w * 10, h * 10, pxPerMm)
   const x = COVER_SAFE, cw = w * 10 - 2 * COVER_SAFE, top = COVER_SAFE, bottom = h * 10 - COVER_SAFE
   if (side === 'front') drawCoverFront(ctx, entries, o, x, cw, top, bottom)
   else drawCoverBack(ctx, entries, x + cw * 0.25, cw * 0.5, top, bottom)
@@ -634,21 +634,18 @@ async function loadPhotos(list: VoyagePhoto[], urls: string[]): Promise<Map<stri
   return out
 }
 
-/**
- * Prépare le ou les PDF du livre pour l'imprimeur choisi. `onProgress(fait, total)` compte les pages (couverture
- * comprise) ; `isLive` permet d'abandonner (écran quitté) : la promesse est alors rejetée.
- */
-export async function prepareBook(courses: BookCourse[], o: BookOptions,
-  onProgress?: (done: number, total: number) => void, isLive: () => boolean = () => true): Promise<PreparedBook> {
-  await loadFonts()
+/** Format des pages de l'imprimeur (hauteur des unités de dessin, fond perdu). */
+function setFormat(printer: BookPrinterInfo) {
+  const { w, h } = printer.profile.pageCm
+  UH = UW * h / w
+  fullBleed = printer.profile.coverMode === 'wrap-spread'
+}
+
+/** Courses lisibles et plan des pages intérieures, complété de pages blanches jusqu'au nombre imprimé. */
+function layoutBook(courses: BookCourse[], o: BookOptions): { entries: Entry[]; plan: Page[] } {
   const entries = buildEntries(courses)
   if (!entries.length) throw new Error('Aucune course lisible dans le livre')
-  const pageCm = o.printer.profile.pageCm
-  const wrap = o.printer.profile.coverMode === 'wrap-spread'
-  UH = UW * pageCm.h / pageCm.w
-  fullBleed = wrap
-
-  // Plan des pages intérieures
+  setFormat(o.printer)
   const plan: Page[] = [{ kind: 'title' }, { kind: 'records' }, { kind: 'progress' }, { kind: 'palmares' }, { kind: 'toc' }]
   for (const e of entries) {
     e.page = plan.length + 1
@@ -658,6 +655,45 @@ export async function prepareBook(courses: BookCourse[], o: BookOptions,
   const total = printedPageCount(plan.length, o.printer)
   while (plan.length < total - 1) plan.push({ kind: 'blank' })
   if (plan.length < total) plan.push({ kind: 'colophon' })
+  return { entries, plan }
+}
+
+/** Dessine la page intérieure n° `n` sur `ctx` (toile de UW × UH unités à l'échelle `k`). */
+async function drawPage(ctx: CanvasRenderingContext2D, page: Page, n: number, k: number, entries: Entry[], o: BookOptions,
+  loaded: Map<string, HTMLImageElement>) {
+  ctx.setTransform(k, 0, 0, k, 0, 0)
+  ctx.fillStyle = PAPER; ctx.fillRect(0, 0, UW, UH)
+  const imgsOf = (e: Entry) => e.photos.map(p => loaded.get(p.id)).filter((x): x is HTMLImageElement => !!x)
+  switch (page.kind) {
+    case 'title': drawTitlePage(ctx, entries, o); break
+    case 'records': drawRecords(ctx, entries); folio(ctx, n); break
+    case 'progress': drawProgress(ctx, entries); folio(ctx, n); break
+    case 'palmares': drawPalmares(ctx, entries); folio(ctx, n); break
+    case 'toc': drawToc(ctx, entries); folio(ctx, n); break
+    case 'poster': {
+      const ids = page.e.settings.photoIds ?? []
+      await drawPosterPage(ctx, page.e, ids.map(id => loaded.get(id)).filter((x): x is HTMLImageElement => !!x), k)
+      break
+    }
+    case 'carnet': await drawCarnet(ctx, page.e, imgsOf(page.e), k, n); break
+    case 'photos': drawPhotosPage(ctx, imgsOf(page.e), page.half, k); break
+    case 'colophon':
+      text(ctx, 'Livre composé avec Sillonphane · sillonphane.fr/running', UW / 2, UH - M, `500 10px ${SANS}`, ink(0.4), 'center', 1)
+      break
+    case 'blank': break
+  }
+}
+
+/**
+ * Prépare le ou les PDF du livre pour l'imprimeur choisi. `onProgress(fait, total)` compte les pages (couverture
+ * comprise) ; `isLive` permet d'abandonner (écran quitté) : la promesse est alors rejetée.
+ */
+export async function prepareBook(courses: BookCourse[], o: BookOptions,
+  onProgress?: (done: number, total: number) => void, isLive: () => boolean = () => true): Promise<PreparedBook> {
+  await loadFonts()
+  const { entries, plan } = layoutBook(courses, o)
+  const pageCm = o.printer.profile.pageCm
+  const wrap = o.printer.profile.coverMode === 'wrap-spread'
   const steps = plan.length + (wrap ? 1 : 2)
   let done = 0
   const step = () => onProgress?.(++done, steps)
@@ -694,33 +730,13 @@ export async function prepareBook(courses: BookCourse[], o: BookOptions,
   try {
     for (let i = 0; i < plan.length; i++) {
       if (!isLive()) throw new Error('Export du livre abandonné')
-      const page = plan[i], n = i + 1
-      ctx.setTransform(k, 0, 0, k, 0, 0)
-      ctx.fillStyle = PAPER; ctx.fillRect(0, 0, UW, UH)
+      const page = plan[i]
       if ('e' in page && loadedFor !== page.e) {
         release()
         loadedFor = page.e
         loaded = await loadPhotos(page.e.photos, urls)
       }
-      const imgsOf = (e: Entry) => e.photos.map(p => loaded.get(p.id)).filter((x): x is HTMLImageElement => !!x)
-      switch (page.kind) {
-        case 'title': drawTitlePage(ctx, entries, o); break
-        case 'records': drawRecords(ctx, entries); folio(ctx, n); break
-        case 'progress': drawProgress(ctx, entries); folio(ctx, n); break
-        case 'palmares': drawPalmares(ctx, entries); folio(ctx, n); break
-        case 'toc': drawToc(ctx, entries); folio(ctx, n); break
-        case 'poster': {
-          const ids = page.e.settings.photoIds ?? []
-          await drawPosterPage(ctx, page.e, ids.map(id => loaded.get(id)).filter((x): x is HTMLImageElement => !!x), k)
-          break
-        }
-        case 'carnet': await drawCarnet(ctx, page.e, imgsOf(page.e), k, n); break
-        case 'photos': drawPhotosPage(ctx, imgsOf(page.e), page.half, k); break
-        case 'colophon':
-          text(ctx, 'Livre composé avec Sillonphane · sillonphane.fr/running', UW / 2, UH - M, `500 10px ${SANS}`, ink(0.4), 'center', 1)
-          break
-        case 'blank': break
-      }
+      await drawPage(ctx, page, i + 1, k, entries, o, loaded)
       await addPage(canvas)
       step()
     }
@@ -746,4 +762,79 @@ export async function prepareBook(courses: BookCourse[], o: BookOptions,
       { blob: cover, name: `${base} - livre couverture.pdf`, label: 'Couverture (PDF)' },
     ],
   }
+}
+
+// ── Aperçu ───────────────────────────────────────────────────────────────────
+
+/** Côté d'une vue de l'aperçu : 1re ou 4e de couverture, numéro de page intérieure, ou rien. */
+export type PreviewSide = 'front' | 'back' | number | null
+
+export interface BookPreview {
+  /** Vues à feuilleter, [gauche, droite] : 1re de couverture (à droite), page 1 (à droite), doubles pages, 4e de
+   * couverture (à gauche). */
+  views: [PreviewSide, PreviewSide][]
+  /** Pages intérieures, pages blanches de fin comprises. */
+  pages: number
+  /** Largeur / hauteur d'une page. */
+  pageRatio: number
+  /** Dessine la vue n° `i` en basse définition (toile de `widthPx` de large, deux pages côte à côte) ; null si
+   * abandonnée (`isLive` faux). */
+  renderView(i: number, widthPx: number, isLive?: () => boolean): Promise<HTMLCanvasElement | null>
+}
+
+/**
+ * Aperçu du livre tel qu'il sera exporté (mêmes pages, même dessin), vue par vue. Ne pas dessiner pendant un export :
+ * le format de page est commun aux deux.
+ */
+export async function openBookPreview(courses: BookCourse[], o: BookOptions): Promise<BookPreview> {
+  await loadFonts()
+  const { entries, plan } = layoutBook(courses, o)
+  const pageCm = o.printer.profile.pageCm
+  const views: [PreviewSide, PreviewSide][] = [[null, 'front'], [null, 1]]
+  for (let p = 2; p <= plan.length; p += 2) views.push([p, p + 1 <= plan.length ? p + 1 : null])
+  views.push(['back', null])
+
+  async function renderView(i: number, widthPx: number, isLive: () => boolean = () => true) {
+    const view = views[i]
+    if (!view) return null
+    setFormat(o.printer)
+    const pw = Math.round(widthPx / 2), ph = Math.round(pw * pageCm.h / pageCm.w)
+    const out = document.createElement('canvas')
+    out.width = pw * 2; out.height = ph
+    const octx = out.getContext('2d')!
+    for (let side = 0; side < 2; side++) {
+      const s = view[side]
+      if (s === null) continue
+      if (!isLive()) return null
+      const x = side * pw
+      if (s === 'front' || s === 'back') {
+        const c = renderCoverPage(entries, o, s, pw / (pageCm.w * 10))
+        octx.drawImage(c, x, 0, pw, ph)
+        c.width = c.height = 0
+        continue
+      }
+      const page = plan[s - 1]
+      const c = document.createElement('canvas')
+      c.width = pw; c.height = ph
+      const urls: string[] = []
+      try {
+        const loaded = 'e' in page ? await loadPhotos(page.e.photos, urls) : new Map<string, HTMLImageElement>()
+        if (!isLive()) return null
+        await drawPage(c.getContext('2d')!, page, s, pw / UW, entries, o, loaded)
+      } finally {
+        urls.forEach(u => URL.revokeObjectURL(u))
+      }
+      octx.drawImage(c, x, 0)
+      c.width = c.height = 0
+    }
+    // Pli central d'une double page intérieure.
+    if (typeof view[0] === 'number' && typeof view[1] === 'number') {
+      const g = octx.createLinearGradient(pw - 24, 0, pw + 24, 0)
+      g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, 'rgba(0,0,0,0.16)'); g.addColorStop(1, 'rgba(0,0,0,0)')
+      octx.fillStyle = g; octx.fillRect(pw - 24, 0, 48, ph)
+    }
+    return isLive() ? out : null
+  }
+
+  return { views, pages: plan.length, pageRatio: pageCm.w / pageCm.h, renderView }
 }
