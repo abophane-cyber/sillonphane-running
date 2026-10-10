@@ -86,12 +86,16 @@ Reste à faire :
      (`lib/records.ts` : temps saisi sur l'affiche, sinon durée du GPX marquée « GPS »).
   2. *Fait* — Écran de l'affiche : l'encadré « Bientôt » devient « Livre » (case « Inclure dans le livre »,
      `VoyageTrack.inBook` ; absent = oui dès que l'affiche existe) et lien vers « Créer le livre ».
-  3. *Fait, sauf l'export* — Écran « Créer le livre » (`components/LivrePage.tsx`, `lib/book.ts`, vue « livre » de
-     App.tsx), bouton en haut de Mes sillons : courses choisies **dans tous les sillons** (filtre par période : années
-     ou dates), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28). Une double page par
-     course (affiche + carnet : temps de passage, profil, photos, notes), double page photos en option ; en tête
-     records, progression, palmarès, sommaire (4 pages). Compteur « 22 pages sur 28 minimum », export bloqué en
-     dessous. Reste : la mise en page et l'export PDF du livre (bouton « Exporter le livre » encore inactif).
+  3. *Fait* — Écran « Créer le livre » (`components/LivrePage.tsx`, `lib/book.ts`, vue « livre » de App.tsx),
+     bouton en haut de Mes sillons : courses choisies **dans tous les sillons** (filtre par période : années ou
+     dates), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28) ; titre du livre, nom,
+     note par course (`VoyageTrack.bookNote`). Une double page par course (affiche | carnet : temps de passage, profil,
+     photos, note), double page photos en option ; en tête page de titre, records | progression, palmarès | sommaire
+     (5 pages). Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
+     Export (`lib/bookExport.ts`) au format WhiteWall paysage (27,3 × 21,1 cm, 300 dpi, pages dessinées sur canvas) :
+     deux PDF, intérieur complété de pages blanches jusqu'au multiple de 4, et couverture à plat (4e | dos | 1re, vert
+     nuit, tracés des courses au ruban vert · orange · crème, dos selon le nombre de pages), puis offre d'impression
+     WhiteWall avec le nombre de pages à indiquer.
   4. Retirer le « Bientôt » de l'accueil.
 - Comparaison avec un autre coureur ou l'édition précédente (deuxième ruban).
 - Offre organisateurs : film officiel du parcours aux couleurs de l'épreuve (logo et sponsors fournis par eux).

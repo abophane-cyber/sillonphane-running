@@ -243,6 +243,7 @@ export interface VoyageTrack {
   panelBibNumber?: string              // numéro inscrit sur le dossard du personnage
   poster?: PosterSettings              // affiche de course (cf. lib/poster.ts)
   inBook?: boolean                     // dans le livre de Mes sillons ; absent = oui si l'affiche est faite (cf. lib/book.ts)
+  bookNote?: string                    // note de la course, écrite dans son carnet du livre
 }
 
 /** Fond de l'affiche : vues aériennes IGN assombries, Plan IGN de nuit, Plan IGN clair, uni. */

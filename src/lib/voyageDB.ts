@@ -214,12 +214,12 @@ export async function saveTrackPoster(voyageId: string, trackId: string, poster:
   })
 }
 
-/** Met une course dans le livre de Mes sillons, ou l'en retire (cf. lib/book.ts). */
-export async function saveTrackInBook(voyageId: string, trackId: string, inBook: boolean): Promise<void> {
+/** Livre de Mes sillons : met une course dans le livre ou l'en retire, écrit sa note (cf. lib/book.ts). */
+export async function saveTrackBook(voyageId: string, trackId: string, patch: { inBook?: boolean; bookNote?: string }): Promise<void> {
   return withVoyageLock(voyageId, async () => {
     const voyage = await getVoyage(voyageId)
     if (!voyage) return
-    voyage.tracks = voyage.tracks.map(t => t.id === trackId ? { ...t, inBook } : t)
+    voyage.tracks = voyage.tracks.map(t => t.id === trackId ? { ...t, ...patch } : t)
     await saveVoyage(voyage)
   })
 }

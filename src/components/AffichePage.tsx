@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Voyage, VoyageTrack, VoyagePhoto, PosterSettings, PosterInfo, PosterStyle } from '../types'
-import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster, saveTrackInBook } from '../lib/voyageDB'
+import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster, saveTrackBook } from '../lib/voyageDB'
 import { BOOK_MIN_PAGES, isInBook } from '../lib/book'
 import {
   buildPosterData, computedPace, drawPoster, exportPoster, posterBackground, posterFond, posterFormat, posterHeight,
@@ -205,7 +205,7 @@ function PosterEditor({ voyage, track, onVoyageChange, onBook }: {
   const inBook = bookChoice ?? (isInBook(track) || settings !== savedSettings.current)
   function toggleInBook(on: boolean) {
     setBookChoice(on)
-    saveTrackInBook(voyage.id, track.id, on).catch(e => console.error('[affiche] livre', e))
+    saveTrackBook(voyage.id, track.id, { inBook: on }).catch(e => console.error('[affiche] livre', e))
     onVoyageChange({ ...voyage, tracks: voyage.tracks.map(t => (t.id === track.id ? { ...t, inBook: on } : t)) })
   }
 

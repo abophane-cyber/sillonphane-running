@@ -29,7 +29,7 @@
 .livre__list-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; }
 .livre__all { display: flex; gap: 6px; }
 .livre__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.livre__item { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid var(--livre-line); border-radius: 8px; opacity: .6; }
+.livre__item { padding: 8px 10px; border: 1px solid var(--livre-line); border-radius: 8px; opacity: .6; }
 .livre__item.is-on { opacity: 1; border-color: rgba(193,92,61,.45); background: rgba(193,92,61,.04); }
 .livre__check input { width: 18px; height: 18px; cursor: pointer; }
 .livre__thumb { width: 42px; height: 59px; }
@@ -40,10 +40,25 @@
 .livre__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .livre__meta, .livre__pages { font-size: .8rem; color: var(--livre-muted); }
 .livre__pages { color: var(--livre-accent); }
-.livre__poster-btn { flex-shrink: 0; }
+.livre__row { display: flex; align-items: center; gap: 12px; }
+.livre__actions { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
 .livre__hint { margin: 10px 0 0; }
 
 @media (max-width: 560px) {
-  .livre__item { flex-wrap: wrap; }
-  .livre__poster-btn { margin-left: 30px; }
+  .livre__row { flex-wrap: wrap; }
+  .livre__actions { flex-direction: row; margin-left: 30px; }
 }
+
+.livre__fields { display: flex; flex-wrap: wrap; gap: 12px; }
+.livre__fields label { flex: 1 1 220px; display: flex; flex-direction: column; gap: 4px; font-size: .8rem; color: var(--livre-muted); }
+.livre__fields input, .livre__note { font: inherit; font-size: .95rem; color: var(--livre-ink); padding: 7px 9px;
+  border: 1px solid var(--livre-line); border-radius: 6px; background: #fff; }
+.livre__note { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; resize: vertical; }
+.livre__note-text { margin: 6px 0 0 30px; font-family: 'Playfair Display', Georgia, serif; font-style: italic; font-size: .85rem; color: var(--livre-muted); }
+
+.livre__progress { margin-top: 10px; font-size: .85rem; }
+.livre__progress small { color: var(--livre-muted); }
+.livre__error { margin: 10px 0 0; font-size: .85rem; color: #B3261E; }
+.livre__ready { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--livre-line); }
+.livre__ready p { margin: 0 0 8px; font-size: .88rem; }
+.livre__ready-btns { display: flex; flex-wrap: wrap; gap: 8px; }

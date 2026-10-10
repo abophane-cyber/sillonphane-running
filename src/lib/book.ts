@@ -1,12 +1,14 @@
 // Livre de Mes sillons : les affiches des courses choisies dans tous les sillons, une double page par course (affiche +
-// carnet : temps de passage, profil, photos, notes), double page photos en option ; en tête records, progression,
-// palmarès et sommaire. Le nombre de pages doit atteindre le minimum de l'imprimeur (WhiteWall : 28) pour l'export.
+// carnet : temps de passage, profil, photos, note), double page photos en option ; en tête page de titre, records,
+// progression, palmarès et sommaire. Le nombre de pages doit atteindre le minimum de l'imprimeur (WhiteWall : 28) pour
+// l'export. Dessin et PDF : lib/bookExport.ts.
 import type { Voyage, VoyageTrack } from '../types'
 import { PRINT_PROFILES } from './printProfiles'
 import { STORAGE_PREFIX } from './appIdentity'
 
-/** Pages d'en-tête : records + progression (double page), palmarès + sommaire (double page). */
-export const BOOK_FRONT_PAGES = 4
+/** Pages d'en-tête : page de titre (à droite), records | progression, palmarès | sommaire. Les courses commencent
+ * ainsi sur une page de gauche : affiche à gauche, carnet en face. */
+export const BOOK_FRONT_PAGES = 5
 
 /** Minimum de pages intérieures exigé par l'imprimeur du livre (WhiteWall). */
 export const BOOK_MIN_PAGES = PRINT_PROFILES.find(p => p.id === 'whitewall')?.coverSpread?.pageRange?.min ?? 28
@@ -16,7 +18,7 @@ export interface BookCourse {
   track: VoyageTrack
   /** Date de la course « AAAA-MM-JJ » (affiche, sinon tracé, sinon ajout). */
   date: string
-  /** Photos du sillon rattachées à cette course. */
+  /** Photos de la course : celles de son tracé et celles choisies pour son affiche. */
   photoCount: number
 }
 
@@ -31,7 +33,7 @@ export function bookCourses(voyages: Voyage[]): BookCourse[] {
     .flatMap(voyage => voyage.tracks.map(track => ({
       voyage, track,
       date: (track.poster?.date || track.date || track.addedAt).slice(0, 10),
-      photoCount: voyage.photos.filter(p => p.trackId === track.id).length,
+      photoCount: voyage.photos.filter(p => p.trackId === track.id || track.poster?.photoIds?.includes(p.id)).length,
     })))
     .sort((a, b) => a.date.localeCompare(b.date))
 }
@@ -53,6 +55,9 @@ export interface BookPrefs {
   from?: string
   to?: string
   photoSpreads?: boolean
+  /** Titre du livre (défaut « Mes courses ») et nom du coureur (défaut : celui des affiches). */
+  title?: string
+  name?: string
 }
 
 const PREFS_KEY = `${STORAGE_PREFIX}livre`
@@ -67,4 +72,19 @@ export function saveBookPrefs(prefs: BookPrefs): void {
 
 export function inPeriod(date: string, prefs: BookPrefs): boolean {
   return (!prefs.from || date >= prefs.from) && (!prefs.to || date <= prefs.to)
+}
+
+/** Pages du fichier livré : complété de pages blanches jusqu'au multiple de 4 exigé par WhiteWall (28 au moins). */
+export function printedPageCount(contentPages: number): number {
+  return Math.max(BOOK_MIN_PAGES, Math.ceil(contentPages / 4) * 4)
+}
+
+/** Nom du coureur proposé : celui saisi le plus souvent sur les affiches. */
+export function defaultRunnerName(courses: BookCourse[]): string {
+  const count = new Map<string, number>()
+  for (const c of courses) {
+    const n = c.track.poster?.name?.trim()
+    if (n) count.set(n, (count.get(n) ?? 0) + 1)
+  }
+  return [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
 }

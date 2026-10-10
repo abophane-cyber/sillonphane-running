@@ -257,7 +257,7 @@ export function posterSplits(data: PosterData, finishS: number | undefined, offi
 export const SERIF = '"PosterSerif", "Playfair Display", Georgia, serif'
 export const SANS = '"PosterSans", "Plus Jakarta Sans", system-ui, sans-serif'
 let fontsReady: Promise<void> | null = null
-function loadFonts(): Promise<void> {
+export function loadFonts(): Promise<void> {
   if (!fontsReady) {
     const base = import.meta.env.BASE_URL
     const faces = [
