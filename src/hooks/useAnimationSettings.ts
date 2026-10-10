@@ -10,9 +10,8 @@ export const ANIM_SETTINGS = {
   randonneur: { secondsPerKm: 2.6, min: 10, max: 120, minSpeedMps: 200 },
 }
 
-/** Zoom de la carte pendant la course (aperçu et film 2D) : caméra de course proche (14,2 : un peu plus haute
- *  qu'à 14,5, environ 1,25 fois plus de surface visible). */
-export const ANIM_ZOOM = 14.2
+/** Zoom de la carte pendant la course (aperçu et film 2D) : caméra de course proche. */
+export const ANIM_ZOOM = 14.5
 
 /** Durée de marche (s) pour un tracé de distKm, bornée [min, max]. Sur un tracé court, le plancher
  * `min` ferait tomber la vitesse apparente (distance / durée) très bas — le randonneur semble
