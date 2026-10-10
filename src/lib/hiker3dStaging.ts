@@ -9,13 +9,15 @@ export const HIKER3D_ENABLED = (() => {
 
 /** Niveaux de zoom ajoutés au zoom de marche pour les plans serrés de départ et d'arrivée. */
 export const HIKER3D_CLOSE_ZOOM = 3.5
-/** Zoom d'arrivée, dézoom de départ et vue d'ensemble finale. */
-export const HIKER3D_END_ZOOM_MS = 3000
+/** Zoom d'arrivée, dézoom de départ et vue d'ensemble finale. Zoom d'arrivée court : la victoire démarre à la ligne,
+ * la caméra doit être sur le coureur dès ses premiers gestes (à 3 s, elle n'y arrivait qu'au début du dézoom). */
+export const HIKER3D_END_ZOOM_MS = 1500
 export const HIKER3D_START_DEZOOM_MS = 2000
 export const HIKER3D_OVERVIEW_MS = 5000
 /** Maintien sur le plan serré d'arrivée, entre la fin du zoom et le dézoom vers la vue d'ensemble (le geste de
- * victoire continue pendant le dézoom). Running : aucun, la vue d'ensemble arrive dès la fin du zoom. */
-export const HIKER3D_END_HOLD_MS = 0
+ * victoire, 5,8 s, continue pendant le dézoom). Zoom + maintien = 3 s, comme l'ancien zoom seul : durée du film
+ * inchangée. */
+export const HIKER3D_END_HOLD_MS = 1500
 /** Début du geste d'arrivée (victoire), en part du zoom d'arrivée. Running : 0 — dès la ligne franchie, sinon le
  * coureur courait sur place pendant le zoom. */
 export const HIKER3D_OUTRO_AT = 0
