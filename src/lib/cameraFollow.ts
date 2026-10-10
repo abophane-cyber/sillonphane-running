@@ -3,10 +3,11 @@
 // et proportionnel au dépassement de la zone : il part de zéro quand le coureur en franchit le bord, sans à-coup.
 // Carte nord en haut : x ne dépend que de la longitude, y que de la latitude, d'où un réglage indépendant par axe.
 
-/** Demi-largeur et demi-hauteur de la zone libre, en fraction de l'image (0,25 = le coureur reste à 25 % du bord). */
-export const FREE_ZONE = 0.25
+/** Demi-largeur et demi-hauteur de la zone libre, en fraction de l'image (0,18 = la caméra bouge quand le coureur
+ *  arrive à 32 % du bord). */
+export const FREE_ZONE = 0.18
 /** Dépassement de la zone (fraction du petit côté) au-delà duquel le suivi se resserre fortement. */
-const MAX_EXCESS = 0.08
+const MAX_EXCESS = 0.06
 
 /**
  * Fractions de l'écart caméra → coureur (en longitude et en latitude) à parcourir à cette image.
