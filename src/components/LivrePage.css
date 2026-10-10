@@ -82,3 +82,21 @@
 .livre-apercu__nav input[type='range'] { flex: 1; min-width: 60px; accent-color: var(--livre-accent); }
 .livre-apercu__label { font-size: .85rem; font-weight: 600; white-space: nowrap; }
 .livre-apercu__label small { font-weight: 400; color: var(--livre-muted); }
+.livre-apercu__open { cursor: zoom-in; }
+.livre-apercu__nav .vp-btn:last-child { margin-left: auto; }
+@media (max-width: 560px) { .livre-apercu__nav { flex-wrap: wrap; } }
+
+/* Aperçu plein écran : la double page logée dans la fenêtre, sur fond sombre. */
+.livre-apercu-full { position: fixed; inset: 0; z-index: 10050; display: flex; flex-direction: column; background: rgba(18,23,20,.96);
+  padding: 16px 16px 12px; box-sizing: border-box; color: #F4EDE0; }
+.livre-apercu-full__body { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+.livre-apercu-full__stage { background: transparent; max-width: 100%; }
+.livre-apercu-full__stage .livre-apercu__wait { color: rgba(244,237,224,.7); }
+.livre-apercu-full__side { position: absolute; top: 50%; transform: translateY(-50%); z-index: 1; width: 44px; height: 64px;
+  border: none; border-radius: 8px; background: rgba(0,0,0,.35); color: #fff; font-size: 2rem; line-height: 1; cursor: pointer; }
+.livre-apercu-full__side:disabled { opacity: .2; cursor: default; }
+.livre-apercu-full__side.is-prev { left: 0; }
+.livre-apercu-full__side.is-next { right: 0; }
+.livre-apercu-full .livre-apercu__nav { max-width: 900px; width: 100%; margin: 10px auto 0; }
+.livre-apercu-full .livre-apercu__label small { color: rgba(244,237,224,.6); }
+.livre-apercu-full .vp-btn--ghost { color: #F4EDE0; border-color: rgba(244,237,224,.35); }
