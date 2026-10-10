@@ -284,6 +284,14 @@ const boxOf = (ps: Pt[], pad: number): Box => {
   return { x: x0 - pad, y: y0 - pad, w: x1 - x0 + 2 * pad, h: y1 - y0 + 2 * pad }
 }
 
+/** Cadre où un nom de rue ou de place doit tenir pour être placé : l'image (origine 0, 0), ou dans l'aperçu un cadre de
+ * la taille du film centré sur la carte (`x`, `y` : coin haut gauche), pour que le nom s'y place comme dans le film. */
+export interface LabelView { x?: number; y?: number; w: number; h: number }
+function inLabelView(p: Pt, v: LabelView, m: number): boolean {
+  const x0 = v.x ?? 0, y0 = v.y ?? 0
+  return p.x > x0 + m && p.x < x0 + v.w - m && p.y > y0 + m && p.y < y0 + v.h - m
+}
+
 /** Écrit le nom le long de la rue `pts` (px écran ; `null` = point hors champ ou derrière la caméra), décalé de `offset`
  * px sur le côté gauche du sens de lecture, lettre par lettre en suivant la courbe. Le nom est FIXE sur la carte : à la
  * première image où il tient sur la partie visible de la rue (`view`, taille de l'image), son centre, sa taille et son
@@ -295,7 +303,7 @@ const boxOf = (ps: Pt[], pad: number): Box => {
  * Renvoie le rectangle occupé par le nom dessiné (null : rien dessiné). */
 export function drawStreetAlongPath(
   ctx: CanvasRenderingContext2D, label: StreetLabel, pts: (Pt | null)[],
-  alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
+  alpha: number, k = 1, offset = 16, view?: LabelView,
   bg?: { src: CanvasImageSource; scale: number } | null, avoid: readonly Box[] = [],
 ): Box | null {
   if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return null
@@ -314,7 +322,7 @@ export function drawStreetAlongPath(
     // Placement : milieu de la plus longue partie de la rue visible à l'écran ; le nom doit y tenir (taille réduite
     // jusqu'à 70 %), sinon on réessaie à l'image suivante.
     const M = 30 * k
-    const inView = (p: Pt | null): p is Pt => !!p && (!view || (p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M))
+    const inView = (p: Pt | null): p is Pt => !!p && (!view || inLabelView(p, view, M))
     let best: [number, number] = [0, -1], cur = -1
     for (let i = 0; i <= pts.length; i++) {
       if (i < pts.length && inView(pts[i])) { if (cur < 0) cur = i }
@@ -501,7 +509,7 @@ function backgroundLuma(bg: { src: CanvasImageSource; scale: number }, glyphs: {
  * Même teinte adaptative que les rues (blanc sur fond sombre, noir sur fond clair). */
 function drawPlaceCircle(
   ctx: CanvasRenderingContext2D, label: StreetLabel, place: { top: string; bottom: string }, pts: (Pt | null)[],
-  alpha: number, k: number, view: { w: number; h: number } | undefined, bg: { src: CanvasImageSource; scale: number } | null | undefined,
+  alpha: number, k: number, view: LabelView | undefined, bg: { src: CanvasImageSource; scale: number } | null | undefined,
   avoid: readonly Box[] = [],
 ): Box | null {
   const size = label.fix?.size ?? 11.5 * k
@@ -522,7 +530,7 @@ function drawPlaceCircle(
     // Centre : milieu de la plus longue partie de la place visible à l'écran (assez loin des bords pour le cercle) ;
     // s'il touche une borne ou un lieu, le point de la place le plus proche du milieu qui les évite.
     const M = 90 * k
-    const inView = (p: Pt | null): p is Pt => !!p && (!view || (p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M))
+    const inView = (p: Pt | null): p is Pt => !!p && (!view || inLabelView(p, view, M))
     let best: [number, number] = [0, -1], cur = -1
     for (let i = 0; i <= pts.length; i++) {
       if (i < pts.length && inView(pts[i])) { if (cur < 0) cur = i }

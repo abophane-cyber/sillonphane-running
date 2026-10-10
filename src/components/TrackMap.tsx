@@ -837,7 +837,9 @@ export function TrackMap({
         // Fond lu sur le canvas de la carte (preserveDrawingBuffer), une fois ses tuiles chargées : nom blanc sur fond
         // sombre, noir sur fond clair.
         const bg = map.areTilesLoaded() ? { src: map.getCanvas(), scale: map.getCanvas().width / w } : null
-        drawStreetAlongPath(ctx, st.label, pts, a, Math.max(0.6, w / 1920), 20, { w, h }, bg)
+        // Placement dans un cadre de la taille du film (1920 × 1080, même échelle de carte) centré sur la carte : le nom
+        // se pose au même endroit que dans le film, même si l'aperçu ne montre qu'un bout de la rue (BD LOUIS XIV au départ).
+        drawStreetAlongPath(ctx, st.label, pts, a, Math.max(0.6, w / 1920), 20, { x: (w - 1920) / 2, y: (h - 1080) / 2, w: 1920, h: 1080 }, bg)
       }
     }
     draw()
