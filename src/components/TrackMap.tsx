@@ -9,6 +9,7 @@ import { ANIM_ZOOM } from '../hooks/useAnimationSettings'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from '../lib/tilePrefetch'
 import { DEFAULT_CHARACTERS, type CharacterId } from '../lib/characters'
 import { smoothTrackCoords } from '../lib/gpx'
+import { freeZoneStep } from '../lib/cameraFollow'
 import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
@@ -647,8 +648,8 @@ export function TrackMap({
         : [],
     })
 
-    // Suivi caméra : glissement continu et amorti vers le coureur à chaque image (comme le film 2D, FOLLOW_K),
-    // au lieu d'un rattrapage quand il approchait du bord. Amorti resserré s'il s'éloigne trop du centre.
+    // Suivi caméra à zone libre, comme le film 2D (freeZoneStep) : immobile tant que le coureur est loin des bords,
+    // glissement amorti seulement pour l'en écarter.
     if (followMarker && animating && !flyingRef.current) {
       const now = performance.now()
       const dt = Math.min(0.1, Math.max(0, (now - lastCameraUpdateRef.current) / 1000))
@@ -656,12 +657,11 @@ export function TrackMap({
       const { clientWidth: cw, clientHeight: ch } = map.getContainer()
       const c = map.getCenter()
       const pc = map.project(c), pm = map.project(lngLat)
-      const lagPx = Math.hypot(pm.x - pc.x, pm.y - pc.y)
-      const maxLag = Math.min(cw, ch) * 0.3
-      let k = 1 - Math.exp(-dt / CAMERA_FOLLOW_TAU_S)
-      if (lagPx > maxLag) k = Math.min(0.5, k * (lagPx / maxLag))
+      const { fx, fy } = freeZoneStep(pm.x - pc.x, pm.y - pc.y, cw, ch, 1 - Math.exp(-dt / CAMERA_FOLLOW_TAU_S))
       const zoom = targetZoomRef.current != null ? targetZoomRef.current : map.getZoom()
-      map.jumpTo({ center: [c.lng + (lngLat[0] - c.lng) * k, c.lat + (lngLat[1] - c.lat) * k], zoom })
+      if (fx || fy || zoom !== map.getZoom()) {
+        map.jumpTo({ center: [c.lng + (lngLat[0] - c.lng) * fx, c.lat + (lngLat[1] - c.lat) * fy], zoom })
+      }
     } else {
       lastCameraUpdateRef.current = performance.now()
     }

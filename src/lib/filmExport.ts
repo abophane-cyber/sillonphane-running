@@ -12,6 +12,7 @@ import type { CharacterId } from './characters'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './tilePrefetch'
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPointsByDistance } from './gpx'
+import { freeZoneStep } from './cameraFollow'
 import { BASEMAP_BACKGROUND } from './tileSources'
 import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
@@ -1467,14 +1468,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const elevRect = elevOverlayRect(OUT_W, OUT_H)
   const AVOID_PAD = 40
 
-  // Suivi caméra CONTINU (remplace le rattrapage déclenché au bord + easeTo de 2s). La caméra
-  // trace en permanence vers le randonneur par lissage exponentiel : plus de pic de vitesse au
-  // moment du rattrapage -> beaucoup moins de flou de compression sur les travellings. Le
-  // randonneur n'est plus pile au centre, il traîne légèrement dans le sens de la marche
-  // (cadrage « on regarde devant ») ; on resserre s'il s'écarte trop du centre ou s'il entre
-  // dans la zone du cartel d'altitude.
-  const FOLLOW_K       = IS_MOBILE ? 0.075 : 0.038
-  const FOLLOW_MAX_LAG = Math.min(OUT_W, OUT_H) * (IS_MOBILE ? 0.24 : 0.30)
+  // Suivi caméra à zone libre (voir freeZoneStep) : immobile tant que le coureur est loin des bords, puis glissement
+  // amorti (lissage exponentiel du dépassement, sans pic de vitesse -> peu de flou de compression sur les travellings).
+  const FOLLOW_K = IS_MOBILE ? 0.075 : 0.038
 
   let camLng = points[0].lon
   let camLat = points[0].lat
@@ -1891,7 +1887,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const px = mapMosaic
       ? projectToScreen(lng, lat, camLng, camLat, MOSAIC_Z, OUT_W, OUT_H)
       : exportMap.project([lng, lat])
-    const lagPx = Math.hypot(px.x - OUT_W / 2, px.y - OUT_H / 2)
     // Proximité continue à la zone du cartel d'altitude (1 = dedans, 0 = à AVOID_PAD ou plus,
     // rampe linéaire entre les deux). Un seuil net ici (marqueur qui oscille pile à la frontière
     // de la zone, à cause du bruit résiduel du suivi lui-même) peut faire sauter le gain k d'un
@@ -1900,13 +1895,13 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const padX = Math.max(elevRect.x - px.x, px.x - (elevRect.x + elevRect.w), 0)
     const padY = Math.max(elevRect.y - MARKER_H - px.y, px.y - (elevRect.y + elevRect.h), 0)
     const elevFactor = Math.max(0, Math.min(1, 1 - Math.max(padX, padY) / AVOID_PAD))
-    // Gain de suivi : constant dès la première image (le ruban accélère en douceur, cf. walkTime) ; se resserre si le
-    // randonneur s'éloigne trop du centre (il ne sortira jamais du cadre) ou entre dans la zone du cartel d'altitude.
-    let k = FOLLOW_K
-    if (lagPx > FOLLOW_MAX_LAG) k = Math.min(0.5, k * (lagPx / FOLLOW_MAX_LAG))
-    if (elevFactor > 0) k = Math.max(k, k + (0.12 - k) * elevFactor)
-    camLng += (lng - camLng) * k
-    camLat += (lat - camLat) * k
+    // Zone libre (cameraFollow.ts) : caméra immobile tant que le coureur reste loin des bords ; elle ne glisse que pour
+    // l'en écarter, plus vite s'il s'en approche trop. Sur le cartel d'altitude, la zone se resserre jusqu'au suivi
+    // complet, avec un gain porté à 0,12, pour l'en faire sortir.
+    const k = elevFactor > 0 ? FOLLOW_K + (0.12 - FOLLOW_K) * elevFactor : FOLLOW_K
+    const { fx, fy } = freeZoneStep(px.x - OUT_W / 2, px.y - OUT_H / 2, OUT_W, OUT_H, k, elevFactor)
+    camLng += (lng - camLng) * fx
+    camLat += (lat - camLat) * fy
     if (preWalkFrames + f < finFrom) { // fin seule : caméra suivie, image ni dessinée ni encodée
       if (f % 60 === 0) { onProgress?.(frameProgress(preWalkFrames + f * WALK_FRAME_WEIGHT)); await new Promise(r => setTimeout(r, 0)) }
       continue
