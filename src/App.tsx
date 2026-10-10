@@ -361,7 +361,7 @@ export default function App() {
     // Nouveau tracé (pas une réouverture avec ses panneaux) : repère le plus proche du départ ajouté d'office comme
     // point d'intérêt, visible dès l'ouverture (ex. « Porte de Paris » au départ du semi de Lille).
     const p0 = parsed.tracks[0]?.points[0]
-    // Puis les lieux connus à moins de 200 m du parcours (monuments, mairie, musées, stades…), espacés le long du tracé.
+    // Puis les lieux connus à moins de 100 m du parcours (monuments, mairie, musées, stades…), espacés le long du tracé.
     if (p0 && !restore?.customLocalities) {
       const pts = parsed.tracks[0].points
       const addPois = (pois: { name: string; lon: number; lat: number }[]) => {

@@ -1,13 +1,14 @@
-// Points d'intérêt le long du parcours (à moins de 200 m du tracé), lus dans OpenStreetMap via Overpass : monuments,
-// mairie, musées, curiosités, stades, grandes places, ponts… Seuls les lieux connus sont gardés (fiche Wikidata /
-// Wikipédia, ou type marquant comme une mairie ou un musée), puis espacés le long du parcours pour ne pas surcharger le
+// Points d'intérêt le long du parcours (à moins de 100 m du tracé), lus dans OpenStreetMap via Overpass : monuments,
+// mairie, musées, curiosités, stades, places, ponts… Seuls les lieux connus sont gardés (fiche Wikidata /
+// Wikipédia, ou type marquant comme une mairie, un musée ou une place), puis espacés le long du parcours pour ne pas surcharger le
 // film. Ajoutés d'office comme points d'intérêt (modifiables et supprimables dans l'assistant des panneaux).
 // Mis en cache par tracé.
 import type { GpxPoint } from '../types'
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
-const LS_KEY = 'running:sillon_route_pois_'
-const RADIUS_M = 200
+// v2 : places toujours retenues, rayon 100 m (les candidats en cache de la v1 ne les avaient pas).
+const LS_KEY = 'running:sillon_route_pois2_'
+const RADIUS_M = 100
 /** Écart minimal le long du parcours entre deux points d'intérêt retenus. */
 const MIN_GAP_M = 1000
 /** Écart minimal à vol d'oiseau (étiquettes superposées sur la carte quand le parcours repasse au même endroit). */
@@ -16,6 +17,8 @@ const MIN_SEP_M = 300
 const MIN_SCORE = 4
 /** Noms trop vagues pour un panneau (« Immeuble », « Maisons », « Hôtel particulier »…). */
 const GENERIC_RE = /^(immeubles?|maisons?|hôtel particulier|bâtiments?|ensemble|monument|calvaire|croix)$/i
+/** Nom d'une place : la voie qui la borde (« Place de la Gare », souvent une simple rue dans OSM) compte comme la place. */
+const SQUARE_NAME_RE = /^(place |parvis |esplanade |grand[- '’]?place)/i
 
 export interface RoutePoi { name: string; lon: number; lat: number }
 
@@ -29,7 +32,8 @@ const WEIGHTS: Record<string, number> = {
   'tourism=attraction': 1.5, 'tourism=gallery': 1.5, 'tourism=artwork': 1, 'tourism=viewpoint': 1,
   'amenity=townhall': 3, 'amenity=theatre': 2.5, 'amenity=place_of_worship': 1.5,
   'leisure=stadium': 2.5, 'leisure=park': 2,
-  'place=square': 2.5,
+  // Place : repère de coureur (Grand-Place, place de la Gare), retenue même sans article Wikipédia.
+  'place=square': 4,
   'man_made=bridge': 1.5, 'bridge': 1,
 }
 
@@ -41,6 +45,7 @@ function weightOf(tags: Record<string, string>): number {
   }
   // Pont nommé porté par la route elle-même (way bridge=yes) : faible poids, retenu seulement s'il est connu.
   if (!w && tags.bridge && tags.bridge !== 'no') w = WEIGHTS.bridge
+  if (tags.name && SQUARE_NAME_RE.test(tags.name)) w = Math.max(w, WEIGHTS['place=square'])
   return w
 }
 
@@ -74,6 +79,7 @@ nwr["name"]["leisure"~"^(stadium|park)$"]${a};
 nwr["name"]["place"="square"]${a};
 nwr["name"]["man_made"="bridge"]${a};
 way["name"]["bridge"]["wikidata"]${a};
+way["highway"]["name"~"^(Place |Parvis |Esplanade |Grand[- '’]?Place)",i]${a};
 );out center tags;`
   const r = await fetch(OVERPASS_URL, {
     method: 'POST',
@@ -86,7 +92,7 @@ way["name"]["bridge"]["wikidata"]${a};
 }
 
 /**
- * Points d'intérêt connus à moins de 200 m du parcours, espacés d'au moins 1 km le long du tracé et à plus de 300 m
+ * Points d'intérêt connus à moins de 100 m du parcours, espacés d'au moins 1 km le long du tracé et à plus de 300 m
  * (à vol d'oiseau) des autres et des repères déjà posés (`existing`, ex. le repère du départ). Un pour ~4 km de course, entre 3 et 10.
  */
 export async function fetchRoutePois(points: GpxPoint[], existing: RoutePoi[] = []): Promise<RoutePoi[]> {
@@ -108,7 +114,10 @@ export async function fetchRoutePois(points: GpxPoint[], existing: RoutePoi[] = 
     // des morceaux de voirie) : on les réunit par nom, à moins de 500 m, en gardant le meilleur type et la fiche wiki.
     const groups: { name: string; lon: number; lat: number; weight: number; wiki: number; posW: number }[] = []
     for (const e of els) {
-      const tags = e.tags ?? {}, name = tags.name
+      const tags = e.tags ?? {}
+      // Nom d'usage quand OSM le donne : « Grand-Place » plutôt que « Place du Général de Gaulle » à Lille.
+      const usual = [tags.loc_name, tags.alt_name, tags.short_name].find(n => n && /^grand[- '’]?place$/i.test(n.trim()))
+      const name = usual ?? tags.name
       const lat = e.lat ?? e.center?.lat, lon = e.lon ?? e.center?.lon
       if (!name || lat == null || lon == null || GENERIC_RE.test(name.trim())) continue
       const weight = weightOf(tags)
