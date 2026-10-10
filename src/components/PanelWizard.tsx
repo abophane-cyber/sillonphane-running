@@ -9,6 +9,7 @@ import {
   type BannerText, type RaceSettings,
 } from '../lib/raceSplits'
 import { fetchRouteStreets, isMainStreet, type StreetRun } from '../lib/routeStreets'
+import { fetchRoutePoiCandidates, isWellKnownPoi, type RoutePoiCandidate } from '../lib/routePois'
 import type { GpxPoint } from '../types'
 
 /** « 12 h 41 (3 h 41'00") », ou la durée seule sans heure de départ. */
@@ -124,6 +125,23 @@ export function PanelWizard({
         }
       })
       .catch(e => { console.error('[rues]', e); setStreetState('error') })
+  }
+  // Lieux connus le long du parcours (OpenStreetMap), trouvés à la demande ; cochés = présents parmi les panneaux ajoutés.
+  const [poiList, setPoiList] = useState<RoutePoiCandidate[] | null>(null)
+  const [poiState, setPoiState] = useState<'idle' | 'loading' | 'error'>('idle')
+  const [allPois, setAllPois] = useState(false) // lieux moins connus affichés aussi
+  const poiChosen = (name: string) => customLocalities.some(l => l.name === name)
+  const shownPois = (poiList ?? []).filter(p => allPois || isWellKnownPoi(p) || poiChosen(p.name))
+  const lesserPoiCount = (poiList ?? []).filter(p => !isWellKnownPoi(p)).length
+  const findPois = () => {
+    setPoiState('loading')
+    fetchRoutePoiCandidates(points)
+      .then(list => { setPoiList(list); setPoiState('idle') })
+      .catch(e => { console.error('[lieux]', e); setPoiState('error') })
+  }
+  const togglePoi = (p: RoutePoiCandidate) => {
+    if (poiChosen(p.name)) onRemoveCustomLocality(p.name)
+    else onAddPanel({ type: 'locality', name: p.name, placeType: 'poi', lon: p.lon, lat: p.lat })
   }
   const [addEle, setAddEle] = useState('')
 
@@ -465,6 +483,36 @@ export function PanelWizard({
           )}
           {streetState === 'error' && <p className="pwiz-empty">Service IGN indisponible. Réessayez plus tard.</p>}
           {streetList !== null && streetList.length === 0 && <p className="pwiz-empty">Aucune rue nommée trouvée sur ce tracé.</p>}
+        </div>
+
+        {/* ── Lieux connus à moins de 100 m du parcours (OpenStreetMap), posés à leur emplacement ── */}
+        <div className="pwiz-section pwiz-section--pois">
+          <span className="pwiz-section-label">Lieux connus</span>
+          {shownPois.length > 0 && (
+            <ul className="pwiz-list">
+              {shownPois.map(p => (
+                <li key={`${p.name}-${p.at}`} className="pwiz-item">
+                  <label className="pwiz-check">
+                    <input type="checkbox" checked={poiChosen(p.name)} onChange={() => togglePoi(p)} />
+                    <span className="pwiz-check-name">{p.name}</span>
+                    <span className="pwiz-check-type">km {formatKm(p.at / 1000)}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+          {poiList !== null && (lesserPoiCount > 0 || allPois) && (
+            <button className="pwiz-btn" onClick={() => setAllPois(v => !v)}>
+              {allPois ? 'Lieux les plus connus seulement' : `Afficher aussi les lieux moins connus (${lesserPoiCount})`}
+            </button>
+          )}
+          {poiList === null && (
+            <button className="pwiz-btn" disabled={poiState === 'loading'} onClick={findPois}>
+              {poiState === 'loading' ? 'Recherche…' : 'Chercher les lieux connus du parcours (OpenStreetMap)'}
+            </button>
+          )}
+          {poiState === 'error' && <p className="pwiz-empty">Service OpenStreetMap indisponible. Réessayez plus tard.</p>}
+          {poiList !== null && poiList.length === 0 && <p className="pwiz-empty">Aucun lieu connu trouvé près du tracé.</p>}
         </div>
 
         {/* ── Panneaux ajoutés manuellement (après l'arrivée) ── */}

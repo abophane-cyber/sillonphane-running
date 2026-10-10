@@ -167,14 +167,15 @@ export function useLocalityPanels(
     // le place ensuite en glissant son nom de la liste vers la carte (panelDrag.ts) ou le panneau lui-même.
     const fallback = currentPoint
       ?? activeTrack?.points[Math.floor((activeTrack.points.length - 1) / 2)] ?? null
-    if (!fallback) return
+    const at = info.lon != null && info.lat != null ? { lon: info.lon, lat: info.lat } : fallback
+    if (!at) return
     setCustomLocalities(prev => [...prev, {
       type: info.type,
       name: info.name,
       placeType: info.placeType,
       ele: info.ele,
-      lon: fallback.lon,
-      lat: fallback.lat,
+      lon: at.lon,
+      lat: at.lat,
       score: 0,
     }])
     // Col nommé : on géocode le nom pour le rattacher à son emplacement réel sur le tracé —

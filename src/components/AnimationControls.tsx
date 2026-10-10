@@ -18,6 +18,9 @@ export interface AddPanelInfo {
   name: string
   placeType?: string
   ele?: number
+  /** Position connue (lieu trouvé le long du parcours) ; sinon repli sur le curseur ou le milieu du tracé. */
+  lon?: number
+  lat?: number
 }
 
 interface Props {

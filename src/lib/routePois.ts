@@ -6,8 +6,8 @@
 import type { GpxPoint } from '../types'
 
 const OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
-// v2 : places toujours retenues, rayon 100 m (les candidats en cache de la v1 ne les avaient pas).
-const LS_KEY = 'running:sillon_route_pois2_'
+// v3 : lieux moins connus gardés aussi en cache (liste « Lieux connus » de l'assistant des panneaux).
+const LS_KEY = 'running:sillon_route_pois3_'
 const RADIUS_M = 100
 /** Écart minimal le long du parcours entre deux points d'intérêt retenus. */
 const MIN_GAP_M = 1000
@@ -15,12 +15,21 @@ const MIN_GAP_M = 1000
 const MIN_SEP_M = 300
 /** Score minimal pour être retenu : une église ou un parc sans article Wikipédia n'y arrive pas. */
 const MIN_SCORE = 4
+/** Score minimal pour figurer dans la liste de l'assistant, parmi les « lieux moins connus ». */
+const LIST_MIN_SCORE = 2
 /** Noms trop vagues pour un panneau (« Immeuble », « Maisons », « Hôtel particulier »…). */
 const GENERIC_RE = /^(immeubles?|maisons?|hôtel particulier|bâtiments?|ensemble|monument|calvaire|croix)$/i
 /** Nom d'une place : la voie qui la borde (« Place de la Gare », souvent une simple rue dans OSM) compte comme la place. */
 const SQUARE_NAME_RE = /^(place |parvis |esplanade |grand[- '’]?place)/i
 
 export interface RoutePoi { name: string; lon: number; lat: number }
+/** Lieu trouvé le long du parcours : position sur le tracé (m depuis le départ) et notoriété. */
+export interface RoutePoiCandidate extends RoutePoi { at: number; score: number }
+
+/** Lieu assez connu pour être ajouté d'office (les autres sont listés comme « moins connus »). */
+export function isWellKnownPoi(c: RoutePoiCandidate): boolean {
+  return c.score >= MIN_SCORE
+}
 
 /** Poids par type OSM (clé=valeur, ou clé seule pour toute valeur). */
 const WEIGHTS: Record<string, number> = {
@@ -97,18 +106,35 @@ way["highway"]["name"~"^(Place |Parvis |Esplanade |Grand[- '’]?Place)",i]${a};
  */
 export async function fetchRoutePois(points: GpxPoint[], existing: RoutePoi[] = []): Promise<RoutePoi[]> {
   if (points.length < 2) return []
+  const { cum } = simplify(points)
+  const candidates = (await fetchRoutePoiCandidates(points).catch(() => [])).filter(isWellKnownPoi)
+  const max = Math.max(3, Math.min(10, Math.round(cum[cum.length - 1] / 4000)))
+  const kept: RoutePoiCandidate[] = []
+  for (const c of [...candidates].sort((a, b) => b.score - a.score)) {
+    if (kept.length >= max) break
+    if (existing.some(x => x.name === c.name || distM(x.lon, x.lat, c.lon, c.lat) < MIN_SEP_M)) continue
+    if (kept.some(k => Math.abs(k.at - c.at) < MIN_GAP_M || distM(k.lon, k.lat, c.lon, c.lat) < MIN_SEP_M)) continue
+    kept.push(c)
+  }
+  return kept.sort((a, b) => a.at - b.at).map(({ name, lon, lat }) => ({ name, lon, lat }))
+}
+
+/** Tous les lieux trouvés à moins de 100 m du parcours (connus et moins connus), par ordre de passage. Rejette si
+ * Overpass ne répond pas. */
+export async function fetchRoutePoiCandidates(points: GpxPoint[]): Promise<RoutePoiCandidate[]> {
+  if (points.length < 2) return []
   const { pts, cum } = simplify(points)
   const first = points[0], last = points[points.length - 1]
   const key = `${LS_KEY}${first.lat.toFixed(4)},${first.lon.toFixed(4)}_${last.lat.toFixed(4)},${last.lon.toFixed(4)}_${Math.round(cum[cum.length - 1] / 100)}`
 
-  let candidates: (RoutePoi & { score: number; at: number })[] | null = null
+  let candidates: RoutePoiCandidate[] | null = null
   try { const v = localStorage.getItem(key); if (v) candidates = JSON.parse(v) } catch { /* ignore */ }
 
   if (!candidates) {
     let els: OverpassEl[] = []
     for (let attempt = 0; attempt < 2; attempt++) {
       try { els = await queryOverpass(pts); break }
-      catch { if (attempt === 0) await new Promise(r => setTimeout(r, 1500)); else return [] }
+      catch (e) { if (attempt === 0) await new Promise(r => setTimeout(r, 1500)); else throw e }
     }
     // Un même lieu est souvent découpé en plusieurs éléments OSM (la Grand-Place de Lille : une place, une attraction,
     // des morceaux de voirie) : on les réunit par nom, à moins de 500 m, en gardant le meilleur type et la fiche wiki.
@@ -132,7 +158,7 @@ export async function fetchRoutePois(points: GpxPoint[], existing: RoutePoi[] = 
     candidates = []
     for (const g of groups) {
       const score = g.weight + g.wiki
-      if (score < MIN_SCORE) continue
+      if (score < LIST_MIN_SCORE) continue
       // Position le long du parcours : point du tracé allégé le plus proche.
       let bi = 0, bd = Infinity
       for (let i = 0; i < pts.length; i++) {
@@ -143,14 +169,5 @@ export async function fetchRoutePois(points: GpxPoint[], existing: RoutePoi[] = 
     }
     try { localStorage.setItem(key, JSON.stringify(candidates)) } catch { /* stockage local plein ou indisponible */ }
   }
-
-  const max = Math.max(3, Math.min(10, Math.round(cum[cum.length - 1] / 4000)))
-  const kept: (RoutePoi & { at: number })[] = []
-  for (const c of [...candidates].sort((a, b) => b.score - a.score)) {
-    if (kept.length >= max) break
-    if (existing.some(x => x.name === c.name || distM(x.lon, x.lat, c.lon, c.lat) < MIN_SEP_M)) continue
-    if (kept.some(k => Math.abs(k.at - c.at) < MIN_GAP_M || distM(k.lon, k.lat, c.lon, c.lat) < MIN_SEP_M)) continue
-    kept.push(c)
-  }
-  return kept.sort((a, b) => a.at - b.at).map(({ name, lon, lat }) => ({ name, lon, lat }))
+  return [...candidates].sort((a, b) => a.at - b.at)
 }
