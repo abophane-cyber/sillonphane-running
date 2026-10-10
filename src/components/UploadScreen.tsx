@@ -40,6 +40,13 @@ function isDateTooRecentForWeather(dateStr: string): boolean {
   return ageDays < WEATHER_DATA_LAG_DAYS
 }
 
+/** Date postérieure à aujourd'hui (course prévue). */
+function isFutureDate(dateStr: string): boolean {
+  const today = new Date()
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  return dateStr > todayStr
+}
+
 export function UploadScreen({
   gpx, gpxTracksCount, onLoad, onAlbum, onVoyages,
   customTitle, onCustomTitleChange,
@@ -92,7 +99,6 @@ export function UploadScreen({
           type="date"
           className="date-input"
           value={manualDate}
-          max={new Date().toISOString().slice(0, 10)}
           onChange={e => { onManualDateChange(e.target.value); setTriedContinue(false) }}
           onClick={e => (e.currentTarget as HTMLInputElement).showPicker?.()}
         />
@@ -134,7 +140,8 @@ export function UploadScreen({
           <span>ℹ️</span>
           <div>
             {!manualDate && <p>Sans date, la météo du parcours ne sera pas affichée.</p>}
-            {manualDate && isDateTooRecentForWeather(manualDate) && <p>Date trop récente : la météo n'est peut-être pas encore disponible pour ce jour.</p>}
+            {manualDate && isFutureDate(manualDate) && <p>Course à venir : la météo ne sera pas affichée.</p>}
+            {manualDate && !isFutureDate(manualDate) && isDateTooRecentForWeather(manualDate) && <p>Date trop récente : la météo n'est peut-être pas encore disponible pour ce jour.</p>}
             {manualDate && (!departureTime || !arrivalTime) && <p>Sans horaires, la météo sera moins précise (conditions par défaut à 06:00 - 18:00).</p>}
           </div>
         </div>
