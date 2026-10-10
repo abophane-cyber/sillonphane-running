@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Voyage } from '../types'
 import { getAllVoyages, saveTrackBook } from '../lib/voyageDB'
 import {
-  BOOK_FRONT_PAGES, BOOK_MIN_PAGES, bookCourses, bookPageCount, coursePages, defaultRunnerName, inPeriod, isInBook,
+  BOOK_FRONT_PAGES, BOOK_PRINTERS, bookCourses, bookPrinter, bookPageCount, coursePages, defaultRunnerName, inPeriod, isInBook,
   loadBookPrefs, printedPageCount, saveBookPrefs, type BookCourse, type BookPrefs,
 } from '../lib/book'
 import { prepareBook, type PreparedBook } from '../lib/bookExport'
@@ -21,7 +21,7 @@ interface Props {
 
 type ExportState =
   | { phase: 'busy'; done: number; total: number }
-  | { phase: 'ready'; book: PreparedBook; saved: { interior: boolean; cover: boolean } }
+  | { phase: 'ready'; book: PreparedBook; saved: boolean[] }
   | { phase: 'error'; message: string }
 
 function formatDate(iso: string) {
@@ -53,8 +53,11 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
   const chosen = shown.filter(c => isInBook(c.track))
   const photoSpreads = !!prefs.photoSpreads
   const pages = bookPageCount(chosen, photoSpreads)
-  const missing = Math.max(0, BOOK_MIN_PAGES - pages)
-  const printed = printedPageCount(pages)
+  const printer = bookPrinter(prefs.printer)
+  const minPages = printer.minPages
+  const wrap = printer.profile.coverMode === 'wrap-spread'
+  const missing = Math.max(0, minPages - pages)
+  const printed = printedPageCount(pages, printer)
   const years = [...new Set(courses.map(c => c.date.slice(0, 4)))].sort()
   const runnerDefault = useMemo(() => defaultRunnerName(courses), [courses])
 
@@ -67,7 +70,7 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
   )
 
   // Le livre préparé ne correspond plus au choix dès que celui-ci change.
-  const choiceKey = JSON.stringify([chosenKey, photoSpreads, prefs.title, prefs.name])
+  const choiceKey = JSON.stringify([chosenKey, photoSpreads, prefs.title, prefs.name, printer.id])
   const exportedKey = useRef('')
   const latestKey = useRef(choiceKey)
   latestKey.current = choiceKey
@@ -100,12 +103,12 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
 
   async function startExport() {
     exportedKey.current = choiceKey
-    setExp({ phase: 'busy', done: 0, total: printed + 1 })
+    setExp({ phase: 'busy', done: 0, total: printed + (wrap ? 1 : 2) })
     try {
-      const book = await prepareBook(chosen, { title, name: name.trim(), photoSpreads },
+      const book = await prepareBook(chosen, { title, name: name.trim(), photoSpreads, printer },
         (done, total) => { if (alive.current) setExp({ phase: 'busy', done, total }) }, () => alive.current)
       // Choix modifié pendant la préparation : ce livre n'est plus le bon.
-      if (alive.current) setExp(latestKey.current === exportedKey.current ? { phase: 'ready', book, saved: { interior: false, cover: false } } : null)
+      if (alive.current) setExp(latestKey.current === exportedKey.current ? { phase: 'ready', book, saved: book.files.map(() => false) } : null)
     } catch (e) {
       console.error('[livre] export', e)
       if (alive.current) {
@@ -114,16 +117,13 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
     }
   }
 
-  async function save(which: 'interior' | 'cover') {
+  async function save(i: number) {
     if (exp?.phase !== 'ready') return
-    const { book } = exp
-    const result = which === 'interior'
-      ? await saveFileWithPicker(book.interior, book.interiorName, PDF_KIND)
-      : await saveFileWithPicker(book.cover, book.coverName, PDF_KIND)
-    if (result !== 'saved') return
-    const saved = { ...exp.saved, [which]: true }
+    const file = exp.book.files[i]
+    if (await saveFileWithPicker(file.blob, file.name, PDF_KIND) !== 'saved') return
+    const saved = exp.saved.map((s, j) => s || j === i)
     setExp({ ...exp, saved })
-    if (saved.interior && saved.cover) setPrintOffer(true)
+    if (saved.every(Boolean)) setPrintOffer(true)
   }
 
   const setPeriod = (from?: string, to?: string) => setPrefs(p => ({ ...p, from: from || undefined, to: to || undefined }))
@@ -151,18 +151,18 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
           <section className="livre__counter" aria-live="polite">
             <div className="livre__counter-row">
               <strong>{pages} pages</strong>
-              <span> sur {BOOK_MIN_PAGES} minimum</span>
+              <span> sur {minPages} minimum</span>
               <span className="livre__counter-detail">
                 · {chosen.length} course{chosen.length > 1 ? 's' : ''}
                 {chosen.length > 0 && ` + ${BOOK_FRONT_PAGES} pages d'en-tête`}
               </span>
             </div>
-            <div className="livre__bar"><span style={{ width: `${Math.min(100, (pages / BOOK_MIN_PAGES) * 100)}%` }} /></div>
+            <div className="livre__bar"><span style={{ width: `${Math.min(100, (pages / minPages) * 100)}%` }} /></div>
             <p className="livre__counter-note">
               {missing > 0
-                ? `Encore ${missing} page${missing > 1 ? 's' : ''} : l'imprimeur (WhiteWall) demande ${BOOK_MIN_PAGES} pages au moins. Ajoutez des courses, élargissez la période${photoSpreads ? '' : ' ou ajoutez les doubles pages photos'}.`
+                ? `Encore ${missing} page${missing > 1 ? 's' : ''} : ${printer.label} demande ${minPages} pages au moins. Ajoutez des courses, élargissez la période${photoSpreads ? '' : ' ou ajoutez les doubles pages photos'}.`
                 : printed > pages
-                  ? `Assez de pages pour l'impression. Le fichier en comptera ${printed} : WhiteWall relie les pages par 4, des pages blanches complètent la fin.`
+                  ? `Assez de pages pour l'impression. Le livre en comptera ${printed} : ${printer.label} relie les pages par 4, des pages blanches complètent la fin.`
                   : 'Assez de pages pour l\'impression.'}
             </p>
 
@@ -177,18 +177,19 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
             {exp?.phase === 'ready' ? (
               <div className="livre__ready">
                 <p>
-                  <strong>Votre livre est prêt : {exp.book.pages} pages.</strong> WhiteWall demande deux fichiers :
-                  enregistrez-les l'un après l'autre.
+                  <strong>Votre livre est prêt : {exp.book.pages} pages.</strong>{' '}
+                  {exp.book.files.length > 1
+                    ? `${printer.label} demande ${exp.book.files.length} fichiers : enregistrez-les l'un après l'autre.`
+                    : 'Un seul fichier, couverture comprise (en première et dernière page).'}
                 </p>
                 <div className="livre__ready-btns">
-                  <button type="button" className="vp-btn" onClick={() => save('interior')}>
-                    {exp.saved.interior ? '✓ ' : '1. '}Pages intérieures (PDF)
-                  </button>
-                  <button type="button" className="vp-btn" onClick={() => save('cover')}>
-                    {exp.saved.cover ? '✓ ' : '2. '}Couverture (PDF)
-                  </button>
-                  {(exp.saved.interior || exp.saved.cover) && (
-                    <button type="button" className="vp-btn vp-btn--ghost" onClick={() => setPrintOffer(true)}>Imprimer chez WhiteWall</button>
+                  {exp.book.files.map((file, i) => (
+                    <button key={file.name} type="button" className="vp-btn" onClick={() => save(i)}>
+                      {exp.saved[i] ? '✓ ' : exp.book.files.length > 1 ? `${i + 1}. ` : ''}{file.label}
+                    </button>
+                  ))}
+                  {exp.saved.some(Boolean) && (
+                    <button type="button" className="vp-btn vp-btn--ghost" onClick={() => setPrintOffer(true)}>Imprimer chez {printer.label}</button>
                   )}
                 </div>
               </div>
@@ -210,6 +211,19 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
             <div className="livre__fields">
               <label>Titre<input value={prefs.title ?? ''} placeholder="Mes courses" onChange={e => setPrefs(p => ({ ...p, title: e.target.value }))} /></label>
               <label>Votre nom<input value={name} placeholder="Alex Martin" onChange={e => setPrefs(p => ({ ...p, name: e.target.value }))} /></label>
+            </div>
+            <p className="livre__label">Imprimeur</p>
+            <div className="livre__printers" role="group" aria-label="Imprimeur">
+              {BOOK_PRINTERS.map(p => (
+                <button key={p.id} type="button" aria-pressed={printer.id === p.id} onClick={() => setPrefs(x => ({ ...x, printer: p.id }))}>
+                  <strong>{p.label}</strong>
+                  <span>
+                    {p.minPages} pages au moins · {p.profile.pageCm.w.toLocaleString('fr-FR')} × {p.profile.pageCm.h.toLocaleString('fr-FR')} cm
+                    {p.profile.coverMode === 'wrap-spread' ? ' · intérieur et couverture en 2 PDF' : ' · un seul PDF'}
+                    {p.profile.tag ? ` · ${p.profile.tag}` : ''}
+                  </span>
+                </button>
+              ))}
             </div>
           </section>
 
@@ -306,8 +320,10 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
 
       {printOffer && exp?.phase === 'ready' && (
         <PrintOfferOverlay
-          partnerId="whitewall"
-          pageNote={`Indiquez ${exp.book.pages} pages chez WhiteWall, puis téléversez les pages intérieures et la couverture.`}
+          partnerId={printer.id}
+          pageNote={exp.book.files.length > 1
+            ? `Indiquez ${exp.book.pages} pages chez ${printer.label}, puis téléversez les pages intérieures et la couverture.`
+            : `Livre de ${exp.book.pages} pages intérieures, couverture comprise dans le fichier : téléversez-le chez ${printer.label}.`}
           demo={chosen.some(c => c.voyage.demo)}
           onClose={() => setPrintOffer(false)}
         />

@@ -1,12 +1,15 @@
-// Export du livre de Mes sillons (cf. lib/book.ts) pour WhiteWall : deux PDF, comme le demande son éditeur.
-// - Intérieur : pages paysage 27,3 × 21,1 cm (fond perdu 3 mm inclus) dessinées une à une sur canvas à 300 dpi.
-//   Page 1 (à droite) : titre ; 2 | 3 : records | progression ; 4 | 5 : palmarès | sommaire ; puis une double page
-//   par course (affiche | carnet), suivie en option d'une double page photos ; pages blanches jusqu'au multiple de 4
-//   (28 au moins), la dernière portant l'adresse du site en petit.
-// - Couverture : feuille à plat (4e de couverture | dos | 1re de couverture), largeur du dos selon le nombre de pages.
+// Export du livre de Mes sillons (cf. lib/book.ts), au format de l'imprimeur choisi :
+// - WhiteWall : pages paysage 27,3 × 21,1 cm (fond perdu 3 mm inclus), deux PDF comme le demande son éditeur :
+//   l'intérieur, et la couverture à plat (4e de couverture | dos | 1re de couverture, dos selon le nombre de pages).
+// - Flexilivre : A4 paysage 29,7 × 21 cm sans fond perdu (photos à distance du bord), un seul PDF : 1re de couverture,
+//   pages intérieures, 4e de couverture.
+// Pages intérieures dessinées une à une sur canvas à 300 dpi. Page 1 (à droite) : titre ; 2 | 3 : records |
+// progression ; 4 | 5 : palmarès | sommaire ; puis une double page par course (affiche | carnet), suivie en option
+// d'une double page photos ; pages blanches jusqu'au multiple de 4 (minimum de l'imprimeur), la dernière portant
+// l'adresse du site en petit.
 // Les photos d'une course ne sont chargées que le temps de dessiner ses pages (mémoire du téléphone).
 import type { PosterSettings, VoyagePhoto } from '../types'
-import type { BookCourse } from './book'
+import type { BookCourse, BookPrinterInfo } from './book'
 import { printedPageCount } from './book'
 import {
   buildPosterData, colorAtStops, drawPhoto, drawPoster, drawProfile, fitFont, loadFonts, posterHeight, resolvePoster,
@@ -14,16 +17,17 @@ import {
 } from './poster'
 import { formatElapsed, formatPace, type RaceAnalysis } from './raceSplits'
 import { RECORD_CATEGORIES, type RecordCategory } from './records'
-import { PRINT_PROFILES, wrapSpreadForPages } from './printProfiles'
+import { wrapSpreadForPages } from './printProfiles'
 import { getPhotoBlob } from './voyageDB'
 import { sanitizeFilename } from './saveFile'
 
-const PROFILE = PRINT_PROFILES.find(p => p.id === 'whitewall')!
-const PAGE_CM = PROFILE.pageCm
 const DPI = 300
-/** Unités de dessin d'une page : 1000 de large. */
+const PX_PER_MM = DPI / 25.4
+/** Unités de dessin d'une page : 1000 de large ; hauteur selon le format de l'imprimeur (fixée par prepareBook). */
 const UW = 1000
-const UH = UW * PAGE_CM.h / PAGE_CM.w
+let UH = 773
+/** Photo pleine page jusqu'au bord : seulement avec un fond perdu (WhiteWall) ; sinon, marges (Flexilivre). */
+let fullBleed = true
 /** Marge intérieure (≈ 1,7 cm), bien au-delà du fond perdu de 3 mm. */
 const M = 62
 /** Photos d'une course : 2 dans le carnet, 8 au plus sur sa double page photos. */
@@ -45,15 +49,14 @@ export interface BookOptions {
   title: string
   name: string
   photoSpreads: boolean
+  printer: BookPrinterInfo
 }
 
 export interface PreparedBook {
-  interior: Blob
-  cover: Blob
-  /** Pages du fichier intérieur, à indiquer chez WhiteWall. */
+  /** Fichiers à enregistrer, dans l'ordre : WhiteWall = intérieur puis couverture ; Flexilivre = un seul. */
+  files: { blob: Blob; name: string; label: string }[]
+  /** Pages intérieures (hors couverture), à indiquer chez l'imprimeur. */
   pages: number
-  interiorName: string
-  coverName: string
 }
 
 /** Course prête à dessiner. */
@@ -463,18 +466,25 @@ async function drawCarnet(ctx: CanvasRenderingContext2D, e: Entry, imgs: HTMLIma
   folio(ctx, pageNo)
 }
 
-/** Une photo recadrée sur toute la double page : moitié gauche (half 0) ou droite (half 1). */
+/** Une photo recadrée sur toute la double page : moitié gauche (half 0) ou droite (half 1). Sans fond perdu, elle
+ * s'arrête à la marge des bords extérieurs et ne touche que le pli. */
 function drawSpreadPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, half: 0 | 1) {
-  const W = UW * 2, H = UH
-  const s = Math.max(W / img.naturalWidth, H / img.naturalHeight)
-  const sw = W / s, sh = H / s
+  const inset = fullBleed ? 0 : M
+  const pw = UW - inset, ph = UH - 2 * inset
+  const W = pw * 2
+  const s = Math.max(W / img.naturalWidth, ph / img.naturalHeight)
+  const sw = W / s, sh = ph / s
   const sx = (img.naturalWidth - sw) / 2 + half * sw / 2, sy = (img.naturalHeight - sh) / 2
-  ctx.drawImage(img, sx, sy, sw / 2, sh, 0, 0, UW, UH)
+  ctx.drawImage(img, sx, sy, sw / 2, sh, half === 0 ? inset : 0, inset, pw, ph)
 }
 
 function drawPhotoGrid(ctx: CanvasRenderingContext2D, imgs: HTMLImageElement[], k: number) {
   const n = imgs.length
-  if (n === 1) { drawPhoto(ctx, imgs[0], 0, 0, UW, UH, k, 0); return }
+  if (n === 1) {
+    if (fullBleed) drawPhoto(ctx, imgs[0], 0, 0, UW, UH, k, 0)
+    else drawPhoto(ctx, imgs[0], M, M, UW - 2 * M, UH - 2 * M, k, 4)
+    return
+  }
   const x = M, y = M, w = UW - 2 * M, h = UH - 2 * M, g = 14
   if (n === 2) {
     const cw = (w - g) / 2
@@ -499,48 +509,60 @@ function drawPhotosPage(ctx: CanvasRenderingContext2D, imgs: HTMLImageElement[],
 }
 
 // ── Couverture ───────────────────────────────────────────────────────────────
+// Dessinée en millimètres, sur fond vert nuit. Zone sûre : 15 mm à l'intérieur du bord rogné (rabats de la couverture
+// rigide chez WhiteWall, rognage chez Flexilivre).
 
-async function renderCover(entries: Entry[], o: BookOptions, best: Partial<Record<RecordCategory, Entry>>, pages: number): Promise<Blob> {
-  const spread = wrapSpreadForPages(PROFILE, pages)!
-  // Dessin en millimètres.
-  const SW = spread.sheetCm.w * 10, SH = spread.sheetCm.h * 10, spine = spread.spineCm * 10, bleed = spread.bleedCm * 10
-  const pxPerMm = DPI / 25.4
+const COVER_SAFE = 15
+
+/** Toile en millimètres (300 dpi), peinte en vert nuit. */
+function coverCanvas(wMm: number, hMm: number) {
   const canvas = document.createElement('canvas')
-  canvas.width = Math.round(SW * pxPerMm); canvas.height = Math.round(SH * pxPerMm)
+  canvas.width = Math.round(wMm * PX_PER_MM); canvas.height = Math.round(hMm * PX_PER_MM)
   const ctx = canvas.getContext('2d')!
-  ctx.scale(pxPerMm, pxPerMm)
-  ctx.fillStyle = NIGHT; ctx.fillRect(0, 0, SW, SH)
-  const half = (SW - spine) / 2
-  // Zone sûre : 15 mm à l'intérieur du panneau rogné (rabats de la couverture rigide).
-  const safe = 15
-  const fx = half + spine + safe, fw = SW - bleed - safe - fx
-  const top = bleed + safe, bottom = SH - bleed - safe
+  ctx.scale(PX_PER_MM, PX_PER_MM)
+  ctx.fillStyle = NIGHT; ctx.fillRect(0, 0, wMm, hMm)
+  return { canvas, ctx }
+}
 
-  // 1re de couverture : titre, période, nom ; tracés de toutes les courses.
-  const t = wrapFit(ctx, o.title, 600, SERIF, 20, 10, fw, 2)
+/** 1re de couverture : titre, période, nom ; tracés de toutes les courses. */
+function drawCoverFront(ctx: CanvasRenderingContext2D, entries: Entry[], o: BookOptions, x: number, w: number, top: number, bottom: number) {
+  const t = wrapFit(ctx, o.title, 600, SERIF, 20, 10, w, 2)
   let y = top + t.size
-  t.lines.forEach(l => { text(ctx, l, fx, y, `600 ${t.size}px ${SERIF}`, cream(0.96)); y += t.size * 1.1 })
-  text(ctx, periodLabel(entries), fx, y + 2, `600 5px ${SANS}`, '#F07D1A', 'left', 1.2)
-  if (o.name) text(ctx, o.name, fx, y + 11, `italic 500 6px ${SERIF}`, cream(0.8))
-  drawTraces(ctx, entries, fx, y + 20, fw, bottom - y - 20, 0.9)
+  t.lines.forEach(l => { text(ctx, l, x, y, `600 ${t.size}px ${SERIF}`, cream(0.96)); y += t.size * 1.1 })
+  text(ctx, periodLabel(entries), x, y + 2, `600 5px ${SANS}`, '#F07D1A', 'left', 1.2)
+  if (o.name) text(ctx, o.name, x, y + 11, `italic 500 6px ${SERIF}`, cream(0.8))
+  drawTraces(ctx, entries, x, y + 20, w, bottom - y - 20, 0.9)
+}
 
-  // 4e de couverture : records et adresse du site.
-  const bx = bleed + safe, bw = half - bleed - 2 * safe
-  let by = top + 10
-  text(ctx, 'RECORDS', bx, by, `700 3.6px ${SANS}`, '#F07D1A', 'left', 1)
-  by += 10
+/** 4e de couverture : records, totaux et adresse du site. */
+function drawCoverBack(ctx: CanvasRenderingContext2D, entries: Entry[], x: number, w: number, top: number, bottom: number) {
+  const best = bestByCategory(entries)
+  let y = top + 10
+  text(ctx, 'RECORDS', x, y, `700 3.6px ${SANS}`, '#F07D1A', 'left', 1)
+  y += 10
   for (const c of RECORD_CATEGORIES) {
     const e = best[c.id]
     if (!e) continue
-    text(ctx, c.label, bx, by, `500 4.4px ${SANS}`, cream(0.7))
-    text(ctx, formatElapsed(e.timeS!), bx + bw, by, `600 5.5px ${SERIF}`, cream(0.95), 'right')
-    by += 9
+    text(ctx, c.label, x, y, `500 4.4px ${SANS}`, cream(0.7))
+    text(ctx, formatElapsed(e.timeS!), x + w, y, `600 5.5px ${SERIF}`, cream(0.95), 'right')
+    y += 9
   }
   const km = entries.reduce((s, e) => s + e.data.officialM, 0) / 1000
-  text(ctx, `${entries.length} course${entries.length > 1 ? 's' : ''} · ${Math.round(km).toLocaleString('fr-FR')} km`, bx, by + 4,
+  text(ctx, `${entries.length} course${entries.length > 1 ? 's' : ''} · ${Math.round(km).toLocaleString('fr-FR')} km`, x, y + 4,
     `500 4px ${SANS}`, cream(0.6))
-  text(ctx, 'sillonphane.fr/running', bx + bw / 2, bottom, `500 3px ${SANS}`, cream(0.45), 'center', 0.4)
+  text(ctx, 'sillonphane.fr/running', x + w / 2, bottom, `500 3px ${SANS}`, cream(0.45), 'center', 0.4)
+}
 
+/** WhiteWall : couverture à plat d'un tenant (4e de couverture | dos | 1re de couverture), en PDF séparé. */
+async function renderWrapCover(entries: Entry[], o: BookOptions, pages: number): Promise<Blob> {
+  const spread = wrapSpreadForPages(o.printer.profile, pages)!
+  const SW = spread.sheetCm.w * 10, SH = spread.sheetCm.h * 10, spine = spread.spineCm * 10, bleed = spread.bleedCm * 10
+  const { canvas, ctx } = coverCanvas(SW, SH)
+  const half = (SW - spine) / 2
+  const top = bleed + COVER_SAFE, bottom = SH - bleed - COVER_SAFE
+  const fx = half + spine + COVER_SAFE
+  drawCoverFront(ctx, entries, o, fx, SW - bleed - COVER_SAFE - fx, top, bottom)
+  drawCoverBack(ctx, entries, bleed + COVER_SAFE, half - bleed - 2 * COVER_SAFE, top, bottom)
   // Dos : titre et période, de haut en bas.
   if (spine >= 6) {
     ctx.save()
@@ -552,12 +574,21 @@ async function renderCover(entries: Entry[], o: BookOptions, best: Partial<Recor
     ctx.fillText(label, 0, 0)
     ctx.restore()
   }
-
   const { default: jsPDF } = await import('jspdf')
   const doc = new jsPDF({ orientation: 'landscape', unit: 'cm', format: [spread.sheetCm.w, spread.sheetCm.h], compress: true })
   doc.addImage(await canvasJpeg(canvas), 'JPEG', 0, 0, spread.sheetCm.w, spread.sheetCm.h)
   canvas.width = canvas.height = 0
   return doc.output('blob')
+}
+
+/** Flexilivre : 1re ou 4e de couverture sur une page du format du livre (1re et dernière page du PDF unique). */
+function renderCoverPage(entries: Entry[], o: BookOptions, side: 'front' | 'back'): HTMLCanvasElement {
+  const { w, h } = o.printer.profile.pageCm
+  const { canvas, ctx } = coverCanvas(w * 10, h * 10)
+  const x = COVER_SAFE, cw = w * 10 - 2 * COVER_SAFE, top = COVER_SAFE, bottom = h * 10 - COVER_SAFE
+  if (side === 'front') drawCoverFront(ctx, entries, o, x, cw, top, bottom)
+  else drawCoverBack(ctx, entries, x + cw * 0.25, cw * 0.5, top, bottom)
+  return canvas
 }
 
 async function canvasJpeg(canvas: HTMLCanvasElement): Promise<Uint8Array> {
@@ -604,30 +635,51 @@ async function loadPhotos(list: VoyagePhoto[], urls: string[]): Promise<Map<stri
 }
 
 /**
- * Prépare les deux PDF du livre. `onProgress(fait, total)` compte les pages (la couverture en dernier) ; `isLive`
- * permet d'abandonner (écran quitté) : la promesse est alors rejetée.
+ * Prépare le ou les PDF du livre pour l'imprimeur choisi. `onProgress(fait, total)` compte les pages (couverture
+ * comprise) ; `isLive` permet d'abandonner (écran quitté) : la promesse est alors rejetée.
  */
 export async function prepareBook(courses: BookCourse[], o: BookOptions,
   onProgress?: (done: number, total: number) => void, isLive: () => boolean = () => true): Promise<PreparedBook> {
   await loadFonts()
   const entries = buildEntries(courses)
   if (!entries.length) throw new Error('Aucune course lisible dans le livre')
+  const pageCm = o.printer.profile.pageCm
+  const wrap = o.printer.profile.coverMode === 'wrap-spread'
+  UH = UW * pageCm.h / pageCm.w
+  fullBleed = wrap
 
-  // Plan des pages
+  // Plan des pages intérieures
   const plan: Page[] = [{ kind: 'title' }, { kind: 'records' }, { kind: 'progress' }, { kind: 'palmares' }, { kind: 'toc' }]
   for (const e of entries) {
     e.page = plan.length + 1
     plan.push({ kind: 'poster', e }, { kind: 'carnet', e })
     if (o.photoSpreads && e.photos.length) plan.push({ kind: 'photos', e, half: 0 }, { kind: 'photos', e, half: 1 })
   }
-  const contentPages = plan.length
-  const total = printedPageCount(contentPages)
+  const total = printedPageCount(plan.length, o.printer)
   while (plan.length < total - 1) plan.push({ kind: 'blank' })
   if (plan.length < total) plan.push({ kind: 'colophon' })
+  const steps = plan.length + (wrap ? 1 : 2)
+  let done = 0
+  const step = () => onProgress?.(++done, steps)
 
   const { default: jsPDF } = await import('jspdf')
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'cm', format: [PAGE_CM.w, PAGE_CM.h], compress: true })
-  const pxW = Math.round(PAGE_CM.w / 2.54 * DPI), pxH = Math.round(PAGE_CM.h / 2.54 * DPI)
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'cm', format: [pageCm.w, pageCm.h], compress: true })
+  let first = true
+  async function addPage(c: HTMLCanvasElement) {
+    if (!first) doc.addPage([pageCm.w, pageCm.h], 'landscape')
+    first = false
+    doc.addImage(await canvasJpeg(c), 'JPEG', 0, 0, pageCm.w, pageCm.h)
+  }
+  async function addCoverPage(side: 'front' | 'back') {
+    const c = renderCoverPage(entries, o, side)
+    await addPage(c)
+    c.width = c.height = 0
+    step()
+  }
+
+  if (!wrap) await addCoverPage('front')
+
+  const pxW = Math.round(pageCm.w / 2.54 * DPI), pxH = Math.round(pageCm.h / 2.54 * DPI)
   const k = pxW / UW
   const canvas = document.createElement('canvas')
   canvas.width = pxW; canvas.height = pxH
@@ -669,22 +721,29 @@ export async function prepareBook(courses: BookCourse[], o: BookOptions,
           break
         case 'blank': break
       }
-      if (i > 0) doc.addPage([PAGE_CM.w, PAGE_CM.h], 'landscape')
-      doc.addImage(await canvasJpeg(canvas), 'JPEG', 0, 0, PAGE_CM.w, PAGE_CM.h)
-      onProgress?.(n, plan.length + 1)
+      await addPage(canvas)
+      step()
     }
   } finally {
     release()
     canvas.width = canvas.height = 0
   }
-  const interior = doc.output('blob')
   if (!isLive()) throw new Error('Export du livre abandonné')
-  const cover = await renderCover(entries, o, bestByCategory(entries), plan.length)
-  onProgress?.(plan.length + 1, plan.length + 1)
+
   const base = sanitizeFilename(o.title) || 'Livre'
+  const pages = plan.length
+  if (!wrap) {
+    await addCoverPage('back')
+    return { pages, files: [{ blob: doc.output('blob'), name: `${base} - livre ${o.printer.label} (${pages} pages).pdf`, label: 'Livre (PDF)' }] }
+  }
+  const interior = doc.output('blob')
+  const cover = await renderWrapCover(entries, o, pages)
+  step()
   return {
-    interior, cover, pages: plan.length,
-    interiorName: `${base} - livre intérieur (${plan.length} pages).pdf`,
-    coverName: `${base} - livre couverture.pdf`,
+    pages,
+    files: [
+      { blob: interior, name: `${base} - livre intérieur (${pages} pages).pdf`, label: 'Pages intérieures (PDF)' },
+      { blob: cover, name: `${base} - livre couverture.pdf`, label: 'Couverture (PDF)' },
+    ],
   }
 }

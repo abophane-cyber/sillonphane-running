@@ -1,17 +1,41 @@
 // Livre de Mes sillons : les affiches des courses choisies dans tous les sillons, une double page par course (affiche +
 // carnet : temps de passage, profil, photos, note), double page photos en option ; en tête page de titre, records,
-// progression, palmarès et sommaire. Le nombre de pages doit atteindre le minimum de l'imprimeur (WhiteWall : 28) pour
-// l'export. Dessin et PDF : lib/bookExport.ts.
+// progression, palmarès et sommaire. Le nombre de pages doit atteindre le minimum de l'imprimeur (WhiteWall : 28,
+// Flexilivre : 24) pour l'export. Dessin et PDF : lib/bookExport.ts.
 import type { Voyage, VoyageTrack } from '../types'
-import { PRINT_PROFILES } from './printProfiles'
+import { PRINT_PROFILES, type PrintProfile } from './printProfiles'
 import { STORAGE_PREFIX } from './appIdentity'
 
 /** Pages d'en-tête : page de titre (à droite), records | progression, palmarès | sommaire. Les courses commencent
  * ainsi sur une page de gauche : affiche à gauche, carnet en face. */
 export const BOOK_FRONT_PAGES = 5
 
-/** Minimum de pages intérieures exigé par l'imprimeur du livre (WhiteWall). */
-export const BOOK_MIN_PAGES = PRINT_PROFILES.find(p => p.id === 'whitewall')?.coverSpread?.pageRange?.min ?? 28
+/** Imprimeurs du livre : WhiteWall (paysage 27,3 × 21,1 cm, 28 pages au moins, intérieur et couverture à plat en deux
+ * PDF) ou Flexilivre (A4 paysage sans fond perdu, 24 pages au moins, un seul PDF : couverture en 1re page, 4e de
+ * couverture en dernière). Profils et minimums : lib/printProfiles.ts. */
+export type BookPrinter = 'whitewall' | 'flexilivre'
+
+export interface BookPrinterInfo {
+  id: BookPrinter
+  label: string
+  profile: PrintProfile
+  /** Pages intérieures au moins (hors couverture). */
+  minPages: number
+}
+
+function printerInfo(id: BookPrinter, label: string, profileId: string): BookPrinterInfo {
+  const profile = PRINT_PROFILES.find(p => p.id === profileId)!
+  return { id, label, profile, minPages: profile.coverSpread?.pageRange?.min ?? profile.pageCount?.min ?? 24 }
+}
+
+export const BOOK_PRINTERS: BookPrinterInfo[] = [
+  printerInfo('whitewall', 'WhiteWall', 'whitewall'),
+  printerInfo('flexilivre', 'Flexilivre', 'flexilivre-a4'),
+]
+
+export function bookPrinter(id: BookPrinter | undefined): BookPrinterInfo {
+  return BOOK_PRINTERS.find(p => p.id === id) ?? BOOK_PRINTERS[0]
+}
 
 export interface BookCourse {
   voyage: Voyage
@@ -55,6 +79,7 @@ export interface BookPrefs {
   from?: string
   to?: string
   photoSpreads?: boolean
+  printer?: BookPrinter
   /** Titre du livre (défaut « Mes courses ») et nom du coureur (défaut : celui des affiches). */
   title?: string
   name?: string
@@ -74,9 +99,10 @@ export function inPeriod(date: string, prefs: BookPrefs): boolean {
   return (!prefs.from || date >= prefs.from) && (!prefs.to || date <= prefs.to)
 }
 
-/** Pages du fichier livré : complété de pages blanches jusqu'au multiple de 4 exigé par WhiteWall (28 au moins). */
-export function printedPageCount(contentPages: number): number {
-  return Math.max(BOOK_MIN_PAGES, Math.ceil(contentPages / 4) * 4)
+/** Pages intérieures du fichier livré : complétées de pages blanches jusqu'au multiple de 4 (cahiers), au minimum de
+ * l'imprimeur. */
+export function printedPageCount(contentPages: number, printer: BookPrinterInfo): number {
+  return Math.max(printer.minPages, Math.ceil(contentPages / 4) * 4)
 }
 
 /** Nom du coureur proposé : celui saisi le plus souvent sur les affiches. */

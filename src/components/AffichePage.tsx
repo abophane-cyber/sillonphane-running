@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Voyage, VoyageTrack, VoyagePhoto, PosterSettings, PosterInfo, PosterStyle } from '../types'
 import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster, saveTrackBook } from '../lib/voyageDB'
-import { BOOK_MIN_PAGES, isInBook } from '../lib/book'
+import { BOOK_PRINTERS, isInBook } from '../lib/book'
 import {
   buildPosterData, computedPace, drawPoster, exportPoster, posterBackground, posterFond, posterFormat, posterHeight,
   posterRibbon, posterStyle, POSTER_BACKGROUNDS, POSTER_FONDS, POSTER_FORMATS, POSTER_INFOS, POSTER_MAX_PHOTOS,
@@ -399,7 +399,7 @@ function PosterEditor({ voyage, track, onVoyageChange, onBook }: {
             <p>
               <strong>Livre.</strong> Réunissez les affiches de vos courses, tous sillons confondus, en un livre : une
               double page par course, avec vos records sur 5 km, 10 km, semi et marathon et votre progression
-              ({BOOK_MIN_PAGES} pages au moins pour l'impression).
+              ({Math.min(...BOOK_PRINTERS.map(p => p.minPages))} pages au moins pour l'impression).
             </p>
             <label className="aff-book__check">
               <input type="checkbox" checked={inBook} onChange={e => toggleInBook(e.target.checked)} />

@@ -62,3 +62,10 @@
 .livre__ready { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--livre-line); }
 .livre__ready p { margin: 0 0 8px; font-size: .88rem; }
 .livre__ready-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.livre__label { margin: 14px 0 6px; font-size: .8rem; color: var(--livre-muted); }
+.livre__printers { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.livre__printers button { font: inherit; text-align: left; display: flex; flex-direction: column; gap: 2px; padding: 9px 12px; cursor: pointer;
+  border: 1px solid var(--livre-line); border-radius: 8px; background: #fff; color: var(--livre-ink); }
+.livre__printers button span { font-size: .78rem; color: var(--livre-muted); }
+.livre__printers button[aria-pressed='true'] { border-color: var(--livre-accent); box-shadow: inset 0 0 0 1px var(--livre-accent); background: rgba(193,92,61,.05); }

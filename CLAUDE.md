@@ -88,14 +88,15 @@ Reste à faire :
      `VoyageTrack.inBook` ; absent = oui dès que l'affiche existe) et lien vers « Créer le livre ».
   3. *Fait* — Écran « Créer le livre » (`components/LivrePage.tsx`, `lib/book.ts`, vue « livre » de App.tsx),
      bouton en haut de Mes sillons : courses choisies **dans tous les sillons** (filtre par période : années ou
-     dates), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28) ; titre du livre, nom,
+     dates), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28, Flexilivre : 24) ; titre du livre, nom,
      note par course (`VoyageTrack.bookNote`). Une double page par course (affiche | carnet : temps de passage, profil,
      photos, note), double page photos en option ; en tête page de titre, records | progression, palmarès | sommaire
      (5 pages). Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
-     Export (`lib/bookExport.ts`) au format WhiteWall paysage (27,3 × 21,1 cm, 300 dpi, pages dessinées sur canvas) :
-     deux PDF, intérieur complété de pages blanches jusqu'au multiple de 4, et couverture à plat (4e | dos | 1re, vert
-     nuit, tracés des courses au ruban vert · orange · crème, dos selon le nombre de pages), puis offre d'impression
-     WhiteWall avec le nombre de pages à indiquer.
+     Export (`lib/bookExport.ts`, pages dessinées sur canvas à 300 dpi) selon l'imprimeur choisi à l'écran : **WhiteWall**
+     (paysage 27,3 × 21,1 cm, fond perdu) = deux PDF, intérieur et couverture à plat (4e | dos | 1re, dos selon le
+     nombre de pages) ; **Flexilivre** (A4 paysage, sans fond perdu, photos à distance du bord) = un seul PDF,
+     couverture en 1re page et 4e en dernière. Intérieur complété de pages blanches jusqu'au multiple de 4 ; couverture
+     vert nuit, tracés des courses au ruban vert · orange · crème ; puis offre d'impression de cet imprimeur.
   4. Retirer le « Bientôt » de l'accueil.
 - Comparaison avec un autre coureur ou l'édition précédente (deuxième ruban).
 - Offre organisateurs : film officiel du parcours aux couleurs de l'épreuve (logo et sponsors fournis par eux).
