@@ -2,6 +2,9 @@
 
 Complète `../CLAUDE.md` (règles communes à tous les projets).
 
+**Tests : faits par l'utilisateur.** Ne pas lancer l'appli ni la tester dans le navigateur (aperçu, clics, captures) ;
+se limiter à la vérification de compilation (`npx tsc --noEmit`), puis indiquer quoi tester.
+
 ## Le projet
 
 Déclinaison de Sillonphane pour la **course sur route, du 5 km au marathon**. Publication prévue dans
