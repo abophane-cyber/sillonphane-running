@@ -20,6 +20,7 @@ import { PWAPrompt } from './components/PWAPrompt'
 import { UpdatePrompt } from './components/UpdatePrompt'
 import { VoyagesPage } from './components/VoyagesPage'
 import { AffichePage } from './components/AffichePage'
+import { LivrePage } from './components/LivrePage'
 import { getDefaultSillon, getBackupStatus, saveTrackPanelSettings, addTrackToVoyage } from './lib/voyageDB'
 import { drawElevOverlay } from './lib/drawElevOverlay'
 import { SaveToSillonModal } from './components/SaveToSillonModal'
@@ -50,7 +51,7 @@ import { HomeIcon } from './components/icons'
 import { diag } from './lib/diag'
 import './App.css'
 
-type AppView = 'home' | 'how' | 'choice' | 'record' | 'upload' | 'title' | 'animate' | 'voyages' | 'album'
+type AppView = 'home' | 'how' | 'choice' | 'record' | 'upload' | 'title' | 'animate' | 'voyages' | 'album' | 'livre'
 
 export default function App() {
   useBackupReminder()
@@ -151,6 +152,8 @@ export default function App() {
   // Tracé rouvert depuis Mes sillons avec un film déjà créé (voir handleGpxLoad / restore.hasFilm).
   const [trackHasSavedFilm, setTrackHasSavedFilm] = useState(false)
   const [albumInitialTrack, setAlbumInitialTrack] = useState<{ voyageId: string; trackId: string } | null>(null)
+  // Affiche ouverte depuis « Créer le livre » : son bouton Retour y ramène.
+  const [albumFromBook, setAlbumFromBook] = useState(false)
   const [activeSillonTrackId, setActiveSillonTrackId] = useState<string | null>(null)
   // Cible à ouvrir dans « Mes sillons » après un « Voir le film » (déplie + fait défiler jusqu'aux films du tracé).
   const [filmFocus, setFilmFocus] = useState<{ sillonId: string; trackId: string } | null>(null)
@@ -654,7 +657,7 @@ export default function App() {
             className="app-header__voyages"
             onClick={() => {
               if (getBackupStatus().hasPendingChanges && !confirm('Modifications non sauvegardées. Quitter sans sauvegarder ?')) return
-              setAlbumInitialTrack(null)
+              setAlbumInitialTrack(null); setAlbumFromBook(false)
               goToVoyages()
             }}
             title="Mes sillons"
@@ -676,7 +679,7 @@ export default function App() {
           Android (app.html servi à la racine) : pas de redirection, on garde le SplashScreen. */}
       {view === 'home' && <SplashScreen onNext={() => setView('how')} />}
 
-      <main className={`app-main${view === 'voyages' || view === 'upload' ? ' app-main--light' : ''}`}>
+      <main className={`app-main${view === 'voyages' || view === 'upload' || view === 'livre' ? ' app-main--light' : ''}`}>
         {view === 'voyages' && (
           <VoyagesPage
             onBack={() => setView('upload')}
@@ -723,13 +726,14 @@ export default function App() {
               }
             }}
             onCreateAlbum={(voyageId, trackId) => {
-              setAlbumInitialTrack({ voyageId, trackId })
+              setAlbumInitialTrack({ voyageId, trackId }); setAlbumFromBook(false)
               setView('album')
             }}
             onAlbum={() => {
-              setAlbumInitialTrack(null)
+              setAlbumInitialTrack(null); setAlbumFromBook(false)
               setView('album')
             }}
+            onBook={() => setView('livre')}
           />
         )}
 
@@ -738,7 +742,24 @@ export default function App() {
             initialTrack={albumInitialTrack}
             onBack={() => {
               setAlbumInitialTrack(null)
-              setView('upload')
+              setView(albumFromBook ? 'livre' : 'upload')
+              setAlbumFromBook(false)
+            }}
+            onBook={() => {
+              setAlbumInitialTrack(null)
+              setAlbumFromBook(false)
+              setView('livre')
+            }}
+          />
+        )}
+
+        {view === 'livre' && (
+          <LivrePage
+            onBack={goToVoyages}
+            onOpenPoster={(voyageId, trackId) => {
+              setAlbumInitialTrack({ voyageId, trackId })
+              setAlbumFromBook(true)
+              setView('album')
             }}
           />
         )}

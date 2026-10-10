@@ -214,6 +214,16 @@ export async function saveTrackPoster(voyageId: string, trackId: string, poster:
   })
 }
 
+/** Met une course dans le livre de Mes sillons, ou l'en retire (cf. lib/book.ts). */
+export async function saveTrackInBook(voyageId: string, trackId: string, inBook: boolean): Promise<void> {
+  return withVoyageLock(voyageId, async () => {
+    const voyage = await getVoyage(voyageId)
+    if (!voyage) return
+    voyage.tracks = voyage.tracks.map(t => t.id === trackId ? { ...t, inBook } : t)
+    await saveVoyage(voyage)
+  })
+}
+
 /** Retire un tracé du raccourci "Reprendre la composition" (composition considérée terminée),
  * sans toucher aux pages d'album déjà composées. */
 export async function clearTrackAlbumUpdatedAt(voyageId: string, trackId: string): Promise<void> {

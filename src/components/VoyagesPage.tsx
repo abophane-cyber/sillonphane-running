@@ -27,6 +27,8 @@ interface Props {
   onOpenTrack?: (voyageId: string, track: VoyageTrack, hasComposition: boolean, hasFilm: boolean) => void
   onCreateAlbum?: (voyageId: string, trackId: string) => void
   onAlbum?: () => void
+  /** Ouvre l'écran « Créer le livre » (courses de tous les sillons). */
+  onBook?: () => void
   /** Ouvre d'emblée ce sillon et met en avant les films de ce tracé (retour d'un « Voir le film »). */
   focusTarget?: { sillonId: string; trackId: string } | null
   onFocusConsumed?: () => void
@@ -670,7 +672,7 @@ function latestPoster(v: Voyage): VoyageTrack | undefined {
     .sort((a, b) => (b.date || b.addedAt).localeCompare(a.date || a.addedAt))[0]
 }
 
-export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focusTarget, onFocusConsumed }: Props) {
+export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBook, focusTarget, onFocusConsumed }: Props) {
   const [voyages, setVoyages]   = useState<Voyage[]>([])
   const [selected, setSelected] = useState<Voyage | null>(null)
   const [focusTrackId, setFocusTrackId] = useState<string | null>(null)
@@ -782,6 +784,9 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, focus
           <button className="vp-btn" onClick={() => setCreating(true)}>+ Nouveau dossier</button>
           {onAlbum && (
             <button className="vp-btn vp-btn--ghost" onClick={onAlbum}><AlbumIcon size={18} /> Créer mon affiche</button>
+          )}
+          {onBook && voyages.some(v => v.tracks.length > 0) && (
+            <button className="vp-btn" onClick={onBook} title="Réunir les affiches de vos courses, tous sillons confondus, en un livre">📖 Créer le livre</button>
           )}
         </div>
       </div>

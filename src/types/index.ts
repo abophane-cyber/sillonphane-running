@@ -242,6 +242,7 @@ export interface VoyageTrack {
   panelStreets?: { name: string; startM: number; endM: number }[]  // rues empruntées affichées (cf. routeStreets.ts)
   panelBibNumber?: string              // numéro inscrit sur le dossard du personnage
   poster?: PosterSettings              // affiche de course (cf. lib/poster.ts)
+  inBook?: boolean                     // dans le livre de Mes sillons ; absent = oui si l'affiche est faite (cf. lib/book.ts)
 }
 
 /** Fond de l'affiche : vues aériennes IGN assombries, Plan IGN de nuit, Plan IGN clair, uni. */

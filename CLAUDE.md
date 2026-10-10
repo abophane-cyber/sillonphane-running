@@ -84,11 +84,14 @@ Reste à faire :
   1. *Fait* — Mes sillons : un sillon = une saison ou un objectif ; miniatures des affiches
      (`lib/posterThumbs.ts`), badge « Affiche faite / à faire », records de la saison et records personnels
      (`lib/records.ts` : temps saisi sur l'affiche, sinon durée du GPX marquée « GPS »).
-  2. Écran de l'affiche : l'encadré « Bientôt » devient « Livre » (case « Inclure dans le livre », `poster.inBook`).
-  3. Écran « Créer le livre », bouton en haut de Mes sillons : courses choisies **dans tous les sillons** (filtre par
-     période), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28). Une double page par
+  2. *Fait* — Écran de l'affiche : l'encadré « Bientôt » devient « Livre » (case « Inclure dans le livre »,
+     `VoyageTrack.inBook` ; absent = oui dès que l'affiche existe) et lien vers « Créer le livre ».
+  3. *Fait, sauf l'export* — Écran « Créer le livre » (`components/LivrePage.tsx`, `lib/book.ts`, vue « livre » de
+     App.tsx), bouton en haut de Mes sillons : courses choisies **dans tous les sillons** (filtre par période : années
+     ou dates), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28). Une double page par
      course (affiche + carnet : temps de passage, profil, photos, notes), double page photos en option ; en tête
-     records, progression, palmarès, sommaire. Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
+     records, progression, palmarès, sommaire (4 pages). Compteur « 22 pages sur 28 minimum », export bloqué en
+     dessous. Reste : la mise en page et l'export PDF du livre (bouton « Exporter le livre » encore inactif).
   4. Retirer le « Bientôt » de l'accueil.
 - Comparaison avec un autre coureur ou l'édition précédente (deuxième ruban).
 - Offre organisateurs : film officiel du parcours aux couleurs de l'épreuve (logo et sponsors fournis par eux).

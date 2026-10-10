@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Voyage, VoyageTrack, VoyagePhoto, PosterSettings, PosterInfo, PosterStyle } from '../types'
-import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster } from '../lib/voyageDB'
+import { getAllVoyages, getPhotoBlob, addPhotoToVoyage, saveTrackPoster, saveTrackInBook } from '../lib/voyageDB'
+import { BOOK_MIN_PAGES, isInBook } from '../lib/book'
 import {
   buildPosterData, computedPace, drawPoster, exportPoster, posterBackground, posterFond, posterFormat, posterHeight,
   posterRibbon, posterStyle, POSTER_BACKGROUNDS, POSTER_FONDS, POSTER_FORMATS, POSTER_INFOS, POSTER_MAX_PHOTOS,
@@ -14,6 +15,8 @@ import './AffichePage.css'
 interface Props {
   onBack: () => void
   initialTrack?: { voyageId: string; trackId: string } | null
+  /** Ouvre l'écran « Créer le livre ». */
+  onBook?: () => void
 }
 
 interface Current { voyage: Voyage; track: VoyageTrack }
@@ -24,7 +27,7 @@ function formatDate(iso?: string) {
 }
 
 /** Affiche de course : remplace l'album pour Running (une page par course, cf. lib/poster.ts). */
-export function AffichePage({ onBack, initialTrack }: Props) {
+export function AffichePage({ onBack, initialTrack, onBook }: Props) {
   const [voyages, setVoyages] = useState<Voyage[] | null>(null)
   const [current, setCurrent] = useState<Current | null>(null)
 
@@ -48,6 +51,7 @@ export function AffichePage({ onBack, initialTrack }: Props) {
         key={current.track.id}
         voyage={current.voyage}
         track={current.track}
+        onBook={onBook}
         onVoyageChange={v => {
           setVoyages(list => list?.map(x => (x.id === v.id ? v : x)) ?? null)
           setCurrent(c => (c ? { voyage: v, track: v.tracks.find(t => t.id === c.track.id) ?? c.track } : c))
@@ -102,7 +106,9 @@ function ribbonSwatch(id: string): string {
   return id
 }
 
-function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track: VoyageTrack; onVoyageChange: (v: Voyage) => void }) {
+function PosterEditor({ voyage, track, onVoyageChange, onBook }: {
+  voyage: Voyage; track: VoyageTrack; onVoyageChange: (v: Voyage) => void; onBook?: () => void
+}) {
   const data: PosterData | null = useMemo(() => {
     try { return buildPosterData(track) } catch (e) { console.error('[affiche]', e); return null }
   }, [track.gpxData]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -193,6 +199,15 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
     }, 500)
     return () => clearTimeout(t)
   }, [settings]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Livre : choix explicite, sinon la course y entre dès que son affiche existe (modifiée ici ou déjà enregistrée).
+  const [bookChoice, setBookChoice] = useState<boolean | undefined>(track.inBook)
+  const inBook = bookChoice ?? (isInBook(track) || settings !== savedSettings.current)
+  function toggleInBook(on: boolean) {
+    setBookChoice(on)
+    saveTrackInBook(voyage.id, track.id, on).catch(e => console.error('[affiche] livre', e))
+    onVoyageChange({ ...voyage, tracks: voyage.tracks.map(t => (t.id === track.id ? { ...t, inBook: on } : t)) })
+  }
 
   if (!data) return <div className="affiche"><p className="affiche__empty">Impossible de lire la trace de cette course.</p></div>
 
@@ -380,10 +395,18 @@ function PosterEditor({ voyage, track, onVoyageChange }: { voyage: Voyage; track
             <strong>Pour les réseaux</strong> : image de {POSTER_SOCIAL_W} px de large, avec le logo et « Sillonphane.fr »
             en bas.
           </p>
-          <p>
-            <strong>Bientôt : le livre de vos sillons.</strong> Au fil des courses, vos affiches se rangent dans
-            Mes sillons : réunissez-les en un livre, avec vos records sur 5 km, 10 km, semi et marathon et votre progression.
-          </p>
+          <div className="aff-book">
+            <p>
+              <strong>Livre.</strong> Réunissez les affiches de vos courses, tous sillons confondus, en un livre : une
+              double page par course, avec vos records sur 5 km, 10 km, semi et marathon et votre progression
+              ({BOOK_MIN_PAGES} pages au moins pour l'impression).
+            </p>
+            <label className="aff-book__check">
+              <input type="checkbox" checked={inBook} onChange={e => toggleInBook(e.target.checked)} />
+              Inclure dans le livre
+            </label>
+            {onBook && <button type="button" className="aff-link" onClick={onBook}>Créer le livre →</button>}
+          </div>
         </div>
       </div>
 
