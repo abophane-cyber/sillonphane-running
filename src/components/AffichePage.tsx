@@ -70,6 +70,7 @@ export function AffichePage({ onBack, initialTrack, onBook }: Props) {
       {tracks.length === 0 && (
         <p className="affiche__empty">Aucune course enregistrée pour l'instant. Importez une trace GPX, puis enregistrez-la dans « Mes sillons ».</p>
       )}
+      <div className={`affiche__layout${onBook ? ' affiche__layout--book' : ''}`}>
       <ul className="affiche__list">
         {tracks.map(({ voyage, track }) => (
           <li key={track.id}>
@@ -81,17 +82,18 @@ export function AffichePage({ onBack, initialTrack, onBook }: Props) {
           </li>
         ))}
       </ul>
+      {/* Toujours visible : colonne de droite qui suit le défilement (en bas de l'écran sur téléphone). */}
       {onBook && (
-        <section className="affiche__book">
-          <h2 className="affiche__subtitle">Mon livre</h2>
-          <p className="affiche__lead">Réunissez les affiches de vos courses, tous sillons confondus, en un livre : une double page par course, avec vos records et votre progression.</p>
+        <aside className="affiche__book">
           <button type="button" className="affiche__item affiche__book-item" onClick={onBook}>
-            <strong>Le livre de mes courses</strong>
+            <strong>📖 Mon livre</strong>
+            <span className="affiche__book-more">Vos affiches, tous sillons confondus, en un livre : une double page par course, vos records et votre progression.</span>
             <span>{Math.min(...BOOK_PRINTERS.map(p => p.minPages))} pages au moins pour l'impression</span>
-            <em>Créer le livre →</em>
+            <em>Créer mon livre →</em>
           </button>
-        </section>
+        </aside>
       )}
+      </div>
     </div>
   )
 }

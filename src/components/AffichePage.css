@@ -13,9 +13,17 @@
 .affiche__item span { font-size: .84rem; color: var(--color-text-muted); }
 .affiche__item em { font-style: normal; font-size: .84rem; font-weight: 600; color: var(--aff-accent); margin-top: 4px; }
 
-.affiche__book { margin-top: 32px; padding-top: 22px; border-top: 1px solid var(--color-border); }
-.affiche__subtitle { font-family: 'Playfair Display', Georgia, serif; font-size: 1.25rem; font-weight: 600; margin: 0 0 6px; }
-.affiche__book-item { max-width: 420px; border-left: 3px solid var(--aff-accent); }
+/* Liste des courses à gauche, « Mon livre » à droite, collé en haut pendant le défilement. */
+.affiche__layout--book { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: start; }
+.affiche__book { position: sticky; top: 0; z-index: 2; }
+.affiche__book-item { border-left: 3px solid var(--aff-accent); box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+.affiche__book-item strong { font-family: 'Playfair Display', Georgia, serif; font-size: 1.15rem; }
+@media (max-width: 760px) {
+  /* Téléphone : la carte passe sous la liste et reste collée en bas de l'écran. */
+  .affiche__layout--book { grid-template-columns: 1fr; }
+  .affiche__book { top: auto; bottom: 12px; }
+  .affiche__book-more { display: none; }
+}
 
 /* Réglages de part et d'autre de l'affiche (01 à 05 à gauche, 06 à 09 à droite). Écran moyen : les deux colonnes
    s'empilent à droite ; téléphone : tout sous l'affiche. */
