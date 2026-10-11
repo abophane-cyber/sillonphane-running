@@ -98,6 +98,7 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
 
   return (
     <div className="livre livre--wide">
+      <button type="button" className="livre__back" onClick={onClose}>← Le livre</button>
       <div className="livre-mep__head">
         <h1 className="livre__title">Mise en page du livre</h1>
         <button type="button" className="vp-btn vp-btn--sm" onClick={onClose}>✓ Terminé</button>
