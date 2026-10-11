@@ -378,7 +378,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
       rgba(252,250,246,0.72) 0%,
       rgba(252,250,246,0.45) 45%,
       rgba(252,250,246,0.12) 100%),
-    url('/demo/sillon-coureurs.webp') 70% center / cover no-repeat fixed;
+    var(--running-bg, url('/demo/fond-montagne.webp')) var(--running-bg-pos, 70% center) / cover no-repeat fixed;
   background-color: #FCF8F0;
   gap: 26px;
   padding: 46px 24px 40px;
@@ -492,7 +492,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
       rgba(252,250,246,0.66) 50%,
       rgba(252,250,246,0.18) 80%,
       rgba(252,250,246,0.06) 100%),
-    url('/demo/sillon-coureurs.webp') 70% center / cover no-repeat fixed;
+    var(--running-bg, url('/demo/fond-montagne.webp')) var(--running-bg-pos, 70% center) / cover no-repeat fixed;
   background-color: #FCF8F0;
 }
 .app-main--light .vp-page,
