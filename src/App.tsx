@@ -49,6 +49,7 @@ import { canRecordGps } from './lib/device'
 import { DEFAULT_CHARACTERS, toggleCharacter, type CharacterId } from './lib/characters'
 import { HomeIcon } from './components/icons'
 import { diag } from './lib/diag'
+import { isEssaiFilm, isFinFilm, isPromoFilm, isOuvertureFilm } from './lib/filmEssai'
 import './App.css'
 
 type AppView = 'home' | 'how' | 'choice' | 'record' | 'upload' | 'title' | 'animate' | 'voyages' | 'album' | 'livre'
@@ -79,6 +80,9 @@ export default function App() {
   // On ne redirige pas si le chemin est déjà "/" (build Android : app.html copié en index.html
   // servi à la racine) — dans ce cas c'est le SplashScreen qui prend le relais.
   useEffect(() => {
+    // ?essai, ?fin, ?promo, ?ouverture : mémorisés pour l'onglet AVANT la redirection, sinon perdus
+    // (ils ne sont lus qu'à l'export du film) ; ils restent actifs après « Commencer ».
+    isEssaiFilm(); isFinFilm(); isPromoFilm(); isOuvertureFilm()
     // En dev, /app.html?splash affiche le SplashScreen de l'APK pour le prévisualiser.
     const previewSplash = import.meta.env.DEV && new URLSearchParams(window.location.search).has('splash')
     if (view === 'home' && window.location.pathname !== '/' && !previewSplash) window.location.replace('/')
