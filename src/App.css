@@ -2046,6 +2046,11 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 }
 .vp-page__actions { display: flex; gap: 8px; }
 .vp-page__header-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+/* Écran large : page élargie pour garder les six boutons du cadre sur une ligne. */
+@media (min-width: 980px) {
+  .vp-page { max-width: 940px; }
+  .vp-page__header-actions { flex-wrap: nowrap; }
+}
 .vp-backup-banner {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   background: var(--color-surface); border: 1px solid var(--color-border);

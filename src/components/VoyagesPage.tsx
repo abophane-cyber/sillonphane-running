@@ -786,7 +786,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
             <button className="vp-btn vp-btn--ghost" onClick={onAlbum}><AlbumIcon size={18} /> Créer mon affiche</button>
           )}
           {onBook && voyages.some(v => v.tracks.length > 0) && (
-            <button className="vp-btn" onClick={onBook} title="Réunir les affiches de vos courses, tous sillons confondus, en un livre">📖 Créer le livre</button>
+            <button className="vp-btn" onClick={onBook} title="Réunir les affiches de vos courses, tous sillons confondus, en un livre">📖 Créer mon livre</button>
           )}
         </div>
       </div>
