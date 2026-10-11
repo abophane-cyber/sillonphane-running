@@ -414,11 +414,13 @@ function PosterEditor({ voyage, track, onVoyageChange, onBook }: {
               double page par course, avec vos records sur 5 km, 10 km, semi et marathon et votre progression
               ({Math.min(...BOOK_PRINTERS.map(p => p.minPages))} pages au moins pour l'impression).
             </p>
-            <label className="aff-book__check">
-              <input type="checkbox" checked={inBook} onChange={e => toggleInBook(e.target.checked)} />
-              Inclure dans le livre
-            </label>
-            {onBook && <button type="button" className="aff-link" onClick={onBook}>Créer le livre →</button>}
+            <div className="aff-book__row">
+              <label className="aff-book__check">
+                <input type="checkbox" checked={inBook} onChange={e => toggleInBook(e.target.checked)} />
+                Inclure dans le livre
+              </label>
+              {onBook && <button type="button" className="aff-book__go" onClick={onBook}>📖 Créer mon livre →</button>}
+            </div>
           </div>
         </div>
       </div>
