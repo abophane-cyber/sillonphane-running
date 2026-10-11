@@ -9,7 +9,7 @@ import type {
 import { parseGpx, parseKml, buildDistanceArray } from './gpx'
 import {
   analyzeRace, computeBornes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, hasRealTimes,
-  parseEventName, type Borne, type RaceAnalysis,
+  parseEventName, raceDurationS, type Borne, type RaceAnalysis,
 } from './raceSplits'
 import { BASEMAP_TILE_URL, IGN_TILE_URL } from './tileSources'
 import { drawOrigine } from './posterOrigine'
@@ -100,6 +100,8 @@ export interface PosterData {
   analysis?: RaceAnalysis
   /** Durée réelle du GPX (s), si ses heures sont réelles. */
   gpxDurationS?: number
+  /** Heures réelles (course enregistrée) : « Temps officiel » ; sinon temps déclaré par le coureur. */
+  realTimes: boolean
   /** Valeurs proposées tant que l'utilisateur n'a rien saisi. */
   defaults: { title: string; distance: string; date: string; city: string; chrono: string; bib: string }
 }
@@ -135,6 +137,15 @@ function parseKm(text: string): number | undefined {
   return v > 0 ? v : undefined
 }
 
+/** Temps de la course, comme sur le carton de fin du film : durée du GPX si ses heures sont réelles (course
+ * enregistrée), sinon temps tiré des vitesses saisies dans le widget de l'épreuve (course faite sans enregistrement,
+ * sur le GPX du parcours). `realTimes` false = temps déclaré par le coureur. */
+export function trackTiming(track: VoyageTrack, points: GpxPoint[], distances: number[]): { realTimes: boolean; durationS?: number } {
+  const realTimes = hasRealTimes(points, distances) && !track.panelPlannedTimes
+  const dur = raceDurationS(points, distances[distances.length - 1] ?? 0, { useRealTimes: realTimes, speedsKmh: track.panelRaceSpeeds })
+  return { realTimes, durationS: dur?.s }
+}
+
 export function buildPosterData(track: VoyageTrack): PosterData {
   let parsed
   try { parsed = parseGpx(track.gpxData) } catch { parsed = parseKml(track.gpxData) }
@@ -150,18 +161,20 @@ export function buildPosterData(track: VoyageTrack): PosterData {
     const t0 = points.find(p => p.time)?.time, t1 = [...points].reverse().find(p => p.time)?.time
     if (t0 && t1 && t1 > t0) gpxDurationS = (t1.getTime() - t0.getTime()) / 1000
   }
+  const timing = trackTiming(track, points, distances)
   const place = track.panelStartName?.trim() || undefined
   const parsedName = parseEventName(track.panelEventName || track.name, place)
   return {
     points, distances, total, officialM,
     bornes: computeBornes(points, distances, { useRealTimes: false }),
-    analysis, gpxDurationS,
+    analysis, gpxDurationS, realTimes: timing.realTimes,
     defaults: {
       title: parsedName.title ?? track.name,
-      distance: formatBannerDistance(officialM).toLowerCase(),
+      // Distance saisie pour le carton du film (« 21,5 KM »), sinon distance de l'épreuve reconnue
+      distance: (track.panelBannerDistance?.trim() || formatBannerDistance(officialM)).toLowerCase(),
       date: track.date ?? '',
       city: parsedName.place ?? place ?? '',
-      chrono: gpxDurationS ? formatChronoInput(gpxDurationS) : '',
+      chrono: timing.durationS ? formatChronoInput(timing.durationS) : '',
       bib: track.panelBibNumber ?? '',
     },
   }
@@ -217,8 +230,9 @@ export function resolvePoster(data: PosterData, s: PosterSettings) {
     dateText: formatBannerDate(dateISO) ?? '',
     city,
     chronoS,
-    /** Temps saisi par l'utilisateur (« temps officiel ») ou lu dans le GPX (« temps »). */
-    chronoLabel: s.chrono != null && s.chrono.trim() ? 'Temps officiel' : 'Temps',
+    /** Course enregistrée (heures réelles du GPX) : « temps officiel » ; course faite sans enregistrement, sur le GPX
+     * du parcours : « temps déclaré ». */
+    chronoLabel: data.realTimes ? 'Temps officiel' : 'Temps déclaré',
     bib: (s.bib ?? data.defaults.bib).trim(),
     rank: (s.rank ?? '').trim(),
     pace: (s.pace ?? computedPace(data, s)).trim(),
@@ -985,7 +999,7 @@ async function drawSouvenir(ctx: CanvasRenderingContext2D, data: PosterData, r: 
   if (r.show('bib') && r.bib) { ctx.font = `600 ${sq ? 18 : 22}px ${SANS}`; ctx.fillStyle = fg(1); ctx.fillText(`#${r.bib}`, R, ry); ry += 6 }
   ry += sq ? 22 : 26
   const stats: [string, string][] = []
-  if (finishS) stats.push([formatChronoInput(finishS), 'TEMPS'])
+  if (finishS) stats.push([formatChronoInput(finishS), r.chronoLabel.toUpperCase()])
   stats.push([String(r.distanceKm).replace('.', ','), 'KM'])
   if (r.show('rank') && r.rank) stats.push([r.rank, 'CLASSEMENT'])
   let sx = R

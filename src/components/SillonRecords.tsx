@@ -25,7 +25,7 @@ export function RecordsBanner({ voyages, title }: { voyages: Voyage[]; title: st
                 <>
                   <strong className="vp-records__time">
                     {formatRecordTime(r.timeS)}
-                    {r.gps && <small title="Durée mesurée par le GPS : saisissez votre temps officiel sur l'affiche"> GPS</small>}
+                    {r.gps && <small title="Durée mesurée par le GPS : saisissez votre temps sur l'affiche"> GPS</small>}
                   </strong>
                   <span className="vp-records__race" title={r.name}>{shortDate(r.date) || r.name}</span>
                 </>

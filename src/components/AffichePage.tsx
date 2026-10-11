@@ -293,7 +293,7 @@ function PosterEditor({ voyage, track, onVoyageChange, onBook }: {
         <section className="aff-sec">
           <Head n="03">Vos performances</Head>
           <div className="aff-row">
-            <label className="aff-field">Temps officiel{input('chrono', text('chrono'), '1:43:10')}</label>
+            <label className="aff-field">{data.realTimes ? 'Temps officiel' : 'Temps déclaré'}{input('chrono', text('chrono'), '1:43:10')}</label>
             <label className="aff-field">Dossard{input('bib', text('bib'), '254')}</label>
           </div>
           <div className="aff-row">
