@@ -16,8 +16,15 @@
 /* Liste des courses à gauche, « Mon livre » à droite, collé en haut pendant le défilement. */
 .affiche__layout--book { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: start; }
 .affiche__book { position: sticky; top: 0; z-index: 2; }
-.affiche__book-item { border-left: 3px solid var(--aff-accent); box-shadow: 0 4px 16px rgba(0,0,0,.18); }
-.affiche__book-item strong { font-family: 'Playfair Display', Georgia, serif; font-size: 1.15rem; }
+/* Carte du livre aux couleurs de sa couverture : vert de la couverture, texte crème, liseré du ruban vert · orange · crème. */
+.affiche__book-item { position: relative; overflow: hidden; padding-top: 18px; border: 1px solid rgba(247,235,211,.22);
+  background: linear-gradient(160deg, #2F4839 0%, #1E3026 100%); color: #F7EBD3; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+.affiche__book-item::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
+  background: linear-gradient(90deg, #3DB54A 33%, #F07D1A 33% 66%, #F7EBD3 66%); }
+.affiche__book-item:hover { border-color: #F7EBD3; }
+.affiche__book-item strong { font-family: 'Playfair Display', Georgia, serif; font-size: 1.15rem; color: #F7EBD3; }
+.affiche__book-item span { color: rgba(247,235,211,.72); }
+.affiche__book-item em { color: #F7EBD3; background: #C15C3D; align-self: flex-start; padding: 5px 10px; border-radius: 6px; margin-top: 8px; }
 @media (max-width: 760px) {
   /* Téléphone : la carte passe sous la liste et reste collée en bas de l'écran. */
   .affiche__layout--book { grid-template-columns: 1fr; }
