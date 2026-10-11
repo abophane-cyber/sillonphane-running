@@ -159,6 +159,7 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
 
   return (
     <div className="livre">
+      <button type="button" className="livre__back" onClick={onBack}>← Mes sillons</button>
       <h1 className="livre__title">Créer le livre</h1>
       <p className="livre__lead">
         Choisissez les courses de vos sillons : chacune occupe une double page (son affiche, et en face son carnet :
