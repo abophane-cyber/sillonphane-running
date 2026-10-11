@@ -2046,10 +2046,10 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 }
 .vp-page__actions { display: flex; gap: 8px; }
 .vp-page__header-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
-/* Détail d'un sillon : carte « Mon livre » fixe, collée à droite de la colonne des courses (860 px centrés) et à
+/* Détail d'un sillon : carte « Mon livre » fixe, à droite de la colonne des courses (860 px centrés) et à
    mi-hauteur de l'écran (en bas à droite sur écran étroit), aux couleurs de la couverture du livre — même dessin que
    la carte de l'écran des affiches (AffichePage.css). */
-.vp-book-fab { position: fixed; left: calc(50% + 430px + 16px); top: 50%; transform: translateY(-50%); z-index: 20; width: 220px; display: flex; flex-direction: column; gap: 3px;
+.vp-book-fab { position: fixed; left: calc(50% + 430px + 56px); top: 50%; transform: translateY(-50%); z-index: 20; width: 220px; display: flex; flex-direction: column; gap: 3px;
   padding: 18px 16px 14px; text-align: left; font: inherit; cursor: pointer; overflow: hidden; border-radius: 12px;
   border: 1px solid rgba(247,235,211,.22); background: linear-gradient(160deg, #2F4839 0%, #1E3026 100%); color: #F7EBD3;
   box-shadow: 0 8px 24px rgba(0,0,0,.28); }
@@ -2061,7 +2061,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 .vp-book-fab em { font-style: normal; font-size: .84rem; font-weight: 600; align-self: flex-start; margin-top: 8px;
   padding: 5px 10px; border-radius: 6px; background: #C15C3D; }
 /* Moins de place à droite de la colonne (860 px) : la carte se réduit au bouton, en bas à droite. */
-@media (max-width: 1360px) {
+@media (max-width: 1440px) {
   .vp-book-fab { left: auto; top: auto; transform: none; bottom: 16px; right: 16px; width: auto; padding: 14px 12px 10px; }
   .vp-book-fab strong, .vp-book-fab span { display: none; }
   .vp-book-fab em { margin-top: 0; }
