@@ -21,6 +21,8 @@ import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { AppLogoIcon } from './AppLogoIcon'
 import { isRecordedGpx } from '../lib/gpx'
 import { saveFileWithPicker } from '../lib/saveFile'
+import { BookAside, BookIcon, DotsIcon, MountainIcon, PencilIcon, PlusIcon, RunnerIcon, TrashIcon } from './SillonDetailParts'
+import './SillonDetail.css'
 
 interface Props {
   onBack: () => void
@@ -50,6 +52,13 @@ function formatSize(bytes?: number) {
 }
 function sortTracksByDate(tracks: VoyageTrack[]): VoyageTrack[] {
   return [...tracks].sort((a, b) => (a.date || a.addedAt).localeCompare(b.date || b.addedAt))
+}
+const MONTHS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.']
+/** Pavé de date d'une course : « 10 / OCT. / 2025 ». */
+function dateParts(iso?: string): { day: number; month: string; year: number } | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? null : { day: d.getDate(), month: MONTHS[d.getMonth()], year: d.getFullYear() }
 }
 
 // Note de musique en SVG plutôt qu'un emoji 🎵 : l'emoji se lisait mal (petit, multicolore) et
@@ -108,6 +117,24 @@ function SillonDetail({
   const mixFileInputRef = useRef<HTMLInputElement>(null)
   const mixUploadTargetRef = useRef<VoyageFilm | null>(null)
   const audioSupported = filmAudioSupported()
+  // Menu « ⋮ » d'une course (GPX, album, sélection, suppression).
+  const [menuTrackId, setMenuTrackId] = useState<string | null>(null)
+  useEffect(() => {
+    if (!menuTrackId) return
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement)?.closest('.sd-menu')) setMenuTrackId(null)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [menuTrackId])
+
+  async function handleRename() {
+    const name = prompt('Nom du sillon', voyage.name)?.trim()
+    if (!name || name === voyage.name) return
+    const updated = { ...voyage, name }
+    await saveVoyage(updated)
+    onChange(updated)
+  }
 
   function toggleTrackExpanded(trackId: string, current: boolean) {
     setExpandedTracks(prev => ({ ...prev, [trackId]: !current }))
@@ -432,22 +459,12 @@ function SillonDetail({
   }
 
   return (
-    <div className="vp-detail">
-      <div className="vp-detail__header">
-        <h2 className="vp-detail__name">{voyage.name}</h2>
-        {/* Pas d'accept : sur Android le fournisseur de fichiers grise les fichiers dont le MIME
-            détecté ne correspond pas au filtre ".gpx" (aucun MIME standard pour ce format) — le
-            fichier reste alors non sélectionnable même s'il est visible. Filtrage par extension
-            fait dans handleImportGpx. */}
-        <input ref={gpxInputRef} type="file" style={{ display: 'none' }} onChange={handleImportGpx} />
-      </div>
-
-      <div className="vp-detail__stats">
-        <span>{countLabel(voyage)}</span>
-      </div>
-
-      <RecordsBanner voyages={[voyage]} title="Records de ce sillon" />
-
+    <div className="sd">
+      {/* Pas d'accept : sur Android le fournisseur de fichiers grise les fichiers dont le MIME
+          détecté ne correspond pas au filtre ".gpx" (aucun MIME standard pour ce format) — le
+          fichier reste alors non sélectionnable même s'il est visible. Filtrage par extension
+          fait dans handleImportGpx. */}
+      <input ref={gpxInputRef} type="file" style={{ display: 'none' }} onChange={handleImportGpx} />
       <input
         ref={mixFileInputRef}
         type="file"
@@ -461,210 +478,227 @@ function SillonDetail({
         }}
       />
 
-      {playingUrl && (
-        <div className="vp-player" ref={playerContainerRef}>
-          <video
-            ref={playerVideoRef} className="vp-player__video" src={playingUrl} controls autoPlay playsInline
-            onError={() => setPlayerError('Ce film ne peut pas être lu sur cet appareil (format vidéo non supporté par ce navigateur).')}
-          />
-          {playerError && <p className="vp-player__error">{playerError}</p>}
-          <button className="vp-player__close" onClick={() => { URL.revokeObjectURL(playingUrl); setPlayingUrl(null) }}>
-            ✕ Fermer
-          </button>
-        </div>
-      )}
+      <div className={`sd__layout${onBook ? ' sd__layout--book' : ''}`}>
+        <div className="sd__main">
+          <header className="sd__head">
+            <span className="sd__badge"><RunnerIcon size={42} /></span>
+            <div className="sd__heading">
+              <div className="sd__title-row">
+                <h1 className="sd__title">{voyage.name}</h1>
+                <button type="button" className="sd__rename" onClick={handleRename} title="Renommer ce sillon"><PencilIcon size={18} /></button>
+              </div>
+              <span className="sd__stats">{countLabel(voyage)}</span>
+            </div>
+            <p className="sd__quote">Des kilomètres de souvenirs<br />à feuilleter pour toujours.</p>
+          </header>
 
-      {voyage.tracks.length === 0 && voyage.films.length === 0 ? (
-        <p className="vp-empty">Aucun contenu. Importez un GPX ou enregistrez un tracé depuis la carte.</p>
-      ) : (
-        <ul className={`vp-list${focusMode ? ' vp-list--focus' : ''}`}>
-          {sortTracksByDate(voyage.tracks).map(t => {
-            const trackFilms = voyage.films.filter(f => f.trackId === t.id)
-            const defaultExpanded = trackFilms.length <= 3
-            const filmsExpanded = expandedTracks[t.id] ?? defaultExpanded
-            return (
-              <li
-                key={t.id}
-                id={`vp-track-${t.id}`}
-                className={`vp-track-card${flashTrackId === t.id ? ' vp-track-card--flash' : ''}${focusMode && focusTrackId === t.id ? ' vp-track-card--focus' : ''}`}
-              >
-                <label className="vp-item__select">
-                  <input type="checkbox" checked={selectedItems.has(`track:${t.id}`)} onChange={() => toggleSelected(`track:${t.id}`)} />
-                </label>
-                <div className="vp-track-card__body">
-                  <div className="vp-item vp-item--track">
-                    {t.poster
-                      ? <PosterThumb track={t} className="vp-item__poster" />
-                      : <div className="vp-item__icon">🗺</div>}
-                    <div className="vp-item__info">
-                      <span className="vp-item__date">{formatDate(t.date || t.addedAt)}</span>
-                      <span className="vp-item__name">{t.name}</span>
-                      <span className="vp-item__meta">
-                        {formatDist(t.distanceM)}
-                        {t.elevGainM ? ` · ↑ ${Math.round(t.elevGainM)} m` : ''}
-                      </span>
-                      <span className={`vp-badge${t.poster ? ' vp-badge--done' : ''}`}>
-                        {t.poster ? 'Affiche faite' : 'Affiche à faire'}
-                      </span>
-                    </div>
-                    <div className="vp-item__actions">
-                      {trackFilms.length > 0 && (
-                        <button
-                          className="vp-btn vp-btn--sm vp-btn--ghost vp-films-toggle"
-                          onClick={() => toggleTrackExpanded(t.id, filmsExpanded)}
-                          aria-expanded={filmsExpanded}
-                          title={filmsExpanded ? 'Replier les films' : 'Afficher les films'}
-                        >
-                          {filmsExpanded ? '▾' : '▸'} 🎬 Voir {trackFilms.length > 1 ? `les films (${trackFilms.length})` : 'le film'}
-                        </button>
-                      )}
-                      {onOpenTrack && (
-                        <button
-                          className="vp-btn vp-btn--sm"
-                          // hasComposition : l'utilisateur a déjà travaillé ce tracé (film, pages
-                          // d'album, ou assistant panneaux validé). Sinon (tracé brut tout juste
-                          // enregistré/importé) l'écran d'animation doit repartir de zéro — guide
-                          // complet, aperçu obligatoire avant de créer un film.
-                          onClick={() => onOpenTrack(
-                            voyage.id, t,
-                            trackFilms.length > 0 || (t.albumPages?.length ?? 0) > 0 || !!t.panelWizardDone,
-                            trackFilms.length > 0,
-                          )}
-                        >
-                          Ouvrir
-                        </button>
-                      )}
-                      {(t.source === 'recorded' || isRecordedGpx(t.gpxData)) && (
-                        <button
-                          className="vp-btn vp-btn--sm vp-btn--ghost"
-                          onClick={() => handleDownloadGpx(t)}
-                          title="Télécharger le fichier .gpx (pour VisuGPX, OsmAnd, montre GPS…)"
-                        >
-                          <DownloadIcon /> GPX
-                        </button>
-                      )}
-                      {t.albumPages?.length ? (
-                        <>
-                          <button className="vp-btn vp-btn--sm" onClick={() => { setViewingPageIndex(0); setViewingAlbumTrack(t) }}>
-                            👁 Voir l'album ({t.albumPages.length})
+          <RecordsBanner voyages={[voyage]} title="Records de ce sillon" />
+
+          {playingUrl && (
+            <div className="vp-player" ref={playerContainerRef}>
+              <video
+                ref={playerVideoRef} className="vp-player__video" src={playingUrl} controls autoPlay playsInline
+                onError={() => setPlayerError('Ce film ne peut pas être lu sur cet appareil (format vidéo non supporté par ce navigateur).')}
+              />
+              {playerError && <p className="vp-player__error">{playerError}</p>}
+              <button className="vp-player__close" onClick={() => { URL.revokeObjectURL(playingUrl); setPlayingUrl(null) }}>
+                ✕ Fermer
+              </button>
+            </div>
+          )}
+
+          {voyage.tracks.length === 0 && voyage.films.length === 0 ? (
+            <p className="vp-empty">Aucun contenu. Importez un GPX ou enregistrez un tracé depuis la carte.</p>
+          ) : (
+            <ul className={`sd-list${focusMode ? ' sd-list--focus' : ''}`}>
+              {sortTracksByDate(voyage.tracks).map(t => {
+                const trackFilms = voyage.films.filter(f => f.trackId === t.id)
+                const defaultExpanded = trackFilms.length <= 3
+                const filmsExpanded = expandedTracks[t.id] ?? defaultExpanded
+                const d = dateParts(t.date || t.addedAt)
+                const recorded = t.source === 'recorded' || isRecordedGpx(t.gpxData)
+                const editPoster = () => onCreateAlbum ? onCreateAlbum(voyage.id, t.id) : setEditingAlbumTrack(t)
+                return (
+                  <li
+                    key={t.id}
+                    id={`vp-track-${t.id}`}
+                    className={`sd-card${flashTrackId === t.id ? ' sd-card--flash' : ''}${focusMode && focusTrackId === t.id ? ' sd-card--focus' : ''}`}
+                  >
+                    <div className="sd-card__row">
+                      <div className="sd-card__date">
+                        {d ? <><strong>{d.day}</strong><span>{d.month}</span><span>{d.year}</span></> : <span>—</span>}
+                      </div>
+                      {t.poster
+                        ? <PosterThumb track={t} className="sd-card__thumb" />
+                        : <span className="sd-card__thumb sd-card__thumb--empty">🗺</span>}
+                      <div className="sd-card__info">
+                        <span className="sd-card__name">{t.name}</span>
+                        <span className="sd-card__meta">
+                          <MountainIcon />
+                          {formatDist(t.distanceM).replace('.', ',')}
+                          {t.elevGainM ? ` · ↑ ${Math.round(t.elevGainM)} m` : ''}
+                          <span className={`sd-badge${t.poster ? ' sd-badge--done' : ''}`}>{t.poster ? 'Affiche faite' : 'Affiche à faire'}</span>
+                        </span>
+                      </div>
+                      <div className="sd-card__actions">
+                        {trackFilms.length > 0 && (
+                          <button
+                            type="button"
+                            className="sd-btn sd-btn--light"
+                            onClick={() => toggleTrackExpanded(t.id, filmsExpanded)}
+                            aria-expanded={filmsExpanded}
+                            title={filmsExpanded ? 'Replier les films' : 'Afficher les films'}
+                          >
+                            <span className="sd-btn__caret">{filmsExpanded ? '▾' : '▸'}</span> 🎬 Voir {trackFilms.length > 1 ? `les films (${trackFilms.length})` : 'le film'}
                           </button>
-                          {/* Album déjà composé : on garde un accès à la page « Créer mon album-photo »
-                              (export PDF, imprimeur, couverture), étape cochée. */}
-                          {onCreateAlbum && (
-                            <button className="vp-btn vp-btn--sm" onClick={() => onCreateAlbum(voyage.id, t.id)}>
-                              🖼️ {t.poster ? 'Modifier l\'affiche' : 'Créer l\'affiche'}
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <button
-                          className="vp-btn vp-btn--sm"
-                          onClick={() => onCreateAlbum ? onCreateAlbum(voyage.id, t.id) : setEditingAlbumTrack(t)}
-                        >
-                          🖼️ {t.poster ? 'Modifier l\'affiche' : 'Créer l\'affiche'}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                  {trackFilms.length > 0 && filmsExpanded && (
-                    <ul className="vp-films">
-                      {trackFilms.map(f => (
-                        <li key={f.id} className={`vp-item vp-item--film${f.unseen ? ' vp-item--film-focus' : ''}`}>
-                          <label className="vp-item__select">
-                            <input type="checkbox" checked={selectedItems.has(`film:${f.id}`)} onChange={() => toggleSelected(`film:${f.id}`)} />
-                          </label>
-                          <div className="vp-item__icon">🎬</div>
-                          <div className="vp-item__info">
-                            <span className="vp-item__name">{f.name}</span>
-                            <span className="vp-item__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}</span>
-                          </div>
-                          <div className="vp-item__actions">
-                            <button className="vp-btn vp-btn--sm vp-btn--play" onClick={() => handlePlayFilm(f)} title="Lire le film">▶</button>
-                            {audioSupported && (
-                              <span className="vp-mix">
-                                <button
-                                  className="vp-btn vp-btn--sm vp-btn--music"
-                                  disabled={mixingFilmId !== null}
-                                  onClick={() => setMixMenuFilmId(mixMenuFilmId === f.id ? null : f.id)}
-                                  title="Ajouter une bande-son (nouveau fichier)"
-                                >
-                                  {mixingFilmId === f.id ? '⏳' : <MusicNoteIcon />}
-                                </button>
-                                {mixMenuFilmId === f.id && (
-                                  <div className="vp-mix__menu">
-                                    <span className="vp-mix__title">Ajouter une musique</span>
-                                    {FILM_MUSIC.map(m => (
-                                      <button
-                                        key={m.id}
-                                        className="vp-mix__item"
-                                        onClick={() => handleMixFilm(f, { kind: 'music', url: m.url, label: m.label })}
-                                      >
-                                        <span className="vp-mix__label">{m.label}</span>
-                                        <span className="vp-mix__hint">{m.hint}</span>
-                                      </button>
-                                    ))}
-                                    <button
-                                      className="vp-mix__item"
-                                      onClick={() => { mixUploadTargetRef.current = f; setMixMenuFilmId(null); mixFileInputRef.current?.click() }}
-                                    >
-                                      <span className="vp-mix__label">Mon fichier…</span>
-                                      <span className="vp-mix__hint">mp3, m4a, wav…</span>
-                                    </button>
-                                  </div>
-                                )}
-                              </span>
+                        )}
+                        {onOpenTrack && (
+                          <button
+                            type="button"
+                            className="sd-btn sd-btn--brick"
+                            // hasComposition : l'utilisateur a déjà travaillé ce tracé (film, pages
+                            // d'album, ou assistant panneaux validé). Sinon (tracé brut tout juste
+                            // enregistré/importé) l'écran d'animation doit repartir de zéro — guide
+                            // complet, aperçu obligatoire avant de créer un film.
+                            onClick={() => onOpenTrack(
+                              voyage.id, t,
+                              trackFilms.length > 0 || (t.albumPages?.length ?? 0) > 0 || !!t.panelWizardDone,
+                              trackFilms.length > 0,
                             )}
-                            <button className="vp-btn vp-btn--sm vp-btn--download" onClick={() => handleDownloadFilm(f)} title="Télécharger le film"><DownloadIcon /></button>
-                            <button className="vp-btn vp-btn--sm vp-btn--danger" onClick={() => handleDeleteFilm(f)} title="Supprimer le film">×</button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-                <button
-                  className="vp-track-card__delete-all"
-                  onClick={() => handleDeleteTrackFull(t)}
-                  title="Supprimer le tracé, ses films et son album"
-                >×</button>
-              </li>
-            )
-          })}
-          {orphanFilms.map(f => (
-            <li key={f.id} className="vp-item vp-item--film">
-              <label className="vp-item__select">
-                <input type="checkbox" checked={selectedItems.has(`film:${f.id}`)} onChange={() => toggleSelected(`film:${f.id}`)} />
-              </label>
-              <div className="vp-item__icon">🎬</div>
-              <div className="vp-item__info">
-                <span className="vp-item__name">{f.name}</span>
-                <span className="vp-item__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}</span>
-              </div>
-              <div className="vp-item__actions">
-                <button className="vp-btn vp-btn--sm vp-btn--play" onClick={() => handlePlayFilm(f)}>▶</button>
-                <button className="vp-btn vp-btn--sm vp-btn--download" onClick={() => handleDownloadFilm(f)} title="Télécharger le film"><DownloadIcon /></button>
-                <button className="vp-btn vp-btn--sm vp-btn--danger" onClick={() => handleDeleteFilm(f)}>×</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+                          >
+                            <BookIcon size={16} /> Ouvrir
+                          </button>
+                        )}
+                        {t.poster
+                          ? <button type="button" className="sd-btn sd-btn--outline" onClick={editPoster}><PencilIcon size={15} /> Modifier l'affiche</button>
+                          : <button type="button" className="sd-btn sd-btn--green" onClick={editPoster}><PlusIcon size={15} /> Créer l'affiche</button>}
+                        <span className="sd-menu">
+                          <button
+                            type="button"
+                            className="sd-menu__toggle"
+                            onClick={() => setMenuTrackId(menuTrackId === t.id ? null : t.id)}
+                            aria-expanded={menuTrackId === t.id}
+                            title="Plus d'actions"
+                          ><DotsIcon /></button>
+                          {menuTrackId === t.id && (
+                            <span className="sd-menu__list">
+                              {recorded && (
+                                <button type="button" onClick={() => { setMenuTrackId(null); handleDownloadGpx(t) }}>
+                                  <DownloadIcon /> Télécharger le GPX
+                                </button>
+                              )}
+                              {t.albumPages?.length ? (
+                                <button type="button" onClick={() => { setMenuTrackId(null); setViewingPageIndex(0); setViewingAlbumTrack(t) }}>
+                                  👁 Voir l'album ({t.albumPages.length})
+                                </button>
+                              ) : null}
+                              <button type="button" onClick={() => { setMenuTrackId(null); toggleSelected(`track:${t.id}`) }}>
+                                {selectedItems.has(`track:${t.id}`) ? '☑ Retirer de la sélection' : '☐ Sélectionner'}
+                              </button>
+                              <button type="button" className="sd-menu__danger" onClick={() => { setMenuTrackId(null); handleDeleteTrackFull(t) }}>
+                                <TrashIcon /> Supprimer la course
+                              </button>
+                            </span>
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                    {trackFilms.length > 0 && filmsExpanded && (
+                      <ul className="sd-films">
+                        {trackFilms.map(f => (
+                          <li key={f.id} className={`sd-film${f.unseen ? ' sd-film--new' : ''}`}>
+                            <label className="sd-film__select">
+                              <input type="checkbox" checked={selectedItems.has(`film:${f.id}`)} onChange={() => toggleSelected(`film:${f.id}`)} />
+                            </label>
+                            <span className="sd-film__icon">🎬</span>
+                            <div className="sd-film__info">
+                              <span className="sd-film__name">{f.name}</span>
+                              <span className="sd-film__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}</span>
+                            </div>
+                            <div className="sd-film__actions">
+                              <button type="button" className="sd-icon sd-icon--play" onClick={() => handlePlayFilm(f)} title="Lire le film">▶</button>
+                              {audioSupported && (
+                                <span className="vp-mix">
+                                  <button
+                                    type="button"
+                                    className="sd-icon"
+                                    disabled={mixingFilmId !== null}
+                                    onClick={() => setMixMenuFilmId(mixMenuFilmId === f.id ? null : f.id)}
+                                    title="Ajouter une bande-son (nouveau fichier)"
+                                  >
+                                    {mixingFilmId === f.id ? '⏳' : <MusicNoteIcon />}
+                                  </button>
+                                  {mixMenuFilmId === f.id && (
+                                    <div className="vp-mix__menu">
+                                      <span className="vp-mix__title">Ajouter une musique</span>
+                                      {FILM_MUSIC.map(m => (
+                                        <button
+                                          key={m.id}
+                                          className="vp-mix__item"
+                                          onClick={() => handleMixFilm(f, { kind: 'music', url: m.url, label: m.label })}
+                                        >
+                                          <span className="vp-mix__label">{m.label}</span>
+                                          <span className="vp-mix__hint">{m.hint}</span>
+                                        </button>
+                                      ))}
+                                      <button
+                                        className="vp-mix__item"
+                                        onClick={() => { mixUploadTargetRef.current = f; setMixMenuFilmId(null); mixFileInputRef.current?.click() }}
+                                      >
+                                        <span className="vp-mix__label">Mon fichier…</span>
+                                        <span className="vp-mix__hint">mp3, m4a, wav…</span>
+                                      </button>
+                                    </div>
+                                  )}
+                                </span>
+                              )}
+                              <button type="button" className="sd-icon" onClick={() => handleDownloadFilm(f)} title="Télécharger le film"><DownloadIcon /></button>
+                              <button type="button" className="sd-icon sd-icon--danger" onClick={() => handleDeleteFilm(f)} title="Supprimer le film"><TrashIcon size={17} /></button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                )
+              })}
+              {orphanFilms.length > 0 && (
+                <li className="sd-card">
+                  <ul className="sd-films sd-films--orphan">
+                    {orphanFilms.map(f => (
+                      <li key={f.id} className="sd-film">
+                        <label className="sd-film__select">
+                          <input type="checkbox" checked={selectedItems.has(`film:${f.id}`)} onChange={() => toggleSelected(`film:${f.id}`)} />
+                        </label>
+                        <span className="sd-film__icon">🎬</span>
+                        <div className="sd-film__info">
+                          <span className="sd-film__name">{f.name}</span>
+                          <span className="sd-film__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}</span>
+                        </div>
+                        <div className="sd-film__actions">
+                          <button type="button" className="sd-icon sd-icon--play" onClick={() => handlePlayFilm(f)} title="Lire le film">▶</button>
+                          <button type="button" className="sd-icon" onClick={() => handleDownloadFilm(f)} title="Télécharger le film"><DownloadIcon /></button>
+                          <button type="button" className="sd-icon sd-icon--danger" onClick={() => handleDeleteFilm(f)} title="Supprimer le film"><TrashIcon size={17} /></button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              )}
+            </ul>
+          )}
 
-      {selectedItems.size > 0 && (
-        <div className="vp-bulkbar">
-          <span>{selectedItems.size} sélectionné{selectedItems.size > 1 ? 's' : ''}</span>
-          <button className="vp-btn vp-btn--sm vp-btn--ghost" onClick={() => setSelectedItems(new Set())}>Annuler</button>
-          <button className="vp-btn vp-btn--sm vp-btn--danger" onClick={handleDeleteSelected}>🗑 Supprimer la sélection</button>
+          {selectedItems.size > 0 && (
+            <div className="vp-bulkbar">
+              <span>{selectedItems.size} sélectionné{selectedItems.size > 1 ? 's' : ''}</span>
+              <button className="vp-btn vp-btn--sm vp-btn--ghost" onClick={() => setSelectedItems(new Set())}>Annuler</button>
+              <button className="vp-btn vp-btn--sm vp-btn--danger" onClick={handleDeleteSelected}>🗑 Supprimer la sélection</button>
+            </div>
+          )}
         </div>
-      )}
 
-      {onBook && (
-        <button type="button" className="vp-book-fab" onClick={onBook} title="Réunir les affiches de vos courses, tous sillons confondus, en un livre">
-          <strong>📖 Mon livre</strong>
-          <span>Vos affiches en un livre</span>
-          <em>Créer mon livre →</em>
-        </button>
-      )}
+        {onBook && <BookAside poster={latestPoster(voyage)} onBook={onBook} />}
+      </div>
     </div>
   )
 }

@@ -1,0 +1,179 @@
+/* Écran d'un sillon (VoyagesPage → SillonDetail) : photo des coureurs en fond, liste des courses à gauche,
+   carte « Mon livre » à droite qui suit le défilement. Toujours sur fond clair (app-main--light). */
+.sd {
+  --sd-ink: #191817; --sd-muted: rgba(43,41,39,0.62); --sd-line: rgba(43,41,39,0.12);
+  --sd-green: #2F4839; --sd-green-2: #3E6B4A; --sd-brick: #C15C3D; --sd-brick-2: #A84C30;
+  height: 100%; overflow-y: auto; box-sizing: border-box; color: var(--sd-ink);
+  /* Voile crème à gauche (lisibilité de la liste), photo pleinement visible à droite (les coureurs). */
+  background:
+    linear-gradient(to right, rgba(252,250,246,0.86) 0%, rgba(252,250,246,0.62) 42%, rgba(252,250,246,0.08) 68%, rgba(252,250,246,0) 100%),
+    url('/demo/sillon-coureurs.webp') 70% center / cover no-repeat fixed;
+  background-color: #F4F1EA;
+  scrollbar-width: thin; scrollbar-color: var(--sd-brick) rgba(43,41,39,0.08);
+}
+.sd__layout { display: grid; grid-template-columns: minmax(0, 1020px); justify-content: center; gap: 56px;
+  padding: 30px 32px 90px; }
+.sd__layout--book { grid-template-columns: minmax(0, 1020px) 420px; }
+.sd__main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+/* ── En-tête ── */
+.sd__head { display: flex; align-items: center; gap: 22px; margin-bottom: 14px; }
+.sd__badge { flex-shrink: 0; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, var(--sd-green-2), var(--sd-green)); color: #F7EBD3;
+  box-shadow: 0 8px 22px rgba(47,72,57,0.35); }
+.sd__heading { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.sd__title-row { display: flex; align-items: center; gap: 16px; }
+.sd__title { margin: 0; font-family: 'Playfair Display', Georgia, serif; font-weight: 600; font-size: 2.9rem; line-height: 1.05;
+  color: var(--sd-ink); overflow-wrap: anywhere; }
+.sd__rename { flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  color: var(--sd-ink); background: rgba(255,255,255,0.92); border: 1px solid var(--sd-line); box-shadow: 0 3px 10px rgba(0,0,0,0.08); }
+.sd__rename:hover { border-color: var(--sd-brick); color: var(--sd-brick); }
+.sd__stats { font-size: 1.05rem; color: var(--sd-muted); }
+.sd__quote { position: relative; margin: 0 0 0 auto; padding: 0 26px; font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.3rem; line-height: 1.4; color: rgba(25,24,23,0.78); white-space: nowrap; }
+.sd__quote::before, .sd__quote::after { position: absolute; font-size: 2.2rem; line-height: 1; color: rgba(43,41,39,0.32); }
+.sd__quote::before { content: "“"; left: 0; top: -6px; }
+.sd__quote::after { content: "”"; right: 0; bottom: -18px; }
+
+/* Records : carte blanche un peu plus présente sur la photo */
+.sd .vp-records { margin-top: 0; padding: 16px 22px; border-radius: 14px; box-shadow: 0 6px 22px rgba(0,0,0,0.07); }
+
+/* ── Cartes des courses ── */
+.sd-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.sd-card { background: rgba(255,255,255,0.95); border: 1px solid rgba(43,41,39,0.08); border-radius: 16px;
+  padding: 18px 22px; box-shadow: 0 8px 26px rgba(25,24,23,0.08); display: flex; flex-direction: column; gap: 12px; }
+.sd-card--flash { animation: sd-flash 2.4s ease-out; }
+@keyframes sd-flash { 0%, 30% { box-shadow: 0 0 0 3px rgba(193,92,61,0.45); } 100% { box-shadow: 0 8px 26px rgba(25,24,23,0.08); } }
+.sd-list--focus .sd-card { transition: opacity .25s ease, filter .25s ease; }
+.sd-list--focus .sd-card:not(.sd-card--focus) { opacity: .4; filter: grayscale(.55); }
+.sd-card--focus { box-shadow: 0 0 0 3px rgba(193,92,61,0.32); }
+
+.sd-card__row { display: grid; grid-template-columns: 56px 58px minmax(0, 1fr) auto; align-items: center; gap: 18px; }
+.sd-card__date { display: flex; flex-direction: column; align-items: center; line-height: 1.15; color: var(--sd-ink); }
+.sd-card__date strong { font-size: 1.55rem; font-weight: 700; }
+.sd-card__date span { font-size: .85rem; color: rgba(25,24,23,0.8); }
+.sd-card__thumb { width: 56px; height: 76px; border-radius: 4px; overflow: hidden; box-shadow: 0 3px 10px rgba(0,0,0,0.22); }
+.sd-card__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sd-card__thumb--empty { display: grid; place-items: center; font-size: 1.6rem; background: #fff; border: 1px solid var(--sd-line); box-shadow: none; }
+.sd-card__info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.sd-card__name { font-weight: 700; font-size: 1.1rem; color: var(--sd-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-card__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; font-size: .95rem; color: var(--sd-muted); }
+.sd-badge { margin-left: 8px; padding: 2px 11px; border-radius: 999px; font-size: .85rem; font-weight: 500;
+  color: var(--sd-brick); background: rgba(193,92,61,0.08); border: 1px solid rgba(193,92,61,0.45); }
+.sd-badge--done { color: #2E7D3A; background: rgba(61,181,74,0.1); border-color: rgba(61,181,74,0.5); }
+
+.sd-card__actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.sd-btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 9px; font: inherit;
+  font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap; border: 1px solid transparent;
+  transition: background .15s, border-color .15s, color .15s; }
+.sd-btn__caret { font-size: .75rem; }
+.sd-btn--light { background: #fff; color: var(--sd-ink); border-color: rgba(43,41,39,0.2); }
+.sd-btn--light:hover { border-color: rgba(43,41,39,0.45); }
+.sd-btn--brick { background: var(--sd-brick); color: #fff; box-shadow: 0 5px 14px rgba(193,92,61,0.3); }
+.sd-btn--brick:hover { background: var(--sd-brick-2); }
+.sd-btn--outline { background: #fff; color: var(--sd-brick); border-color: rgba(193,92,61,0.35); }
+.sd-btn--outline:hover { border-color: var(--sd-brick); background: rgba(193,92,61,0.05); }
+.sd-btn--green { background: var(--sd-green); color: #fff; box-shadow: 0 5px 14px rgba(47,72,57,0.3); }
+.sd-btn--green:hover { background: #24382C; }
+
+.sd-menu { position: relative; }
+.sd-menu__toggle { width: 34px; height: 38px; display: grid; place-items: center; border: 0; background: none; border-radius: 8px;
+  color: rgba(25,24,23,0.6); cursor: pointer; }
+.sd-menu__toggle:hover, .sd-menu__toggle[aria-expanded="true"] { background: rgba(43,41,39,0.07); color: var(--sd-ink); }
+.sd-menu__list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 230px; display: flex; flex-direction: column;
+  padding: 6px; background: #fff; border: 1px solid var(--sd-line); border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.16); }
+.sd-menu__list button { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border: 0; background: none; border-radius: 7px;
+  font: inherit; font-size: .9rem; color: var(--sd-ink); text-align: left; cursor: pointer; }
+.sd-menu__list button:hover { background: rgba(43,41,39,0.06); }
+.sd-menu__list button svg { width: 16px; height: 16px; flex-shrink: 0; }
+.sd-menu__list .sd-menu__danger { color: #C62828; }
+.sd-menu__list .sd-menu__danger:hover { background: rgba(198,40,40,0.08); }
+
+/* ── Films d'une course ── */
+.sd-films { list-style: none; margin: 0 0 0 150px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.sd-films--orphan { margin-left: 0; }
+.sd-film { display: flex; align-items: center; gap: 14px; padding: 10px 14px; background: #fff; border: 1px solid var(--sd-line); border-radius: 12px; }
+.sd-film--new { background: #fbe9dc; border-color: var(--sd-brick); }
+.sd-film__select { display: flex; cursor: pointer; }
+.sd-film__select input { width: 18px; height: 18px; cursor: pointer; accent-color: var(--sd-green); }
+.sd-film__icon { font-size: 1.5rem; }
+.sd-film__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sd-film__name { font-size: .95rem; font-weight: 500; color: var(--sd-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sd-film__meta { font-size: .82rem; color: var(--sd-muted); }
+.sd-film__actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.sd-icon { width: 44px; height: 40px; display: grid; place-items: center; border-radius: 9px; cursor: pointer; font: inherit;
+  color: var(--sd-ink); background: #F7F5F1; border: 1px solid rgba(43,41,39,0.1); }
+.sd-icon svg { width: 18px; height: 18px; }
+.sd-icon:hover { border-color: rgba(43,41,39,0.35); }
+.sd-icon:disabled { opacity: .55; cursor: default; }
+.sd-icon--play { width: 64px; background: var(--sd-green); border-color: var(--sd-green); color: #fff; font-size: 1.05rem;
+  box-shadow: 0 5px 14px rgba(47,72,57,0.3); }
+.sd-icon--play:hover { background: #24382C; border-color: #24382C; }
+.sd-icon--danger { color: #D32F2F; background: #FDF3F2; border-color: rgba(211,47,47,0.15); }
+.sd-icon--danger:hover { border-color: #D32F2F; }
+
+/* ── Carte « Mon livre » ── */
+.sd-book { position: sticky; top: 24px; align-self: start; margin-top: 270px; padding: 30px 30px 28px; border-radius: 22px;
+  background: rgba(250,248,243,0.94); box-shadow: 0 18px 44px rgba(0,0,0,0.18); color: var(--sd-ink);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); }
+.sd-book__title { display: flex; align-items: center; gap: 14px; margin: 0; font-family: 'Playfair Display', Georgia, serif;
+  font-size: 2.1rem; font-weight: 600; color: var(--sd-ink); }
+.sd-book__title svg { color: var(--sd-green); }
+.sd-book__lead { margin: 12px 0 0; font-size: 1.05rem; line-height: 1.45; color: rgba(25,24,23,0.82); }
+.sd-book__art { position: relative; height: 230px; margin: 10px -10px 6px; perspective: 900px; }
+.sd-book__open { position: absolute; left: 14px; right: 14px; bottom: 14px; height: 180px; display: flex; transform: rotateX(18deg) rotateZ(-5deg);
+  filter: drop-shadow(0 14px 14px rgba(0,0,0,0.28)); }
+.sd-book__page { flex: 1; background: #FBF8F1; border: 1px solid rgba(43,41,39,0.14); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.sd-book__page--left { border-radius: 6px 0 0 6px; padding: 12px 10px 12px 14px; transform: skewY(2deg);
+  background: linear-gradient(to right, #F6F1E6 0%, #FBF8F1 85%, #E9E2D3 100%); }
+.sd-book__page--right { border-radius: 0 6px 6px 0; transform: skewY(-2deg);
+  background: linear-gradient(to left, #F6F1E6 0%, #FBF8F1 85%, #E9E2D3 100%); }
+.sd-book__poster { height: 100%; aspect-ratio: 1 / 1.414; border-radius: 2px; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.25); }
+.sd-book__poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sd-book__photo { width: 100%; height: 100%; border-radius: 2px; background: url('/demo/sillon-coureurs.webp') 78% 60% / 260% auto; }
+.sd-book__hand { font-family: 'Caveat', cursive; font-size: 1.8rem; line-height: 1.05; color: var(--sd-green); text-align: center; transform: rotate(-6deg); }
+.sd-book__leaf { position: absolute; width: 46px; height: 92px; }
+.sd-book__leaf--left { left: -6px; bottom: 0; transform: rotate(-28deg); }
+.sd-book__leaf--right { right: -8px; top: 0; transform: rotate(24deg); }
+.sd-book__list { list-style: none; margin: 8px 0 22px; padding: 0; display: flex; flex-direction: column; gap: 12px; font-size: 1rem; }
+.sd-book__list li { display: flex; align-items: center; gap: 12px; }
+.sd-book__check { width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%; display: grid; place-items: center; background: var(--sd-green-2); color: #fff; }
+.sd-book__btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 17px 20px; border-radius: 12px;
+  border: 0; cursor: pointer; font: inherit; font-size: 1.2rem; font-weight: 600; color: #fff;
+  background: linear-gradient(180deg, #3A5C46 0%, var(--sd-green) 100%); box-shadow: 0 10px 22px rgba(47,72,57,0.38); }
+.sd-book__btn:hover { background: linear-gradient(180deg, #33523F 0%, #24382C 100%); }
+
+/* ── Écrans moyens : la carte du livre passe sous l'en-tête, en bandeau ── */
+@media (max-width: 1540px) {
+  .sd__layout--book { grid-template-columns: minmax(0, 1020px) 340px; gap: 32px; }
+  .sd-book { padding: 24px 22px; }
+  .sd-book__title { font-size: 1.8rem; }
+  .sd__quote { display: none; }
+}
+@media (max-width: 1240px) {
+  .sd__layout, .sd__layout--book { grid-template-columns: minmax(0, 1020px); padding: 22px 20px 110px; }
+  /* Plus de place à droite : seul le bouton reste, fixé en bas à droite. */
+  .sd-book { position: fixed; top: auto; right: 16px; bottom: 16px; margin: 0; padding: 0; background: none; box-shadow: none;
+    -webkit-backdrop-filter: none; backdrop-filter: none; z-index: 40; }
+  .sd-book__title, .sd-book__lead, .sd-book__art, .sd-book__list { display: none; }
+  .sd-book__btn { width: auto; padding: 13px 18px; font-size: 1rem; }
+  .sd { background:
+    linear-gradient(to bottom, rgba(252,250,246,0.84), rgba(252,250,246,0.7)),
+    url('/demo/sillon-coureurs.webp') 70% center / cover no-repeat fixed; }
+}
+@media (max-width: 900px) {
+  .sd-card__row { grid-template-columns: 48px 50px minmax(0, 1fr); }
+  .sd-card__actions { grid-column: 1 / -1; justify-content: flex-start; }
+  .sd-films { margin-left: 0; }
+}
+@media (max-width: 600px) {
+  .sd__head { gap: 14px; }
+  .sd__badge { width: 56px; height: 56px; }
+  .sd__badge svg { width: 30px; height: 30px; }
+  .sd__title { font-size: 1.9rem; }
+  .sd__rename { width: 36px; height: 36px; }
+  .sd-card { padding: 14px; }
+  .sd-card__name { white-space: normal; }
+  .sd-film { flex-wrap: wrap; }
+  .sd-film__actions { width: 100%; justify-content: flex-end; }
+}
