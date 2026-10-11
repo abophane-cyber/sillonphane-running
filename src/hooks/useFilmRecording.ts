@@ -22,6 +22,8 @@ export interface CreateFilmContext {
   suppressedNames: Set<string>
   startName?: string
   endName?: string
+  /** Arrivée dans une autre ville que le départ, panneau décoché : écrite sur la vue d'ensemble finale. */
+  overviewEndName?: string
   startColEle?: number
   endColEle?: number
   /** Départ / arrivée géocodés sur un hameau / lieu-dit : panneau au style lieu-dit. */
@@ -138,6 +140,7 @@ export function useFilmRecording() {
         customLocalities: ctx.customLocalities,
         startName: ctx.startName,
         endName:   ctx.endName,
+        overviewEndName: ctx.overviewEndName,
         startColEle: ctx.startColEle,
         endColEle:   ctx.endColEle,
         startLieudit: ctx.startLieudit,

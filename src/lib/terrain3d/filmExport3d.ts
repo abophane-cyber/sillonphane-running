@@ -146,6 +146,9 @@ export interface FilmExport3dOptions {
    *  Le nom reste utilisé pour l'étiquette « Départ → Arrivée » de l'overlay. Défaut : affiché. */
   showDeparturePanel?: boolean
   showArrivalPanel?:   boolean
+  /** Arrivée dans une autre ville que le départ : son nom est écrit sur la vue d'ensemble finale même si son panneau est
+   *  décoché (il n'apparaît alors qu'à ce moment-là). */
+  arrivalOnOverview?:  boolean
   /** Altitude du col quand le départ / l'arrivée est un col : cartel au style col (nom + altitude). */
   departureColEle?: number
   arrivalColEle?:   number
@@ -1474,7 +1477,9 @@ async function exportFilm3dImpl(
   }
   const departurePanel = opts.showDeparturePanel === false
     ? null : makeEndpointPanel(opts.departureName, trailPts[0], 0, opts.departureColEle, opts.departureLieudit)
-  const arrivalPanel = opts.showArrivalPanel === false
+  // Panneau d'arrivée décoché mais ville différente du départ : écrit seulement sur la vue d'ensemble finale.
+  const arrivalOverviewOnly = opts.showArrivalPanel === false && opts.arrivalOnOverview === true
+  const arrivalPanel = opts.showArrivalPanel === false && !arrivalOverviewOnly
     ? null : makeEndpointPanel(opts.arrivalName, trailPts[trailPts.length - 1], 1, opts.arrivalColEle, opts.arrivalLieudit)
   // Taille apparente minimale : pancartes (cols) agrandies avec la distance caméra (largeur ≥ PANEL_MIN_ANGULAR ·
   // distance). Noms au sol : taille calculée UNE fois, quand le nom apparaît (lettres ≥ LABEL_MIN_ANGULAR_H ·
@@ -1898,7 +1903,7 @@ async function exportFilm3dImpl(
       if (departurePanel) departurePanel.visible = false
       // Panneau d'arrivée affiché ARRIVAL_PANEL_LEAD_S avant la fin du survol (et non à l'arrêt seulement) :
       // il est déjà là quand le ruban arrive au bout.
-      if (arrivalPanel) arrivalPanel.visible = elapsed >= PHASE2_END - ARRIVAL_PANEL_LEAD_S
+      if (arrivalPanel) arrivalPanel.visible = !arrivalOverviewOnly && elapsed >= PHASE2_END - ARRIVAL_PANEL_LEAD_S
       // Compteur et curseur du profil sur la tête du ruban (coureuse, bornes), pas sur la caméra qui la suit en
       // retard : sinon « 14,0 km » au passage de la borne 15.
       distanceM = Math.min(lookT * TRACK_M, SHOWN_M)
@@ -1923,7 +1928,7 @@ async function exportFilm3dImpl(
       coreGeom.instanceCount = RIBBON_SEGMENTS
       updateTipCap(RIBBON_SEGMENTS, 1)
       if (departurePanel) departurePanel.visible = true
-      if (arrivalPanel) arrivalPanel.visible = true
+      if (arrivalPanel) arrivalPanel.visible = !arrivalOverviewOnly
       distanceM = SHOWN_M
       profileT = 1
     } else {
@@ -1937,7 +1942,7 @@ async function exportFilm3dImpl(
         computeOverviewPos(Math.atan2(-_ovDir0.x, -_ovDir0.z), _ovEndPos)
         _ovDir1.subVectors(_ovEndPos, ovCenter)
         ovD1 = Math.max(ovD0, _ovDir1.length()); _ovDir1.normalize()
-        for (const { sprite } of panelSprites) {
+        for (const sprite of [...panelSprites.map(p => p.sprite), ...(arrivalOverviewOnly && arrivalPanel ? [arrivalPanel] : [])]) {
           const m = sprite.material as THREE.Material
           m.alphaTest = 0; m.needsUpdate = true // sinon le fondu « coupe » net à 0,4
         }
@@ -1972,7 +1977,11 @@ async function exportFilm3dImpl(
         sprite.visible = isCol || panelA > 0
       }
       if (departurePanel) departurePanel.visible = true
-      if (arrivalPanel) arrivalPanel.visible = true
+      if (arrivalPanel) {
+        arrivalPanel.visible = true
+        // Arrivée écrite seulement sur la vue d'ensemble : apparaît en fondu pendant la montée.
+        if (arrivalOverviewOnly) (arrivalPanel.material as THREE.Material).opacity = Math.min(1, u / 0.35)
+      }
       distanceM = SHOWN_M
       profileT = 1
     }

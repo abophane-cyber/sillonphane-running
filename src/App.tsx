@@ -489,6 +489,8 @@ export default function App() {
       suppressedNames: suppressedLocalitiesRef.current,
       startName: effectiveStartName,
       endName: effectiveEndName,
+      // Arrivée dans une autre ville que le départ : toujours écrite sur la vue d'ensemble finale.
+      overviewEndName: endName && !isLoopNames ? endName : undefined,
       startColEle,
       endColEle,
       startLieudit,

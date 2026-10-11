@@ -129,6 +129,8 @@ export function useFilm3dExport() {
         arrivalName: ctx.endName ?? ctx.rawEndName ?? ctx.previewLocalities[ctx.previewLocalities.length - 1]?.name ?? 'Arrivée',
         showDeparturePanel: !depSuppressed,
         showArrivalPanel: !arrSuppressed,
+        // Arrivée dans une autre ville que le départ : toujours écrite sur la vue d'ensemble finale.
+        arrivalOnOverview: !!ctx.rawEndName?.trim() && !isLoop,
         departureColEle: ctx.startColEle,
         arrivalColEle: ctx.endColEle,
         departureLieudit: ctx.startLieudit,

@@ -42,6 +42,9 @@ export interface FilmExportOptions {
   customLocalities?: { name: string; lat: number; lon: number; placeType?: string; type?: 'locality' | 'col'; ele?: number }[]
   startName?:        string
   endName?:          string
+  /** Arrivée dans une autre ville que le départ, panneau décoché (`endName` absent) : écrite seulement sur la vue
+   *  d'ensemble finale. */
+  overviewEndName?:  string
   /** Altitude du col quand le départ / l'arrivée est un col : panneau au style col (nom + altitude). */
   startColEle?:      number
   endColEle?:        number
@@ -1393,6 +1396,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
   const departureEvent: LocalityEvent | null = opts.startName ? { name: opts.startName, lon: points[0].lon, lat: points[0].lat, style: opts.startColEle != null ? 'col' : opts.startLieudit ? 'lieudit' : 'standard', ele: opts.startColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: 0 } : null
   const arrivalEvent: LocalityEvent | null   = opts.endName   ? { name: opts.endName,   lon: points[points.length - 1].lon, lat: points[points.length - 1].lat, style: opts.endColEle != null ? 'col' : opts.endLieudit ? 'lieudit' : 'standard', ele: opts.endColEle, showFrame: 0, hideFrame: Infinity, arriveFrame: estTotalFrames } : null
+  // Arrivée dans une autre ville, panneau décoché : nom écrit sur la vue d'ensemble finale seulement (en fondu).
+  const overviewArrivalEvent: LocalityEvent | null = !arrivalEvent && opts.overviewEndName ? { name: opts.overviewEndName, lon: points[points.length - 1].lon, lat: points[points.length - 1].lat, style: 'standard', showFrame: 0, hideFrame: Infinity, arriveFrame: estTotalFrames } : null
 
   // Rues empruntées : nom inscrit le long du parcours, sous le ruban (cf. mapLabels.ts), à l'approche de la rue ;
   // tenu au moins CAPTION_HOLD_S, effacé en 0,6 s (durées converties en mètres à la vitesse moyenne du film).
@@ -1502,7 +1507,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   /** Écart (px, taille de marche) entre le nom du lieu de départ et le haut de la pastille d'heure en dessous. */
   const START_TIME_DY = 16
   /** Ville de départ et d'arrivée (ville organisatrice) : nom 1,35 × plus grand que les autres localités. */
-  const endK = (ev: unknown) => (ev === departureEvent || ev === arrivalEvent) && (ev as LocalityEvent).style === 'standard' ? 1.35 : 1
+  const endK = (ev: unknown) => (ev === departureEvent || ev === arrivalEvent || ev === overviewArrivalEvent) && (ev as LocalityEvent).style === 'standard' ? 1.35 : 1
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
   const signY = (ev: unknown, y: number, scale: number) =>
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
@@ -2197,9 +2202,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const ovBorneOcc = f < EASE_OV
         ? drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale(), locFade)
         : drawBornes((lon, lat) => exportMap.project([lon, lat]), Math.max(signScale(), OVERVIEW_BORNE_SCALE), infoA, Infinity, true)
-      for (const ev of [...localitySpots, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
+      for (const ev of [...localitySpots, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : []),
+        ...(overviewArrivalEvent ? [overviewArrivalEvent] : [])]) {
         const isEndpoint = ev === departureEvent || ev === arrivalEvent
-        const a = isEndpoint || ev.style === 'col' ? 1 : locFade
+        const a = ev === overviewArrivalEvent ? 1 - locFade : isEndpoint || ev.style === 'col' ? 1 : locFade
         if (a <= 0) continue
         const pt = exportMap.project([ev.lon, ev.lat])
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200) {
