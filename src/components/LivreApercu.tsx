@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { BookCourse } from '../lib/book'
-import { openBookPreview, type BookOptions, type BookPreview, type PreviewSide } from '../lib/bookExport'
+import { openBookPreview, type BookOptions, type BookPreview, type PreviewSide, type PreviewTarget } from '../lib/bookExport'
 
 interface Props {
   courses: BookCourse[]
@@ -10,6 +10,8 @@ interface Props {
   bookKey: string
   /** Export en cours : rien n'est dessiné (le format de page est commun à l'export et à l'aperçu). */
   paused: boolean
+  /** Page à montrer (écran « Mise en page du livre ») : l'aperçu y revient à chaque réglage. */
+  focus?: PreviewTarget
 }
 
 /** Largeur de dessin d'une double page (px) : assez pour lire les titres, léger pour un téléphone. */
@@ -35,7 +37,7 @@ interface Images { preview: BookPreview | null; byWidth: Map<number, Map<number,
 
 /** Aperçu du livre, feuilleté double page par double page, dessiné comme l'export (en basse définition) ; plein écran
  * sur demande. */
-export function LivreApercu({ courses, options, bookKey, paused }: Props) {
+export function LivreApercu({ courses, options, bookKey, paused, focus }: Props) {
   const [preview, setPreview] = useState<BookPreview | null>(null)
   const [failed, setFailed] = useState(false)
   const [view, setView] = useState(0)
@@ -57,6 +59,13 @@ export function LivreApercu({ courses, options, bookKey, paused }: Props) {
     }, 400)
     return () => { live = false; clearTimeout(t) }
   }, [bookKey])
+
+  // Page réglée : montrée dès qu'on la choisit et après chaque réglage (l'aperçu refait).
+  useEffect(() => {
+    if (!preview || !focus) return
+    const i = preview.viewOf(focus)
+    if (i >= 0) setView(i)
+  }, [preview, focus])
 
   const count = preview?.views.length ?? 0
   const current = Math.min(view, Math.max(0, count - 1))

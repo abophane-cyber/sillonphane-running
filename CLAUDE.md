@@ -92,6 +92,11 @@ Reste à faire :
      note par course (`VoyageTrack.bookNote`). Une double page par course (affiche | carnet : temps de passage, profil,
      photos, note), double page photos en option ; en tête page de titre, records | progression, palmarès | sommaire
      (5 pages). Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
+     Écran « Mise en page du livre » (`components/LivreMiseEnPage.tsx`, bouton « Modifier la couverture et les
+     pages » au-dessus de l'aperçu ; réglages `BookLayout` dans `lib/book.ts`) : couverture (fond vert nuit, noir,
+     papier ou photo d'une course ; titre, sous-titre, nom ; titre en haut ou en bas ; tracés), 4e de couverture
+     (records, texte libre), pages d'en-tête retirables (page blanche ajoutée si leur nombre est pair), distances de la
+     page Records et totaux, contenu du carnet (temps de passage, profil, photos) ; l'aperçu montre la page réglée.
      Export (`lib/bookExport.ts`, pages dessinées sur canvas à 300 dpi) selon l'imprimeur choisi à l'écran : **WhiteWall**
      (paysage 27,3 × 21,1 cm, fond perdu) = deux PDF, intérieur et couverture à plat (4e | dos | 1re, dos selon le
      nombre de pages) ; **Flexilivre** (A4 paysage, sans fond perdu, photos à distance du bord) = un seul PDF,

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Voyage } from '../types'
 import { getAllVoyages, saveTrackBook } from '../lib/voyageDB'
 import {
-  BOOK_FRONT_PAGES, BOOK_PRINTERS, bookCourses, bookPrinter, bookPageCount, coursePages, defaultRunnerName, inPeriod, isInBook,
+  BOOK_PRINTERS, bookCourses, bookPrinter, bookPageCount, coursePages, defaultRunnerName, frontPageCount, inPeriod, isInBook,
   loadBookPrefs, printedPageCount, saveBookPrefs, type BookCourse, type BookPrefs,
 } from '../lib/book'
 import { prepareBook, type PreparedBook } from '../lib/bookExport'
@@ -12,6 +12,7 @@ import { useHeaderBack } from '../hooks/useHeaderBack'
 import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { PrintOfferOverlay } from './PrintOfferOverlay'
 import { LivreApercu } from './LivreApercu'
+import { LivreMiseEnPage } from './LivreMiseEnPage'
 import './LivrePage.css'
 
 interface Props {
@@ -42,18 +43,21 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
   const [noteOpen, setNoteOpen] = useState<string | null>(null)
   const [exp, setExp] = useState<ExportState | null>(null)
   const [printOffer, setPrintOffer] = useState(false)
+  // Écran « Mise en page du livre » (couverture et pages intérieures) ouvert par-dessus la liste.
+  const [editing, setEditing] = useState(false)
   const alive = useRef(true)
 
   useEffect(() => { getAllVoyages().then(setVoyages) }, [])
   useEffect(() => { saveBookPrefs(prefs) }, [prefs])
   useEffect(() => () => { alive.current = false }, [])
-  useHeaderBack('Retour', onBack)
+  useHeaderBack('Retour', () => (editing ? setEditing(false) : onBack()))
 
   const courses = useMemo(() => bookCourses(voyages ?? []), [voyages])
   const shown = courses.filter(c => inPeriod(c.date, prefs))
   const chosen = shown.filter(c => isInBook(c.track))
   const photoSpreads = !!prefs.photoSpreads
-  const pages = bookPageCount(chosen, photoSpreads)
+  const layout = prefs.layout ?? {}
+  const pages = bookPageCount(chosen, photoSpreads, layout)
   const printer = bookPrinter(prefs.printer)
   const minPages = printer.minPages
   const wrap = printer.profile.coverMode === 'wrap-spread'
@@ -71,7 +75,7 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
   )
 
   // Le livre préparé ne correspond plus au choix dès que celui-ci change.
-  const choiceKey = JSON.stringify([chosenKey, photoSpreads, prefs.title, prefs.name, printer.id])
+  const choiceKey = JSON.stringify([chosenKey, photoSpreads, prefs.title, prefs.name, printer.id, layout])
   const exportedKey = useRef('')
   const latestKey = useRef(choiceKey)
   latestKey.current = choiceKey
@@ -102,14 +106,15 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
   const title = prefs.title?.trim() || 'Mes courses'
   const name = prefs.name ?? runnerDefault
   // Tout ce que l'aperçu dessine : choix, réglages, affiches et notes des courses.
-  const previewKey = JSON.stringify([chosenKey, photoSpreads, title, name.trim(), printer.id,
+  const previewKey = JSON.stringify([chosenKey, photoSpreads, title, name.trim(), printer.id, layout,
     chosen.map(c => [c.track.bookNote, c.track.poster])])
+  const bookOptions = { title, name: name.trim(), photoSpreads, printer, layout }
 
   async function startExport() {
     exportedKey.current = choiceKey
     setExp({ phase: 'busy', done: 0, total: printed + (wrap ? 1 : 2) })
     try {
-      const book = await prepareBook(chosen, { title, name: name.trim(), photoSpreads, printer },
+      const book = await prepareBook(chosen, bookOptions,
         (done, total) => { if (alive.current) setExp({ phase: 'busy', done, total }) }, () => alive.current)
       // Choix modifié pendant la préparation : ce livre n'est plus le bon.
       if (alive.current) setExp(latestKey.current === exportedKey.current ? { phase: 'ready', book, saved: book.files.map(() => false) } : null)
@@ -136,6 +141,22 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
 
   if (!voyages) return <div className="livre"><p className="livre__empty">Chargement…</p></div>
 
+  if (editing && chosen.length > 0) {
+    return (
+      <LivreMiseEnPage
+        courses={chosen}
+        options={bookOptions}
+        prefs={prefs}
+        setPrefs={setPrefs}
+        nameDefault={runnerDefault}
+        previewKey={previewKey}
+        pages={pages}
+        minPages={minPages}
+        onClose={() => setEditing(false)}
+      />
+    )
+  }
+
   return (
     <div className="livre">
       <h1 className="livre__title">Créer le livre</h1>
@@ -158,7 +179,7 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
               <span> sur {minPages} minimum</span>
               <span className="livre__counter-detail">
                 · {chosen.length} course{chosen.length > 1 ? 's' : ''}
-                {chosen.length > 0 && ` + ${BOOK_FRONT_PAGES} pages d'en-tête`}
+                {chosen.length > 0 && ` + ${frontPageCount(layout)} page${frontPageCount(layout) > 1 ? 's' : ''} d'en-tête`}
               </span>
             </div>
             <div className="livre__bar"><span style={{ width: `${Math.min(100, (pages / minPages) * 100)}%` }} /></div>
@@ -212,10 +233,15 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
 
           {chosen.length > 0 && (
             <section className="livre__sec">
-              <h2 className="livre__h">Aperçu du livre</h2>
+              <div className="livre__list-head">
+                <h2 className="livre__h">Aperçu du livre</h2>
+                <button type="button" className="vp-btn vp-btn--sm" disabled={busy} onClick={() => setEditing(true)}>
+                  ✎ Modifier la couverture et les pages
+                </button>
+              </div>
               <LivreApercu
                 courses={chosen}
-                options={{ title, name: name.trim(), photoSpreads, printer }}
+                options={bookOptions}
                 bookKey={previewKey}
                 paused={busy}
               />

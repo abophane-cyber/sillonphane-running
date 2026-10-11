@@ -5,10 +5,60 @@
 import type { Voyage, VoyageTrack } from '../types'
 import { PRINT_PROFILES, type PrintProfile } from './printProfiles'
 import { STORAGE_PREFIX } from './appIdentity'
+import type { RecordCategory } from './records'
 
-/** Pages d'en-tête : page de titre (à droite), records | progression, palmarès | sommaire. Les courses commencent
- * ainsi sur une page de gauche : affiche à gauche, carnet en face. */
-export const BOOK_FRONT_PAGES = 5
+/** Pages d'en-tête, dans l'ordre : page de titre (à droite), records | progression, palmarès | sommaire. Chacune se
+ * retire depuis l'écran « Mise en page du livre » (components/LivreMiseEnPage.tsx). */
+export type FrontPageId = 'title' | 'records' | 'progress' | 'palmares' | 'toc'
+export const FRONT_PAGES: { id: FrontPageId; label: string }[] = [
+  { id: 'title', label: 'Page de titre' },
+  { id: 'records', label: 'Records' },
+  { id: 'progress', label: 'Progression' },
+  { id: 'palmares', label: 'Palmarès' },
+  { id: 'toc', label: 'Sommaire' },
+]
+
+/** Fond de la couverture : vert nuit (défaut), noir, papier crème, ou une photo d'une des courses. */
+export type CoverBg = 'nuit' | 'noir' | 'papier' | 'photo'
+
+/** Mise en page du livre. Absent = valeur par défaut. */
+export interface BookLayout {
+  coverBg?: CoverBg
+  /** Photo de couverture (fond « photo »). */
+  coverPhotoId?: string
+  /** Sous-titre de la couverture ; absent = la période (« 2025 — 2026 »). */
+  coverSubtitle?: string
+  /** Tracés des courses sur la couverture (défaut oui). */
+  coverTraces?: boolean
+  /** Titre en haut (défaut) ou en bas de la couverture. */
+  coverTitlePos?: 'haut' | 'bas'
+  /** 4e de couverture : records et totaux (défaut oui), texte libre. */
+  backRecords?: boolean
+  backText?: string
+  /** Pages d'en-tête retirées. */
+  hidden?: FrontPageId[]
+  /** Distances montrées sur la page Records ; absent = les quatre. */
+  recordCats?: RecordCategory[]
+  /** Totaux (courses, km, temps) en bas de la page Records (défaut oui). */
+  recordTotals?: boolean
+  /** Carnet de chaque course : temps de passage, profil, photos (défaut oui). */
+  carnetSplits?: boolean
+  carnetProfile?: boolean
+  carnetPhotos?: boolean
+}
+
+/** Pages d'en-tête gardées, dans l'ordre. */
+export function frontPages(layout: BookLayout | undefined): FrontPageId[] {
+  const hidden = layout?.hidden ?? []
+  return FRONT_PAGES.map(p => p.id).filter(id => !hidden.includes(id))
+}
+
+/** Pages occupées par l'en-tête : un nombre impair (page blanche ajoutée au besoin), pour que chaque course commence
+ * sur une page de gauche (affiche à gauche, carnet en face). */
+export function frontPageCount(layout: BookLayout | undefined): number {
+  const n = frontPages(layout).length
+  return n % 2 === 1 ? n : n + 1
+}
 
 /** Imprimeurs du livre : WhiteWall (paysage 27,3 × 21,1 cm, 28 pages au moins, intérieur et couverture à plat en deux
  * PDF) ou Flexilivre (A4 paysage sans fond perdu, 24 pages au moins, un seul PDF : couverture en 1re page, 4e de
@@ -68,9 +118,9 @@ export function coursePages(course: BookCourse, photoSpreads: boolean): number {
 }
 
 /** Pages intérieures du livre (hors couverture). Aucun en-tête tant qu'aucune course n'est choisie. */
-export function bookPageCount(courses: BookCourse[], photoSpreads: boolean): number {
+export function bookPageCount(courses: BookCourse[], photoSpreads: boolean, layout?: BookLayout): number {
   if (!courses.length) return 0
-  return BOOK_FRONT_PAGES + courses.reduce((n, c) => n + coursePages(c, photoSpreads), 0)
+  return frontPageCount(layout) +courses.reduce((n, c) => n + coursePages(c, photoSpreads), 0)
 }
 
 /** Réglages de l'écran « Créer le livre », gardés sur l'appareil. */
@@ -83,6 +133,7 @@ export interface BookPrefs {
   /** Titre du livre (défaut « Mes courses ») et nom du coureur (défaut : celui des affiches). */
   title?: string
   name?: string
+  layout?: BookLayout
 }
 
 const PREFS_KEY = `${STORAGE_PREFIX}livre`
