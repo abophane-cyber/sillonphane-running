@@ -76,13 +76,15 @@ function DownloadIcon() {
 
 // ── Détail d'un sillon ───────────────────────────────────────────────────────
 function SillonDetail({
-  voyage, onBack, onChange, onOpenTrack, onCreateAlbum, focusTrackId,
+  voyage, onBack, onChange, onOpenTrack, onCreateAlbum, onBook, focusTrackId,
 }: {
   voyage: Voyage
   onBack: () => void
   onChange: (v: Voyage) => void
   onOpenTrack?: (voyageId: string, track: VoyageTrack, hasComposition: boolean, hasFilm: boolean) => void
   onCreateAlbum?: (voyageId: string, trackId: string) => void
+  /** « Créer mon livre » : carte fixe à droite, visible pendant tout le défilement. */
+  onBook?: () => void
   /** Tracé à déplier + faire défiler à l'ouverture (retour d'un « Voir le film »). */
   focusTrackId?: string | null
 }) {
@@ -655,6 +657,14 @@ function SillonDetail({
           <button className="vp-btn vp-btn--sm vp-btn--danger" onClick={handleDeleteSelected}>🗑 Supprimer la sélection</button>
         </div>
       )}
+
+      {onBook && (
+        <button type="button" className="vp-book-fab" onClick={onBook} title="Réunir les affiches de vos courses, tous sillons confondus, en un livre">
+          <strong>📖 Mon livre</strong>
+          <span>Vos affiches en un livre</span>
+          <em>Créer mon livre →</em>
+        </button>
+      )}
     </div>
   )
 }
@@ -761,6 +771,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
         onChange={handleVoyageChange}
         onOpenTrack={onOpenTrack}
         onCreateAlbum={onCreateAlbum}
+        onBook={onBook}
         focusTrackId={focusTrackId}
       />
     )
