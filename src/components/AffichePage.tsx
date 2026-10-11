@@ -81,6 +81,17 @@ export function AffichePage({ onBack, initialTrack, onBook }: Props) {
           </li>
         ))}
       </ul>
+      {onBook && (
+        <section className="affiche__book">
+          <h2 className="affiche__subtitle">Mon livre</h2>
+          <p className="affiche__lead">Réunissez les affiches de vos courses, tous sillons confondus, en un livre : une double page par course, avec vos records et votre progression.</p>
+          <button type="button" className="affiche__item affiche__book-item" onClick={onBook}>
+            <strong>Le livre de mes courses</strong>
+            <span>{Math.min(...BOOK_PRINTERS.map(p => p.minPages))} pages au moins pour l'impression</span>
+            <em>Créer le livre →</em>
+          </button>
+        </section>
+      )}
     </div>
   )
 }

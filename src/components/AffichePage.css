@@ -13,6 +13,10 @@
 .affiche__item span { font-size: .84rem; color: var(--color-text-muted); }
 .affiche__item em { font-style: normal; font-size: .84rem; font-weight: 600; color: var(--aff-accent); margin-top: 4px; }
 
+.affiche__book { margin-top: 32px; padding-top: 22px; border-top: 1px solid var(--color-border); }
+.affiche__subtitle { font-family: 'Playfair Display', Georgia, serif; font-size: 1.25rem; font-weight: 600; margin: 0 0 6px; }
+.affiche__book-item { max-width: 420px; border-left: 3px solid var(--aff-accent); }
+
 /* Réglages de part et d'autre de l'affiche (01 à 05 à gauche, 06 à 09 à droite). Écran moyen : les deux colonnes
    s'empilent à droite ; téléphone : tout sous l'affiche. */
 .affiche--editor { max-width: 1480px; display: grid; gap: 20px; align-items: start;
