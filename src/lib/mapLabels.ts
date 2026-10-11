@@ -417,17 +417,25 @@ export function drawStreetAlongPath(
     for (let j = Math.max(0, i - R); j <= Math.min(res.length - 1, i + R); j++) { x += res[j].x; y += res[j].y; n++ }
     return { x: x / n, y: y / n }
   })
-  let s0 = back.length * STEP // abscisse du centre du nom
   // Sens de lecture figé ; retourné seulement si le nom finit nettement à l'envers (caméra qui a beaucoup tourné).
   const ci = back.length, dA = sm[Math.max(0, ci - 3)], dB = sm[Math.min(sm.length - 1, ci + 3)]
   const readX = (dB.x - dA.x) * (label.fix.flip ? -1 : 1), len = Math.hypot(dB.x - dA.x, dB.y - dA.y)
   if (len > 0 && readX < -0.5 * len) label.fix.flip = !label.fix.flip
-  const total = (sm.length - 1) * STEP
-  if (label.fix.flip) { sm = sm.reverse(); s0 = total - s0 }
+  // Abscisses réelles du chemin lissé : le lissage resserre les points près des bouts (moyenne sur moins de voisins),
+  // ils ne sont plus espacés de STEP ; sans ça les premières ou dernières lettres s'y chevauchent (« BD » lu « ED »).
+  const cumAt = (ps: Pt[]) => {
+    const c = [0]
+    for (let i = 1; i < ps.length; i++) c.push(c[i - 1] + Math.hypot(ps[i].x - ps[i - 1].x, ps[i].y - ps[i - 1].y))
+    return c
+  }
+  let cs = cumAt(sm)
+  let s0 = cs[ci] // abscisse du centre du nom
+  if (label.fix.flip) { sm = sm.reverse(); s0 = cs[cs.length - 1] - s0; cs = cumAt(sm) }
   /** Point à l'abscisse s ; au-delà des extrémités, prolongé en ligne droite (lettres jamais empilées). */
   const at2 = (s: number): Pt => {
-    const i = Math.min(sm.length - 2, Math.max(0, Math.floor(s / STEP)))
-    const u = s / STEP - i
+    let i = 0
+    while (i < sm.length - 2 && cs[i + 1] < s) i++
+    const u = (s - cs[i]) / Math.max(1e-6, cs[i + 1] - cs[i])
     return { x: sm[i].x + (sm[i + 1].x - sm[i].x) * u, y: sm[i].y + (sm[i + 1].y - sm[i].y) * u }
   }
   const { widths, textW, sp } = measure(size)
