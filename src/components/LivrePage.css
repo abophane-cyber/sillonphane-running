@@ -135,3 +135,21 @@
 .livre-mep__photos button[aria-pressed='true'] { border-color: var(--livre-accent); }
 .livre-mep__photos img, .livre-mep__photos span { display: block; width: 100%; height: 100%; object-fit: cover; }
 .livre-mep__panel textarea.livre__note { margin-top: 10px; }
+
+/* Même esprit que l'écran d'un sillon (SillonDetail.css) : grand titre avec pastille verte, cartes blanches
+   arrondies et ombrées sur la photo des coureurs (fond de app-main--light). */
+.livre__back { padding: 8px 16px; border-radius: 999px; box-shadow: 0 3px 10px rgba(0,0,0,.08); }
+.livre__head { display: flex; align-items: center; gap: 18px; margin: 6px 0 10px; }
+.livre__badge { flex-shrink: 0; width: 72px; height: 72px; border-radius: 50%; display: grid; place-items: center; color: #F7EBD3;
+  background: radial-gradient(circle at 35% 30%, #3E6B4A, #2F4839); box-shadow: 0 8px 22px rgba(47,72,57,.35); }
+.livre__head .livre__title, .livre__title { font-size: 2.6rem; line-height: 1.1; margin: 0; }
+.livre__lead { font-size: 1.02rem; color: rgba(25,24,23,.75); }
+.livre__counter, .livre__sec { border-radius: 16px; border-color: rgba(43,41,39,.08); background: rgba(255,255,255,.95);
+  box-shadow: 0 8px 26px rgba(25,24,23,.08); }
+.livre__sec { padding: 18px 22px; }
+.livre__counter { padding: 16px 22px; border-left: 4px solid var(--livre-accent); }
+@media (max-width: 600px) {
+  .livre__badge { width: 52px; height: 52px; }
+  .livre__badge svg { width: 28px; height: 28px; }
+  .livre__head .livre__title, .livre__title { font-size: 1.8rem; }
+}

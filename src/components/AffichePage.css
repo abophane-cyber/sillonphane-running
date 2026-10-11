@@ -5,32 +5,6 @@
 .affiche__lead { margin: 0 0 18px; color: var(--color-text-muted); line-height: 1.55; }
 .affiche__empty { color: var(--color-text-muted); }
 
-.affiche__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
-.affiche__item { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border-radius: 12px;
-  border: 1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); cursor: pointer; font: inherit; }
-.affiche__item:hover { border-color: var(--aff-accent); }
-.affiche__item strong { font-size: 1rem; }
-.affiche__item span { font-size: .84rem; color: var(--color-text-muted); }
-.affiche__item em { font-style: normal; font-size: .84rem; font-weight: 600; color: var(--aff-accent); margin-top: 4px; }
-
-/* Liste des courses à gauche, « Mon livre » à droite, collé en haut pendant le défilement. */
-.affiche__layout--book { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; align-items: start; }
-.affiche__book { position: sticky; top: 0; z-index: 2; }
-/* Carte du livre aux couleurs de sa couverture : vert de la couverture, texte crème, liseré du ruban vert · orange · crème. */
-.affiche__book-item { position: relative; overflow: hidden; padding-top: 18px; border: 1px solid rgba(247,235,211,.22);
-  background: linear-gradient(160deg, #2F4839 0%, #1E3026 100%); color: #F7EBD3; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
-.affiche__book-item::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 4px;
-  background: linear-gradient(90deg, #3DB54A 33%, #F07D1A 33% 66%, #F7EBD3 66%); }
-.affiche__book-item:hover { border-color: #F7EBD3; }
-.affiche__book-item strong { font-family: 'Playfair Display', Georgia, serif; font-size: 1.15rem; color: #F7EBD3; }
-.affiche__book-item span { color: rgba(247,235,211,.72); }
-.affiche__book-item em { color: #F7EBD3; background: #C15C3D; align-self: flex-start; padding: 5px 10px; border-radius: 6px; margin-top: 8px; }
-@media (max-width: 760px) {
-  /* Téléphone : la carte passe sous la liste et reste collée en bas de l'écran. */
-  .affiche__layout--book { grid-template-columns: 1fr; }
-  .affiche__book { top: auto; bottom: 12px; }
-  .affiche__book-more { display: none; }
-}
 
 /* Réglages de part et d'autre de l'affiche (01 à 05 à gauche, 06 à 09 à droite). Écran moyen : les deux colonnes
    s'empilent à droite ; téléphone : tout sous l'affiche. */
@@ -161,3 +135,10 @@
 .aff-book__go::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
   background: linear-gradient(90deg, #3DB54A 33%, #F07D1A 33% 66%, #F7EBD3 66%); }
 .aff-book__go:hover { border-color: #F7EBD3; }
+
+/* Liste des courses (choix de l'affiche) : présentation de l'écran d'un sillon (SillonDetail.css). */
+.affiche-pick { flex: 1; min-height: 0; }
+.affiche-pick .sd__title { font-size: 2.5rem; }
+.affiche-pick__lead { margin: -4px 0 4px; font-size: 1.02rem; line-height: 1.5; color: rgba(25,24,23,0.75); }
+.affiche-pick__sillon { color: rgba(43,41,39,0.5); }
+@media (max-width: 600px) { .affiche-pick .sd__title { font-size: 1.7rem; } }

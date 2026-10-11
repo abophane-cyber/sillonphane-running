@@ -21,6 +21,7 @@ import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { AppLogoIcon } from './AppLogoIcon'
 import { isRecordedGpx } from '../lib/gpx'
 import { saveFileWithPicker } from '../lib/saveFile'
+import { dateParts } from '../lib/sillonDisplay'
 import { BookAside, BookIcon, DotsIcon, MountainIcon, PencilIcon, PlusIcon, RunnerIcon, TrashIcon } from './SillonDetailParts'
 import './SillonDetail.css'
 
@@ -52,13 +53,6 @@ function formatSize(bytes?: number) {
 }
 function sortTracksByDate(tracks: VoyageTrack[]): VoyageTrack[] {
   return [...tracks].sort((a, b) => (a.date || a.addedAt).localeCompare(b.date || b.addedAt))
-}
-const MONTHS = ['JANV.', 'FÉVR.', 'MARS', 'AVR.', 'MAI', 'JUIN', 'JUIL.', 'AOÛT', 'SEPT.', 'OCT.', 'NOV.', 'DÉC.']
-/** Pavé de date d'une course : « 10 / OCT. / 2025 ». */
-function dateParts(iso?: string): { day: number; month: string; year: number } | null {
-  if (!iso) return null
-  const d = new Date(iso)
-  return isNaN(d.getTime()) ? null : { day: d.getDate(), month: MONTHS[d.getMonth()], year: d.getFullYear() }
 }
 
 // Note de musique en SVG plutôt qu'un emoji 🎵 : l'emoji se lisait mal (petit, multicolore) et

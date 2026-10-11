@@ -10,6 +10,7 @@ import { raceResult, formatRecordTime } from '../lib/records'
 import { saveFileWithPicker } from '../lib/saveFile'
 import { useHeaderBack } from '../hooks/useHeaderBack'
 import { RecordsBanner, PosterThumb } from './SillonRecords'
+import { BookIcon } from './SillonDetailParts'
 import { PrintOfferOverlay } from './PrintOfferOverlay'
 import { LivreApercu } from './LivreApercu'
 import { LivreMiseEnPage } from './LivreMiseEnPage'
@@ -160,7 +161,10 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
   return (
     <div className="livre">
       <button type="button" className="livre__back" onClick={onBack}>← Mes sillons</button>
-      <h1 className="livre__title">Créer le livre</h1>
+      <header className="livre__head">
+        <span className="livre__badge"><BookIcon size={40} /></span>
+        <h1 className="livre__title">Créer mon livre</h1>
+      </header>
       <p className="livre__lead">
         Choisissez les courses de vos sillons : chacune occupe une double page (son affiche, et en face son carnet :
         temps de passage, profil, photos, votre note). En tête du livre : page de titre, records, progression, palmarès

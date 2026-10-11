@@ -57,6 +57,16 @@ export function DotsIcon({ size = 18 }: IconProps) {
   )
 }
 
+export function PosterIcon({ size = 40 }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" width={size} height={size} {...stroke}>
+      <rect x="5" y="3" width="14" height="18" rx="1.5" />
+      <path d="M7.5 16.5l3.2-4.5 2.3 3 1.6-2 2 3.5" />
+      <circle cx="14.5" cy="7.5" r="1.3" />
+    </svg>
+  )
+}
+
 export function MountainIcon({ size = 14 }: IconProps) {
   return <svg viewBox="0 0 24 24" width={size} height={size} {...stroke}><path d="M3 19l6-10 4 6 3-4 5 8z" /></svg>
 }

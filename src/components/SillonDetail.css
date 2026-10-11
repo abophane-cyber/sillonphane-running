@@ -177,3 +177,4 @@
   .sd-film { flex-wrap: wrap; }
   .sd-film__actions { width: 100%; justify-content: flex-end; }
 }
+.sd .vp-empty { padding: 16px 20px; border-radius: 14px; background: rgba(255,255,255,0.95); color: var(--sd-muted); border: 1px solid var(--sd-line); }

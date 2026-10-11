@@ -10,7 +10,11 @@ import {
 import { saveFileWithPicker, sanitizeFilename } from '../lib/saveFile'
 import { useHeaderBack } from '../hooks/useHeaderBack'
 import { PrintOfferOverlay } from './PrintOfferOverlay'
+import { PosterThumb } from './SillonRecords'
+import { dateParts, latestPosterTrack } from '../lib/sillonDisplay'
+import { BookAside, MountainIcon, PencilIcon, PlusIcon, PosterIcon } from './SillonDetailParts'
 import './AffichePage.css'
+import './SillonDetail.css'
 
 interface Props {
   onBack: () => void
@@ -20,11 +24,6 @@ interface Props {
 }
 
 interface Current { voyage: Voyage; track: VoyageTrack }
-
-function formatDate(iso?: string) {
-  if (!iso) return ''
-  return new Date(`${iso.slice(0, 10)}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-}
 
 /** Affiche de course : remplace l'album pour Running (une page par course, cf. lib/poster.ts). */
 export function AffichePage({ onBack, initialTrack, onBook }: Props) {
@@ -63,36 +62,61 @@ export function AffichePage({ onBack, initialTrack, onBook }: Props) {
   const tracks = voyages
     .flatMap(voyage => voyage.tracks.map(track => ({ voyage, track })))
     .sort((a, b) => (b.track.date || b.track.addedAt).localeCompare(a.track.date || a.track.addedAt))
+  const posters = tracks.filter(x => x.track.poster).length
+  // Même présentation que l'écran d'un sillon (SillonDetail.css) : photo des coureurs, cartes blanches,
+  // carte « Mon livre » à droite qui suit le défilement.
   return (
-    <div className="affiche">
-      <h1 className="affiche__title">Créer l'affiche d'une course</h1>
-      <p className="affiche__lead">Choisissez une course enregistrée : son affiche réunit le tracé, votre temps, vos temps de passage et le profil.</p>
-      {tracks.length === 0 && (
-        <p className="affiche__empty">Aucune course enregistrée pour l'instant. Importez une trace GPX, puis enregistrez-la dans « Mes sillons ».</p>
-      )}
-      <div className={`affiche__layout${onBook ? ' affiche__layout--book' : ''}`}>
-      <ul className="affiche__list">
-        {tracks.map(({ voyage, track }) => (
-          <li key={track.id}>
-            <button type="button" className="affiche__item" onClick={() => setCurrent({ voyage, track })}>
-              <strong>{track.name}</strong>
-              <span>{[track.distanceM ? `${(track.distanceM / 1000).toFixed(1).replace('.', ',')} km` : '', formatDate(track.date)].filter(Boolean).join(' · ')}</span>
-              <em>{track.poster ? 'Modifier l\'affiche' : 'Créer l\'affiche'} →</em>
-            </button>
-          </li>
-        ))}
-      </ul>
-      {/* Toujours visible : colonne de droite qui suit le défilement (en bas de l'écran sur téléphone). */}
-      {onBook && (
-        <aside className="affiche__book">
-          <button type="button" className="affiche__item affiche__book-item" onClick={onBook}>
-            <strong>📖 Mon livre</strong>
-            <span className="affiche__book-more">Vos affiches, tous sillons confondus, en un livre : une double page par course, vos records et votre progression.</span>
-            <span>{Math.min(...BOOK_PRINTERS.map(p => p.minPages))} pages au moins pour l'impression</span>
-            <em>Créer mon livre →</em>
-          </button>
-        </aside>
-      )}
+    <div className="sd affiche-pick">
+      <div className={`sd__layout${onBook ? ' sd__layout--book' : ''}`}>
+        <div className="sd__main">
+          <header className="sd__head">
+            <span className="sd__badge"><PosterIcon size={40} /></span>
+            <div className="sd__heading">
+              <h1 className="sd__title">Créer l'affiche d'une course</h1>
+              <span className="sd__stats">
+                {tracks.length} course{tracks.length !== 1 ? 's' : ''} · {posters} affiche{posters !== 1 ? 's' : ''} faite{posters !== 1 ? 's' : ''}
+              </span>
+            </div>
+          </header>
+          <p className="affiche-pick__lead">Choisissez une course enregistrée : son affiche réunit le tracé, votre temps, vos temps de passage et le profil.</p>
+          {tracks.length === 0 && (
+            <p className="vp-empty">Aucune course enregistrée pour l'instant. Importez une trace GPX, puis enregistrez-la dans « Mes sillons ».</p>
+          )}
+          <ul className="sd-list">
+            {tracks.map(({ voyage, track }) => {
+              const d = dateParts(track.date || track.addedAt)
+              const open = () => setCurrent({ voyage, track })
+              return (
+                <li key={track.id} className="sd-card">
+                  <div className="sd-card__row">
+                    <div className="sd-card__date">
+                      {d ? <><strong>{d.day}</strong><span>{d.month}</span><span>{d.year}</span></> : <span>—</span>}
+                    </div>
+                    {track.poster
+                      ? <PosterThumb track={track} className="sd-card__thumb" />
+                      : <span className="sd-card__thumb sd-card__thumb--empty">🗺</span>}
+                    <div className="sd-card__info">
+                      <span className="sd-card__name">{track.name}</span>
+                      <span className="sd-card__meta">
+                        <MountainIcon />
+                        {track.distanceM ? `${(track.distanceM / 1000).toFixed(1).replace('.', ',')} km` : '—'}
+                        {track.elevGainM ? ` · ↑ ${Math.round(track.elevGainM)} m` : ''}
+                        <span className="affiche-pick__sillon">· {voyage.name}</span>
+                        <span className={`sd-badge${track.poster ? ' sd-badge--done' : ''}`}>{track.poster ? 'Affiche faite' : 'Affiche à faire'}</span>
+                      </span>
+                    </div>
+                    <div className="sd-card__actions">
+                      {track.poster
+                        ? <button type="button" className="sd-btn sd-btn--outline" onClick={open}><PencilIcon size={15} /> Modifier l'affiche</button>
+                        : <button type="button" className="sd-btn sd-btn--green" onClick={open}><PlusIcon size={15} /> Créer l'affiche</button>}
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+        {onBook && <BookAside poster={latestPosterTrack(tracks.map(x => x.track))} onBook={onBook} />}
       </div>
     </div>
   )
