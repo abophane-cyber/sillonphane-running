@@ -3,11 +3,11 @@
  * qu'Instagram ne la découpe pas : voir CUT).
  *
  * Usage : node scripts/youtube-video.mjs (d'abord), puis node scripts/story-video.mjs
- * Résultat : scripts/videos/sillonphane-rando-story.mp4 (dossier non versionné).
+ * Résultat : scripts/videos/sillonphane-running-story.mp4 (dossier non versionné).
  *
  * La vidéo 16:9 occupe toute la largeur au centre ; au-dessus et au-dessous, la même image agrandie,
  * floutée et assombrie. Entre l'ouverture et l'écran de fin (qui portent déjà logo et adresse), un
- * bandeau en haut (logo + « Sillonphane-Rando ») et l'adresse en bas, hors des zones couvertes par
+ * bandeau en haut (logo + « Sillonphane-Running ») et l'adresse en bas, hors des zones couvertes par
  * l'interface d'Instagram (~250 px en haut, ~340 px en bas). Le son est repris tel quel.
  */
 import { execFileSync, spawnSync } from 'child_process'
@@ -19,16 +19,16 @@ import { chromium } from 'playwright'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT_DIR = join(ROOT, 'scripts/videos')
-const SRC = join(OUT_DIR, 'sillonphane-rando-presentation.mp4')
-const OUT = join(OUT_DIR, 'sillonphane-rando-story.mp4')
+const SRC = join(OUT_DIR, 'sillonphane-running-presentation.mp4')
+const OUT = join(OUT_DIR, 'sillonphane-running-story.mp4')
 const TMP = join(OUT_DIR, 'tmp-story')
 const SITE = join(ROOT, '../Sillonphane-site/landing')
 
-// Mêmes repères que youtube-video.mjs : ouverture de 9,5 s, écran de fin de 8 s.
-const OPENING = 9.5, END_CARD = 8
-// Story d'un seul tenant (< 60 s) : on retire un passage de l'album où seule la musique joue (entre les
-// phrases 4 et 5 du commentaire, finies vers 39,4 s et reprises à 46 s), en fondu enchaîné de XFADE s.
-const CUT = { from: 39.9, to: 45.3 }, XFADE = 0.5
+// Mêmes repères que youtube-video.mjs : ouverture de 9,5 s, écran de fin de 7 s.
+const OPENING = 9.5, END_CARD = 7
+// La vidéo YouTube de Running dure déjà moins de 60 s : reprise entière, sans coupe (CUT = null).
+// Si elle s'allonge, retirer un passage sans voix : CUT = { from, to }, raccordé en fondu de XFADE s.
+const CUT = null, XFADE = 0.5
 
 const fileUrl = p => 'file:///' + p.replace(/\\/g, '/')
 const ff = args => execFileSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', ...args], { stdio: 'inherit' })
@@ -39,7 +39,7 @@ mkdirSync(TMP, { recursive: true })
 const probe = spawnSync(ffmpeg, ['-hide_banner', '-i', SRC], { encoding: 'utf8' }).stderr
 const [, h, m, s] = probe.match(/Duration: (\d+):(\d+):([\d.]+)/)
 const srcDur = h * 3600 + m * 60 + Number(s)
-const dur = srcDur - (CUT.to - CUT.from) - XFADE
+const dur = CUT ? srcDur - (CUT.to - CUT.from) - XFADE : srcDur
 const endStart = dur - END_CARD
 
 // Bandeaux transparents (1080×1920), dessinés dans Chromium avec les polices de la landing.
@@ -65,9 +65,9 @@ writeFileSync(html, `<!doctype html><meta charset="utf-8"><style>
     <circle cx="220" cy="60" r="11" fill="#2F4839" stroke="#F5F3EF" stroke-width="4"/>
     <circle cx="138" cy="225" r="11" fill="#F5F3EF"/>
   </svg>
-  <span>Sillonphane-Rando</span>
+  <span>Sillonphane-Running</span>
 </div>
-<div class="bottom">sillonphane.fr/rando</div>`)
+<div class="bottom">sillonphane.fr/running</div>`)
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } })
 await page.goto(fileUrl(html))
@@ -77,12 +77,14 @@ await page.screenshot({ path: overlay, omitBackground: true })
 await browser.close()
 
 const fc = [
-  // Coupe : deux morceaux de la source, raccordés en fondu enchaîné (image et son).
-  '[0:v]split[v1][v2]', '[0:a]asplit[a1][a2]',
-  `[v1]trim=0:${CUT.from},setpts=PTS-STARTPTS[va]`, `[v2]trim=${CUT.to},setpts=PTS-STARTPTS[vb]`,
-  `[a1]atrim=0:${CUT.from},asetpts=PTS-STARTPTS[aa]`, `[a2]atrim=${CUT.to},asetpts=PTS-STARTPTS[ab]`,
-  `[va][vb]xfade=transition=fade:duration=${XFADE}:offset=${CUT.from - XFADE}[src]`,
-  `[aa][ab]acrossfade=d=${XFADE}[aout]`,
+  // Coupe éventuelle : deux morceaux de la source, raccordés en fondu enchaîné (image et son).
+  ...(CUT ? [
+    '[0:v]split[v1][v2]', '[0:a]asplit[a1][a2]',
+    `[v1]trim=0:${CUT.from},setpts=PTS-STARTPTS[va]`, `[v2]trim=${CUT.to},setpts=PTS-STARTPTS[vb]`,
+    `[a1]atrim=0:${CUT.from},asetpts=PTS-STARTPTS[aa]`, `[a2]atrim=${CUT.to},asetpts=PTS-STARTPTS[ab]`,
+    `[va][vb]xfade=transition=fade:duration=${XFADE}:offset=${CUT.from - XFADE}[src]`,
+    `[aa][ab]acrossfade=d=${XFADE}[aout]`,
+  ] : ['[0:v]null[src]', '[0:a]anull[aout]']),
   '[src]split[a][b]',
   // Fond : image agrandie à 1920 de haut, recadrée, floutée et assombrie.
   '[a]scale=-2:1920,crop=1080:1920,boxblur=40:2,eq=brightness=-0.18:saturation=0.85[bg]',
