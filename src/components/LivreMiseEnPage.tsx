@@ -4,7 +4,7 @@ import { FRONT_PAGES, frontPageCount, frontPages, type BookCourse, type BookLayo
 import type { BookOptions, PreviewTarget } from '../lib/bookExport'
 import { RECORD_CATEGORIES, raceResult, type RecordCategory } from '../lib/records'
 import { getPhotoBlob } from '../lib/voyageDB'
-import type { CoverModel } from '../lib/bookCover'
+import { DEFAULT_COVER_MOTTO, DEFAULT_COVER_TAGLINE, type CoverModel } from '../lib/bookCover'
 import { LivreApercu } from './LivreApercu'
 
 interface Props {
@@ -180,6 +180,28 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                       ))}
                     </div>
                     <p className="livre__hint">{COVER_MODELS.find(m => m.id === model)?.hint}</p>
+                    <p className="livre__label">Devise en haut à droite (un mot ou groupe de mots par ligne)</p>
+                    <textarea
+                      className="livre__note"
+                      rows={4}
+                      maxLength={160}
+                      value={layout.coverMotto ?? DEFAULT_COVER_MOTTO}
+                      placeholder="Laissez vide pour ne rien afficher"
+                      onChange={e => setLayout({ coverMotto: e.target.value })}
+                    />
+                    {model === 'dessin' && (
+                      <div className="livre__fields">
+                        <label>Phrase du bas
+                          <input value={layout.coverTagline ?? DEFAULT_COVER_TAGLINE} maxLength={60} placeholder="Laissez vide pour ne rien afficher"
+                            onChange={e => setLayout({ coverTagline: e.target.value })} />
+                        </label>
+                      </div>
+                    )}
+                    {(layout.coverMotto !== undefined || layout.coverTagline !== undefined) && (
+                      <button type="button" className="vp-btn vp-btn--sm vp-btn--ghost livre-mep__reset" onClick={() => setLayout({ coverMotto: undefined, coverTagline: undefined })}>
+                        Remettre les textes d'origine
+                      </button>
+                    )}
                     <p className="livre__label">
                       {model === 'illustration' ? 'Tracé sur la couverture' : `Tracés sur la couverture (${MAX_COVER_TRACES} au plus)`}
                     </p>

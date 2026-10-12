@@ -19,7 +19,7 @@ import { formatElapsed, formatPace, type RaceAnalysis } from './raceSplits'
 import { RECORD_CATEGORIES, type RecordCategory } from './records'
 import { wrapSpreadForPages } from './printProfiles'
 import { getPhotoBlob } from './voyageDB'
-import { coverModelOnPaper, drawPhotoCover, type CoverFrame, type CoverItem, type CoverSafe } from './bookCover'
+import { coverModelOnPaper, drawPhotoCover, mottoLines, DEFAULT_COVER_TAGLINE, type CoverFrame, type CoverItem, type CoverSafe } from './bookCover'
 import { sanitizeFilename } from './saveFile'
 
 const DPI = 300
@@ -574,7 +574,10 @@ function coverItems(entries: Entry[], layout: BookLayout): CoverItem[] {
 function drawFrontFromPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, entries: Entry[], o: BookOptions,
   frame: CoverFrame, safe: CoverSafe, pxPerMm: number) {
   drawPhotoCover(ctx, img, o.layout.coverPhotoId ?? '', o.layout.coverModel ?? 'photo', coverItems(entries, o.layout),
-    { title: o.title, subtitle: o.layout.coverSubtitle?.trim() || periodLabel(entries), name: o.name }, frame, safe, pxPerMm)
+    {
+      title: o.title, subtitle: o.layout.coverSubtitle?.trim() || periodLabel(entries), name: o.name,
+      motto: mottoLines(o.layout.coverMotto), tagline: o.layout.coverTagline ?? DEFAULT_COVER_TAGLINE,
+    }, frame, safe, pxPerMm)
 }
 
 /** 1re de couverture : titre, sous-titre (la période par défaut), nom ; tracés de toutes les courses (en option). */

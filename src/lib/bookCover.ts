@@ -20,14 +20,14 @@ export interface CoverItem {
   dplus?: string
 }
 
-export interface CoverTexts { title: string; subtitle: string; name: string }
+/** Textes de la couverture ; `motto` : lignes de la devise (vide = sans), `tagline` : phrase du bas du modèle dessin (vide = sans). */
+export interface CoverTexts { title: string; subtitle: string; name: string; motto: string[]; tagline: string }
 
 /** Cadre de la 1re de couverture (jusqu'au bord rogné, fond perdu compris) et zone sûre du texte, en mm. */
 export interface CoverFrame { x: number; y: number; w: number; h: number }
 export interface CoverSafe { l: number; r: number; t: number; b: number }
 
 /** Mots en colonne, en haut à droite. */
-const MOTTO = ['COURIR', 'EXPLORER', 'SE DÉPASSER', 'SE SOUVENIR']
 const PAPER_RGB: [number, number, number] = [244, 239, 228]
 const PAPER = `rgb(${PAPER_RGB.join(',')})`
 const ORANGE = '#E8892B'
@@ -149,16 +149,25 @@ function traceRow(ctx: CanvasRenderingContext2D, items: CoverItem[], l: number, 
   })
 }
 
-/** Mots en colonne, filet vertical à gauche, calés sur le bord droit de la zone sûre. */
-function motto(ctx: CanvasRenderingContext2D, right: number, top: number, P: number, color: string, rule: string) {
+/** Mots en colonne (devise), filet vertical à gauche, calés sur le bord droit de la zone sûre ; rien sans mots. */
+function motto(ctx: CanvasRenderingContext2D, lines: string[], right: number, top: number, P: number, color: string, rule: string) {
+  if (!lines.length) return
   ctx.font = `400 ${14 * P}px ${SANS}`
   setSpacing(ctx, 4 * P)
-  const w = Math.max(...MOTTO.map(m => ctx.measureText(m).width))
+  const w = Math.max(...lines.map(m => ctx.measureText(m).width))
   setSpacing(ctx, 0)
   const x = right - w
   ctx.strokeStyle = rule; ctx.lineWidth = 1.2 * P
-  ctx.beginPath(); ctx.moveTo(x - 44 * P, top); ctx.lineTo(x - 44 * P, top + 110 * P); ctx.stroke()
-  MOTTO.forEach((m, i) => text(ctx, m, x, top + 16 * P + i * 30 * P, `400 ${14 * P}px ${SANS}`, color, 'left', 4 * P))
+  ctx.beginPath(); ctx.moveTo(x - 44 * P, top); ctx.lineTo(x - 44 * P, top + 20 * P + lines.length * 30 * P - 10 * P); ctx.stroke()
+  lines.forEach((m, i) => text(ctx, m, x, top + 16 * P + i * 30 * P, `400 ${14 * P}px ${SANS}`, color, 'left', 4 * P))
+}
+
+/** Devise d'origine (en haut à droite) et phrase du bas du modèle dessin, quand l'utilisateur n'a rien saisi. */
+export const DEFAULT_COVER_MOTTO = 'Courir\nExplorer\nSe dépasser\nSe souvenir'
+export const DEFAULT_COVER_TAGLINE = 'Des kilomètres qui ont du sens'
+/** Lignes de la devise saisie (6 au plus, en capitales) ; texte vide = pas de devise. */
+export function mottoLines(s: string | undefined): string[] {
+  return (s ?? DEFAULT_COVER_MOTTO).split('\n').map(l => l.trim().toUpperCase()).filter(Boolean).slice(0, 6)
 }
 
 // ── Stylisation de la photo ──────────────────────────────────────────────────
@@ -345,7 +354,7 @@ export function drawPhotoCover(ctx: CanvasRenderingContext2D, img: HTMLImageElem
     ctx.fillStyle = ORANGE; ctx.fillRect(left, ry, 68 * P, 3.6 * P)
     if (t.name) text(ctx, t.name.toUpperCase(), left, ry + 46 * P, `400 ${19 * P}px ${SANS}`, fg, 'left', 7.5 * P)
     const rLum = zoneLuma(pic, (safe.r - f.x - f.w * 0.16) * toPx, (Y(112) - f.y) * toPx, f.w * 0.16 * toPx, 110 * P * toPx)
-    motto(ctx, safe.r, Y(112), P, rLum > 0.62 ? 'rgba(23,32,27,0.85)' : 'rgba(246,240,230,0.9)', rLum > 0.62 ? 'rgba(23,32,27,0.7)' : 'rgba(246,240,230,0.75)')
+    motto(ctx, t.motto, safe.r, Y(112), P, rLum > 0.62 ? 'rgba(23,32,27,0.85)' : 'rgba(246,240,230,0.9)', rLum > 0.62 ? 'rgba(23,32,27,0.7)' : 'rgba(246,240,230,0.75)')
     traceRow(ctx, items.slice(0, 3), Math.max(safe.l, f.x + f.w * 0.05), Math.min(safe.r, f.x + f.w * 0.95), Y(700), P, false)
   } else if (model === 'dessin') {
     ctx.fillStyle = PAPER; ctx.fillRect(f.x, f.y, f.w, f.h)
@@ -363,18 +372,22 @@ export function drawPhotoCover(ctx: CanvasRenderingContext2D, img: HTMLImageElem
     if (t.subtitle) { text(ctx, t.subtitle, left, y, `600 ${36 * P}px ${SANS}`, ORANGE, 'left', 11 * P); y += 34 * P }
     ctx.fillStyle = ORANGE; ctx.fillRect(left, y, 92 * P, 2.4 * P)
     if (t.name) text(ctx, t.name.toUpperCase(), left, y + 48 * P, `400 ${21 * P}px ${SANS}`, DARK, 'left', 7 * P)
-    motto(ctx, safe.r, Y(105), P, 'rgba(23,32,27,0.85)', 'rgba(23,32,27,0.7)')
+    motto(ctx, t.motto, safe.r, Y(105), P, 'rgba(23,32,27,0.85)', 'rgba(23,32,27,0.7)')
     traceRow(ctx, items.slice(0, 3), Math.max(safe.l, f.x + f.w * 0.07), Math.min(safe.r, f.x + f.w * 0.93), Y(660), P, true)
-    const fy = Y(960)
-    const msg = 'DES KILOMÈTRES QUI ONT DU SENS'
-    ctx.font = `500 ${14 * P}px ${SANS}`; setSpacing(ctx, 5 * P)
-    const mw = ctx.measureText(msg).width; setSpacing(ctx, 0)
-    const cx = f.x + f.w / 2
-    text(ctx, msg, cx, fy, `500 ${14 * P}px ${SANS}`, 'rgba(23,32,27,0.8)', 'center', 5 * P)
-    ctx.strokeStyle = 'rgba(23,32,27,0.5)'; ctx.lineWidth = 0.8 * P
-    for (const s of [-1, 1]) {
-      const x0 = cx + s * (mw / 2 + 28 * P)
-      ctx.beginPath(); ctx.moveTo(x0, fy - 5 * P); ctx.lineTo(x0 + s * 56 * P, fy - 5 * P); ctx.stroke()
+    const msg = t.tagline.trim().toUpperCase()
+    if (msg) {
+      const fy = Y(960)
+      const cx = f.x + f.w / 2
+      // Phrase longue : lettres réduites (jusqu'à 8 px de maquette) pour tenir dans 70 % de la largeur.
+      const fs = fitFont(ctx, msg, 500, SANS, 14 * P, 8 * P, f.w * 0.7 - msg.length * 5 * P)
+      setSpacing(ctx, 5 * P)
+      const mw = ctx.measureText(msg).width; setSpacing(ctx, 0)
+      text(ctx, msg, cx, fy, `500 ${fs}px ${SANS}`, 'rgba(23,32,27,0.8)', 'center', 5 * P)
+      ctx.strokeStyle = 'rgba(23,32,27,0.5)'; ctx.lineWidth = 0.8 * P
+      for (const s of [-1, 1]) {
+        const x0 = cx + s * (mw / 2 + 28 * P)
+        ctx.beginPath(); ctx.moveTo(x0, fy - 5 * P); ctx.lineTo(x0 + s * 56 * P, fy - 5 * P); ctx.stroke()
+      }
     }
   } else {
     ctx.fillStyle = PAPER; ctx.fillRect(f.x, f.y, f.w, f.h)
@@ -391,7 +404,7 @@ export function drawPhotoCover(ctx: CanvasRenderingContext2D, img: HTMLImageElem
     ctx.fillStyle = '#E06A1B'; ctx.fillRect(left, y, 92 * P, 2.4 * P)
     if (t.name) text(ctx, t.name.toUpperCase(), left, y + 46 * P, `400 ${21 * P}px ${SANS}`, DARK, 'left', 7 * P)
     const rLum = zoneLuma(pic, (safe.r - f.x - f.w * (0.16 + IL)) * toPx, (Y(130) - f.y) * toPx, f.w * 0.16 * toPx, 110 * P * toPx)
-    motto(ctx, safe.r, Y(130), P, rLum > 0.55 ? 'rgba(23,32,27,0.85)' : 'rgba(246,240,230,0.92)', rLum > 0.55 ? 'rgba(23,32,27,0.7)' : 'rgba(246,240,230,0.75)')
+    motto(ctx, t.motto, safe.r, Y(130), P, rLum > 0.55 ? 'rgba(23,32,27,0.85)' : 'rgba(246,240,230,0.92)', rLum > 0.55 ? 'rgba(23,32,27,0.7)' : 'rgba(246,240,230,0.75)')
     const it = items[0]
     if (it) {
       drawTrace(ctx, it.points, left + 20 * P, Y(420), 230 * P, 220 * P, 2.6 * P, true)

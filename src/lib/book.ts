@@ -31,6 +31,11 @@ export interface BookLayout {
   coverModel?: CoverModel
   /** Fond « photo » : courses dont le tracé est sur la couverture (3 au plus) ; absent = les 3 premières. */
   coverTraceIds?: string[]
+  /** Fond « photo » : devise en haut à droite, un mot ou groupe par ligne ; absent = « Courir / Explorer / Se dépasser
+   *  / Se souvenir », vide = sans devise. */
+  coverMotto?: string
+  /** Modèle dessin : phrase du bas ; absent = « Des kilomètres qui ont du sens », vide = sans phrase. */
+  coverTagline?: string
   /** Sous-titre de la couverture ; absent = la période (« 2025 — 2026 »). */
   coverSubtitle?: string
   /** Tracés des courses sur la couverture (défaut oui). */
