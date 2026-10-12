@@ -306,15 +306,16 @@ export function isRecordedGpx(gpxData: string): boolean {
   return /creator="Sill(age-Randonnée|on-Rando|onphane-Rando|onphane-Running)"/.test(gpxData)
 }
 
-// Sérialise un tracé enregistré en direct au format GPX standard, relisible par parseGpx
-export function buildGpxXml(points: GpxPoint[], name: string): string {
+// Sérialise un tracé enregistré en direct au format GPX standard, relisible par parseGpx. `creator` : autre signature
+// pour un fichier converti (FIT, TCX), qui ne doit pas passer pour un enregistrement de l'appli (isRecordedGpx).
+export function buildGpxXml(points: GpxPoint[], name: string, creator = 'Sillonphane-Running'): string {
   const trkpts = points.map(p => {
     const time = p.time ? `<time>${p.time.toISOString()}</time>` : ''
     return `      <trkpt lat="${p.lat}" lon="${p.lon}"><ele>${p.ele.toFixed(1)}</ele>${time}</trkpt>`
   }).join('\n')
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="Sillonphane-Running" xmlns="http://www.topografix.com/GPX/1/1">
+<gpx version="1.1" creator="${escapeXml(creator)}" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
     <name>${escapeXml(name)}</name>
   </metadata>

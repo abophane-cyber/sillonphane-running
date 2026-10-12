@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { parseGpx, parseKml } from '../lib/gpx'
+import { readActivityFile } from '../lib/activityImport'
 import type { ParsedGpx } from '../types'
 import { MapIcon } from './MapIcon'
 
@@ -14,21 +14,9 @@ export function GpxUploader({ onLoad }: Props) {
 
   async function processFile(file: File) {
     setError(null)
-    const name = file.name.toLowerCase()
-    const isGpx = name.endsWith('.gpx')
-    const isKml = name.endsWith('.kml')
-    if (!isGpx && !isKml) {
-      setError('Veuillez sélectionner un fichier .gpx ou .kml')
-      return
-    }
     try {
-      const text = await file.text()
-      const gpx = isKml ? parseKml(text) : parseGpx(text)
-      if (gpx.tracks.length === 0) {
-        setError('Aucun tracé trouvé dans ce fichier')
-        return
-      }
-      onLoad(gpx, file.name, text)
+      const { parsed, raw } = await readActivityFile(file)
+      onLoad(parsed, file.name, raw)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur de lecture du fichier')
     }
@@ -57,11 +45,14 @@ export function GpxUploader({ onLoad }: Props) {
       {/* Pas d'attribut accept : sur Android, le fournisseur de fichiers (pCloud, Drive, etc.)
           filtre selon le type MIME détecté plutôt que l'extension — les .gpx/.kml n'ayant pas de
           MIME standard, ils apparaissent grisés et non sélectionnables. Sans accept, tous les
-          fichiers restent sélectionnables ; le filtrage .gpx/.kml se fait dans processFile. */}
+          fichiers restent sélectionnables ; le filtrage par extension se fait dans readActivityFile. */}
       <input ref={inputRef} type="file" onChange={onFileChange} style={{ display: 'none' }} />
       <div className="gpx-uploader__icon"><MapIcon size={48} /></div>
-      <p className="gpx-uploader__title">Importez votre fichier GPX ou KML</p>
-      <p className="gpx-uploader__hint">Cliquez ou déposez votre fichier ici</p>
+      <p className="gpx-uploader__title">Importez votre course</p>
+      <p className="gpx-uploader__hint">Fichier GPX, FIT, TCX ou KML — cliquez ou déposez-le ici</p>
+      <p className="gpx-uploader__note">
+        Strava : ouvrez l’activité sur strava.com, menu « … » → « Exporter GPX » ou « Exporter l’original ».
+      </p>
       {error && <p className="gpx-uploader__error">{error}</p>}
     </div>
   )

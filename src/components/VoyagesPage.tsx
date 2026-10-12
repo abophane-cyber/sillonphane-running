@@ -20,6 +20,7 @@ import { AlbumIcon } from './AlbumIcon'
 import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { AppLogoIcon } from './AppLogoIcon'
 import { isRecordedGpx } from '../lib/gpx'
+import { readActivityFile } from '../lib/activityImport'
 import { saveFileWithPicker } from '../lib/saveFile'
 import { dateParts } from '../lib/sillonDisplay'
 import { BookAside, BookIcon, DotsIcon, MountainIcon, PencilIcon, PlusIcon, RunnerIcon, TrashIcon } from './SillonDetailParts'
@@ -364,14 +365,17 @@ function SillonDetail({
   async function handleImportGpx(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    if (!/\.gpx$/i.test(file.name)) {
+    let imported
+    try {
+      imported = await readActivityFile(file)
+    } catch (err) {
       e.target.value = ''
+      alert(err instanceof Error ? err.message : 'Erreur de lecture du fichier')
       return
     }
-    const gpxData = await file.text()
     const entry = await addTrackToVoyage(voyage.id, {
-      name: file.name.replace(/\.gpx$/i, ''),
-      gpxData,
+      name: imported.fileName ?? imported.parsed.name ?? imported.parsed.tracks[0]?.name ?? 'Course',
+      gpxData: imported.raw,
     })
     onChange({ ...voyage, tracks: [...voyage.tracks, entry] })
     e.target.value = ''
