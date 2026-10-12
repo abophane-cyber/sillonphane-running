@@ -29,7 +29,6 @@ type Tab = 'couverture' | 'pages'
 
 const COVER_BGS: { id: CoverBg; label: string; swatch: string }[] = [
   { id: 'nuit', label: 'Vert nuit', swatch: '#121714' },
-  { id: 'noir', label: 'Noir', swatch: '#0B0B0A' },
   { id: 'papier', label: 'Papier crème', swatch: '#F6F2EA' },
   { id: 'photo', label: 'Une photo', swatch: 'linear-gradient(135deg,#6b8f71,#d9a066)' },
 ]
@@ -157,7 +156,7 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                 <p className="livre__label">Fond</p>
                 <div className="livre-mep__swatches" role="group" aria-label="Fond de la couverture">
                   {COVER_BGS.map(b => (
-                    <button key={b.id} type="button" aria-pressed={(layout.coverBg ?? 'nuit') === b.id} onClick={() => pickBg(b.id)}
+                    <button key={b.id} type="button" aria-pressed={(layout.coverBg === 'papier' || layout.coverBg === 'photo' ? layout.coverBg : 'nuit') === b.id} onClick={() => pickBg(b.id)}
                       disabled={b.id === 'photo' && !photos.length} title={b.id === 'photo' && !photos.length ? 'Aucune photo dans les courses choisies' : undefined}>
                       <span style={{ background: b.swatch }} />{b.label}
                     </button>

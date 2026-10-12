@@ -527,7 +527,6 @@ function coverLook(layout: BookLayout): CoverLook {
   // Couverture dessinée d'après la photo : papier crème au dos et sur la tranche.
   if (layout.coverBg === 'photo' && coverModelOnPaper(layout.coverModel)) return { bg: PAPER, fg: ink, accent: ACCENT }
   switch (layout.coverBg) {
-    case 'noir': return { bg: '#0B0B0A', fg: cream, accent: '#F07D1A' }
     case 'papier': return { bg: PAPER, fg: ink, accent: ACCENT }
     default: return { bg: NIGHT, fg: cream, accent: '#F07D1A' }
   }

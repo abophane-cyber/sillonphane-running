@@ -93,7 +93,7 @@ Reste à faire :
      photos, note), double page photos en option ; en tête sommaire (page 1, ne liste que les pages d'en-tête gardées), records | progression, palmarès
      (5 pages avec la page blanche ; plus de page de titre). Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
      Écran « Mise en page du livre » (`components/LivreMiseEnPage.tsx`, bouton « Modifier la couverture et les
-     pages » au-dessus de l'aperçu ; réglages `BookLayout` dans `lib/book.ts`) : couverture (fond vert nuit, noir,
+     pages » au-dessus de l'aperçu ; réglages `BookLayout` dans `lib/book.ts`) : couverture (fond vert nuit,
      papier ou photo d'une course ; titre, sous-titre, nom ; titre en haut ou en bas ; tracés ; avec une photo, trois
      modèles dans `lib/bookCover.ts` : Photo = la photo en fond et jusqu'à 3 tracés choisis, Dessin = la photo redessinée
      en gravure sépia sur papier crème, Illustration = la photo en aplats fondus dans le papier et un tracé), 4e de couverture

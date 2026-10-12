@@ -19,8 +19,9 @@ export const FRONT_PAGES: { id: FrontPageId; label: string }[] = [
   { id: 'palmares', label: 'Palmarès' },
 ]
 
-/** Fond de la couverture : vert nuit (défaut), noir, papier crème, ou une photo d'une des courses. */
-export type CoverBg = 'nuit' | 'noir' | 'papier' | 'photo'
+/** Fond de la couverture : vert nuit (défaut), papier crème, ou une photo d'une des courses (l'ancien fond noir
+ * enregistré s'affiche en vert nuit). */
+export type CoverBg = 'nuit' | 'papier' | 'photo'
 
 /** Mise en page du livre. Absent = valeur par défaut. */
 export interface BookLayout {
