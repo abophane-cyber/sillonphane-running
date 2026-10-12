@@ -1,0 +1,64 @@
+name: Déploiement OVH (Running)
+
+# Même méthode que Sillonphane-Rando. Secrets du dépôt : OVH_FTP_HOST, OVH_FTP_USER, OVH_FTP_PASSWORD (les mêmes que
+# Rando) et OVH_FTP_DIR = le dossier www/running/ (chemin complet, comme pour Rando avec www/rando/).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-ovh-running
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run build
+
+      # rclone compare taille + date de modification. Chaque build produisant des fichiers « récents »,
+      # on fixe la date de chaque fichier d'après son contenu (sha1) : un fichier inchangé garde la même
+      # date d'un déploiement à l'autre et n'est pas renvoyé.
+      - name: Dates déterministes
+        run: |
+          find dist -type f -print0 | while IFS= read -r -d '' f; do
+            h=$(sha1sum "$f" | cut -c1-7)
+            touch -d "@$((16#$h))" "$f"
+          done
+
+      - name: Installation de rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq rclone
+
+      # SFTP (port 22) : le FTPS explicite n'est pas géré par le serveur OVH mutualisé.
+      # `sync` supprime sur le serveur ce qui n'est plus dans dist/ : on refuse tout dossier qui ne finit pas par
+      # /running (un OVH_FTP_DIR réglé sur www/ effacerait la vitrine et Rando), et on protège les fichiers d'OVH.
+      - name: Envoi SFTP
+        env:
+          RCLONE_SFTP_HOST: ${{ secrets.OVH_FTP_HOST }}
+          RCLONE_SFTP_USER: ${{ secrets.OVH_FTP_USER }}
+          OVH_PASS: ${{ secrets.OVH_FTP_PASSWORD }}
+          OVH_DIR: ${{ secrets.OVH_FTP_DIR }}
+        run: |
+          case "${OVH_DIR%/}" in
+            */running) ;;
+            *) echo "OVH_FTP_DIR doit désigner le dossier www/running (reçu : « ${OVH_DIR} »)" >&2; exit 1 ;;
+          esac
+          install -m 700 -d ~/.ssh
+          ssh-keyscan -t ed25519,rsa "$RCLONE_SFTP_HOST" > ~/.ssh/known_hosts_ovh
+          export RCLONE_SFTP_KNOWN_HOSTS_FILE=~/.ssh/known_hosts_ovh
+          export RCLONE_SFTP_PASS="$(rclone obscure "$OVH_PASS")"
+          rclone sync dist/ ":sftp:${OVH_DIR%/}" \
+            --transfers 4 --checkers 8 --stats 30s --stats-one-line -v \
+            --exclude '.ovhconfig' --exclude '.well-known/**' --exclude 'cgi-bin/**'
