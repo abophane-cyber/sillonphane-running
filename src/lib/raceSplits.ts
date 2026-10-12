@@ -187,9 +187,19 @@ export function formatClock(d: Date): string {
   return `${d.getHours()} h ${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/** Horloge de départ des films : libellé « DÉPART PRÉVU » (heure saisie, temps prévus) ou « DÉPART » (GPX horodaté)
- * et heure « 09:00 », avec les secondes « 09:00:00 » seulement si le tracé est horodaté (`trackStart`, premier point)
- * et que l'heure saisie est bien la sienne. Sans heure « HH:MM » valide : null. */
+/** Le départ (date « AAAA-MM-JJ » et heure « HH:MM ») a-t-il déjà eu lieu ? Sans date : non (course à venir). */
+export function departurePassed(date: string | undefined, hhmm: string | undefined): boolean {
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return false
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm ?? '')
+  const d = new Date(`${date}T00:00:00`)
+  if (m) d.setHours(Number(m[1]), Number(m[2]), 0, 0)
+  else d.setDate(d.getDate() + 1)
+  return d.getTime() <= Date.now()
+}
+
+/** Horloge de départ des films : libellé « DÉPART PRÉVU » (heure saisie, course à venir) ou « DÉPART À » (GPX
+ * horodaté, ou course passée) et heure « 09:00 », avec les secondes « 09:00:00 » seulement si le tracé est horodaté
+ * (`trackStart`, premier point) et que l'heure saisie est bien la sienne. Sans heure « HH:MM » valide : null. */
 export function startClock(hhmm: string | undefined, planned: boolean, trackStart?: Date): { label: string; clock: string } | null {
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm ?? '')
   if (!m) return null
@@ -197,7 +207,7 @@ export function startClock(hhmm: string | undefined, planned: boolean, trackStar
   let clock = `${pad(Number(m[1]))}:${m[2]}`
   if (!planned && trackStart && trackStart.getHours() === Number(m[1]) && trackStart.getMinutes() === Number(m[2]))
     clock += `:${pad(trackStart.getSeconds())}`
-  return { label: planned ? 'DÉPART PRÉVU' : 'DÉPART', clock }
+  return { label: planned ? 'DÉPART PRÉVU' : 'DÉPART À', clock }
 }
 
 function pointAtM(points: GpxPoint[], distances: number[], m: number) {

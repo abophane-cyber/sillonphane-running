@@ -32,7 +32,7 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, computeRavitos, isRawGpxName, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
+  computeBornes, computeRavitos, departurePassed, isRawGpxName, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ANIM_ZOOM, animSpeed } from './hooks/useAnimationSettings'
@@ -501,7 +501,7 @@ export default function App() {
       bornes,
       bibNumber: race.bibNumber?.trim() || undefined,
       startTime: departureTime || undefined,
-      startTimePlanned: !(realTimes && !race.plannedTimes),
+      startTimePlanned: !(realTimes && !race.plannedTimes) && !departurePassed(manualDate, departureTime),
       ravitos,
       streets: race.streets,
       endCard,
@@ -534,7 +534,7 @@ export default function App() {
       weather,
       manualDate,
       departureTime,
-      startTimePlanned: !(realTimes && !race.plannedTimes),
+      startTimePlanned: !(realTimes && !race.plannedTimes) && !departurePassed(manualDate, departureTime),
       arrivalTime,
       characters,
       bibNumber: race.bibNumber?.trim() || undefined,
