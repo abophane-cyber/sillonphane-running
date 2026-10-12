@@ -21,8 +21,8 @@ export function HowItWorks({ onStart, onBack }: Props) {
         <div className="how__card how__card--answer">
           <AppLogoIcon size={56} className="how__card-logo-img" />
           <div className="how__card-answer-text">
-            <span className="how__brand">Sillonphane-Rando</span>
-            <br />vous permet de créer un <strong>film</strong> et les <strong>albums-photos</strong> de vos randonnées
+            <span className="how__brand">Sillonphane-Running</span>
+            <br />transforme votre course sur route, du 5 km au marathon, en <strong>film animé</strong> et en <strong>affiche à encadrer</strong>
           </div>
         </div>
 
@@ -36,7 +36,7 @@ export function HowItWorks({ onStart, onBack }: Props) {
           <div className="how__card-badge">02</div>
           <div className="how__card-icon"><MapIcon size={44} /></div>
           <div className="how__card-text">
-            Pour cela vous avez besoin du <em>fichier GPX ou KML</em> de votre randonnée et de vos <em>photos</em>
+            Pour cela il suffit du <em>fichier GPX ou KML</em> de votre course : la trace donne le film 2D ou 3D et l'affiche. Vos <em>photos</em> (l'arrivée, la médaille…) peuvent compléter l'affiche
           </div>
         </div>
 
@@ -50,7 +50,7 @@ export function HowItWorks({ onStart, onBack }: Props) {
           <div className="how__card-badge">03</div>
           <div className="how__card-icon"><PhoneIcon size={44} /></div>
           <div className="how__card-text">
-            Sillonphane-Rando fonctionne sur <em>navigateur web</em> comme sur <em>smartphone</em> — vous pouvez éditer vos traces GPX directement depuis votre mobile <em>(Android pour le moment)</em>
+            Sillonphane-Running fonctionne sur <em>navigateur web</em> comme sur <em>smartphone</em> — pas de compte, vos fichiers restent sur votre appareil
           </div>
         </div>
 
@@ -66,7 +66,7 @@ export function HowItWorks({ onStart, onBack }: Props) {
               <div className="how__card-badge">04</div>
               <div className="how__card-icon"><RecordIcon size={44} /></div>
               <div className="how__card-text">
-                Vous avez déjà la trace <em>GPX ou KML</em> de votre randonnée, ou <em>Sillonphane-Rando peut la faire au moment de votre sortie</em>
+                Vous avez déjà la trace <em>GPX ou KML</em> de votre course, ou <em>Sillonphane-Running l'enregistre pendant que vous courez</em>
               </div>
             </div>
           </>
