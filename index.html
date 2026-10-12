@@ -304,6 +304,7 @@
         padding: 9px 20px; border-radius: 999px; border: none; background: transparent; color: var(--ink-soft);
         transition: background .18s, color .18s;
       }
+      .toggle span { cursor: pointer; }
       .toggle span.is-active { background: var(--forest); color: #fff; box-shadow: 0 2px 8px rgba(47,72,57,0.25); }
 
       /* Badges sur l'écran du film */
@@ -337,10 +338,9 @@
       .split__media .filmscreen { margin-top: 22px; }
       .filmscreen__frame {
         position: relative; border-radius: 10px; overflow: hidden;
-        background: #0c150e; aspect-ratio: 565 / 288;
+        background: #0c150e; aspect-ratio: 16 / 9;
       }
-      .filmscreen__frame.is-3d { aspect-ratio: 568 / 320; }
-      .filmscreen__frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; display: block; }
+      .filmscreen__frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
       .filmscreen__frame video.is-hidden { display: none; }
 
       /* Affiche de course illustrée (portrait 3:4), sous le texte dans la colonne de droite */
@@ -556,34 +556,6 @@
       .hero__kicker { margin: 0 0 14px; font-size: 0.86rem; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; color: #F5D9A8;
         text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
 
-      /* ---- Running : écran de film illustré (2D puis 3D, animé en JS) ---- */
-      .runfilm { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-      .filmscreen__frame { perspective: 700px; }
-      .runfilm-wrap { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform 1.4s cubic-bezier(.45,.05,.55,.95); transform-origin: 50% 60%; }
-      .filmscreen__frame.is-3d .runfilm-wrap { transform: rotateX(46deg) scale(1.32) translateY(-4%); }
-      .runfilm-hud { position: absolute; inset: 0; pointer-events: none; font-family: 'Plus Jakarta Sans', sans-serif; color: #fff; }
-      .runfilm-hud__cart { position: absolute; left: 12px; top: 12px; padding: 6px 12px 7px; border-radius: 8px; background: rgba(15,20,18,0.78);
-        border-left: 3px solid #E8823F; line-height: 1.15; }
-      .runfilm-hud__cart b { display: block; font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase; color: #9CCBA9; }
-      .runfilm-hud__cart span { font-size: 0.62rem; color: rgba(255,255,255,0.75); }
-      .runfilm-hud__clock { position: absolute; left: 50%; top: 12px; transform: translateX(-50%); padding: 5px 12px; border-radius: 8px;
-        background: rgba(15,20,18,0.78); font-size: 0.95rem; font-weight: 700; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
-      .runfilm-hud__borne { position: absolute; left: 50%; bottom: 46px; transform: translateX(-50%) translateY(6px); padding: 6px 14px; border-radius: 999px;
-        background: #F5F3EF; color: #191817; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.08em; white-space: nowrap;
-        opacity: 0; transition: opacity .35s, transform .35s; box-shadow: 0 6px 18px rgba(0,0,0,0.35); }
-      .runfilm-hud__borne.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
-      .runfilm-hud__prof { position: absolute; left: 12px; right: 12px; bottom: 10px; height: 26px; }
-
-      /* Téléphone : chrono en haut à droite, mention « Illustration » en bas à gauche, borne remontée */
-      @media (max-width: 560px) {
-        .runfilm-hud__cart { left: 8px; top: 8px; padding: 4px 9px 5px; }
-        .runfilm-hud__cart b { font-size: 0.6rem; }
-        .runfilm-hud__cart span { font-size: 0.56rem; }
-        .runfilm-hud__clock { left: auto; right: 8px; top: 8px; transform: none; font-size: 0.8rem; padding: 4px 9px; }
-        .filmscreen__frame .chip.tr { top: auto; right: auto; left: 8px; bottom: 38px; }
-        .runfilm-hud__borne { bottom: 64px; font-size: 0.66rem; }
-      }
-
       /* Disponibilité sans maquette de téléphone : une seule colonne */
       .avail--solo { grid-template-columns: 1fr; max-width: 860px; margin: 0 auto; }
     </style>
@@ -780,56 +752,24 @@
                 <li><span class="ck">✓</span> <span>Export HD, prêt à partager</span></li>
               </ul>
 
-              <!-- Simples étiquettes : l'illustration passe seule du 2D au 3D, l'étiquette en cours est mise en avant. -->
-              <div class="toggle" aria-hidden="true">
+              <!-- Étiquettes : les deux extraits passent seuls du 2D au 3D ; un clic sur une étiquette montre son film. -->
+              <div class="toggle">
                 <span id="tab-2d" class="is-active">🗺️ Film 2D</span>
                 <span id="tab-3d">🛰️ Film 3D</span>
               </div>
             </div>
             <div class="filmscreen">
-              <div class="filmscreen__frame" role="img" aria-label="Illustration du film : le ruban de la course avance dans les rues, le chrono tourne et les bornes affichent le temps de passage">
-                <div class="runfilm-wrap">
-                  <svg class="runfilm" viewBox="0 0 640 326" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-                    <defs>
-                      <pattern id="rf-blocks" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(-12)">
-                        <rect width="40" height="40" fill="#141A17" />
-                        <rect x="4" y="4" width="32" height="32" rx="3" fill="#202924" />
-                        <rect x="9" y="9" width="10" height="9" rx="1.5" fill="#27312B" />
-                      </pattern>
-                      <linearGradient id="rf-rib" gradientUnits="userSpaceOnUse" x1="60" y1="0" x2="580" y2="0">
-                        <stop offset="0%" stop-color="#3E8A5A" /><stop offset="55%" stop-color="#E8823F" /><stop offset="100%" stop-color="#F5E6C8" />
-                      </linearGradient>
-                    </defs>
-                    <g id="rf-map">
-                      <rect x="-400" y="-400" width="1440" height="1126" fill="url(#rf-blocks)" />
-                      <g stroke="#2E3832" stroke-width="7" fill="none" stroke-linecap="round">
-                        <path d="M-200,300 L900,80" /><path d="M120,-200 L260,600" /><path d="M420,-200 L520,600" />
-                      </g>
-                      <path d="M380,250 C420,220 500,230 510,280 C520,330 450,350 410,330 C370,310 350,270 380,250Z" fill="#1A2E21" />
-                      <path d="M-200,380 C0,330 160,370 300,330 C460,284 560,200 900,220" fill="none" stroke="#14262F" stroke-width="26" />
-                      <path id="rf-route" d="M70,280 C110,230 160,250 210,205 C260,160 240,100 300,90 C360,80 400,150 460,140 C520,130 560,70 600,90 C640,110 620,190 560,210 C500,230 470,260 420,250"
-                            fill="none" stroke="#fff" stroke-opacity="0.22" stroke-width="3" stroke-dasharray="1.5 6" stroke-linecap="round" />
-                      <path id="rf-ribbon-shadow" pathLength="1" d="M70,280 C110,230 160,250 210,205 C260,160 240,100 300,90 C360,80 400,150 460,140 C520,130 560,70 600,90 C640,110 620,190 560,210 C500,230 470,260 420,250"
-                            fill="none" stroke="#000" stroke-opacity="0.5" stroke-width="10" stroke-linecap="round" stroke-dasharray="0 1" />
-                      <path id="rf-ribbon" pathLength="1" d="M70,280 C110,230 160,250 210,205 C260,160 240,100 300,90 C360,80 400,150 460,140 C520,130 560,70 600,90 C640,110 620,190 560,210 C500,230 470,260 420,250"
-                            fill="none" stroke="url(#rf-rib)" stroke-width="6" stroke-linecap="round" stroke-dasharray="0 1" />
-                      <circle cx="70" cy="280" r="5" fill="#F5F3EF" stroke="#191817" stroke-width="2" />
-                      <text x="300" y="72" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-size="8" font-weight="600" fill="#fff" fill-opacity="0.6" transform="rotate(-6 300 72)">AVENUE DU PORT</text>
-                      <g id="rf-runner"><circle r="7" fill="#F5F3EF" stroke="#191817" stroke-width="2.5" /></g>
-                    </g>
-                  </svg>
-                </div>
-                <div class="runfilm-hud" aria-hidden="true">
-                  <div class="runfilm-hud__cart"><b>Mon semi-marathon</b><span id="rf-km">km 0,0 · 21,1 km</span></div>
-                  <div class="runfilm-hud__clock" id="rf-clock">0:00'00"</div>
-                  <div class="runfilm-hud__borne" id="rf-borne">5 KM · 25'58"</div>
-                  <svg class="runfilm-hud__prof" viewBox="0 0 600 26" preserveAspectRatio="none">
-                    <path d="M0,26 L0,18 C60,17 100,14 160,15 C220,16 260,12 320,13 C380,14 430,11 480,14 C530,17 570,15 600,16 L600,26Z" fill="#F5F3EF" fill-opacity="0.16" />
-                    <rect x="0" y="24" width="600" height="2" fill="#F5F3EF" fill-opacity="0.25" />
-                    <rect id="rf-prog" x="0" y="24" width="0" height="2" fill="#E8823F" />
-                  </svg>
-                </div>
-                <span class="chip chip--light chip--tag tr">Illustration</span>
+              <div class="filmscreen__frame">
+                <video id="film-2d" muted playsinline preload="none" poster="demo/film-2d.jpg"
+                       aria-label="Extrait d'un film 2D : le ruban de la course passe la borne du 5e km et son ravitaillement, sur les vues aériennes de l'IGN">
+                  <source src="demo/film-2d.webm" type="video/webm">
+                  <source src="demo/film-2d.mp4" type="video/mp4">
+                </video>
+                <video id="film-3d" class="is-hidden" muted playsinline preload="none" poster="demo/film-3d.jpg"
+                       aria-label="Extrait d'un film 3D : survol de la course à la borne du 10e km, au-dessus d'un village">
+                  <source src="demo/film-3d.webm" type="video/webm">
+                  <source src="demo/film-3d.mp4" type="video/mp4">
+                </video>
               </div>
             </div>
           </div>
@@ -1217,68 +1157,34 @@
         window.addEventListener('resize', sync);
       })();
 
-      /* Illustration du film (semi-marathon fictif de 21,1 km en 1:49'30", deuxième moitié plus rapide) :
-         le ruban avance, la caméra suit le coureur, le chrono tourne et chaque borne affiche son temps
-         de passage. Une passe en 2D, puis la même en « 3D » (carte basculée en perspective), en boucle. */
+      /* Extraits du film : le 2D puis le 3D, en boucle, lancés seulement quand l'écran est visible (rien n'est
+         téléchargé avant). Mouvement réduit demandé : pas de lecture automatique, les images fixes restent. */
       (function () {
-        var route = document.getElementById('rf-route');
-        var map = document.getElementById('rf-map');
-        if (!route || !map || !route.getTotalLength) return;
-        var rib = document.getElementById('rf-ribbon'), ribSh = document.getElementById('rf-ribbon-shadow');
-        var runner = document.getElementById('rf-runner');
-        var clock = document.getElementById('rf-clock'), km = document.getElementById('rf-km');
-        var borne = document.getElementById('rf-borne'), prog = document.getElementById('rf-prog');
-        var frame = document.querySelector('.filmscreen__frame');
+        var v2 = document.getElementById('film-2d'), v3 = document.getElementById('film-3d');
         var tab2 = document.getElementById('tab-2d'), tab3 = document.getElementById('tab-3d');
-        var LEN = route.getTotalLength(), DIST = 21.1, TOTAL = 6570, RUN = 12000, HOLD = 2200;
-        var BORNES = [5, 10, 15, 20];
-        // Temps écoulé à la fraction f du parcours : allure qui s'accélère légèrement (négatif split).
-        function elapsed(f) { return TOTAL * (1.04 * f - 0.04 * f * f); }
-        function fmt(s, long) {
-          s = Math.round(s);
-          var h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
-          return (h || long ? h + ':' + (m < 10 ? '0' : '') : '') + m + "'" + (sec < 10 ? '0' : '') + sec + '"';
+        if (!v2 || !v3) return;
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var cur = v2, visible = false;
+        function show(v) {
+          var other = v === v2 ? v3 : v2;
+          other.pause(); other.classList.add('is-hidden');
+          v.classList.remove('is-hidden');
+          tab2.classList.toggle('is-active', v === v2); tab3.classList.toggle('is-active', v === v3);
+          cur = v;
+          if (visible && !reduce) { v.currentTime = 0; var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
         }
-        var cam = null, lastNow = 0, shownBorne = -1, borneUntil = 0;
-        function draw(f, now) {
-          var dash = f + ' 1';
-          rib.setAttribute('stroke-dasharray', dash); ribSh.setAttribute('stroke-dasharray', dash);
-          var p = route.getPointAtLength(f * LEN);
-          runner.setAttribute('transform', 'translate(' + p.x.toFixed(1) + ',' + p.y.toFixed(1) + ')');
-          // Caméra : glissement amorti vers le coureur (en temps, pas en images : même suivi si l'onglet ralentit), zoom fixe.
-          var S = 1.7, tx = 320 - p.x * S, ty = 175 - p.y * S;
-          if (!cam) cam = { x: tx, y: ty };
-          var k = 1 - Math.exp(-Math.min(now - lastNow, 500) / 220); lastNow = now;
-          cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
-          map.setAttribute('transform', 'translate(' + cam.x.toFixed(1) + ',' + cam.y.toFixed(1) + ') scale(' + S + ')');
-          var t = elapsed(f), d = f * DIST;
-          clock.textContent = fmt(t, true);
-          km.textContent = 'km ' + d.toFixed(1).replace('.', ',') + ' · 21,1 km';
-          prog.setAttribute('width', (f * 600).toFixed(1));
-          for (var i = BORNES.length - 1; i >= 0; i--) {
-            if (d >= BORNES[i]) {
-              if (shownBorne !== i) {
-                shownBorne = i; borneUntil = now + 2600;
-                borne.textContent = BORNES[i] + ' KM · ' + fmt(elapsed(BORNES[i] / DIST));
-              }
-              break;
-            }
-          }
-          borne.classList.toggle('is-on', now < borneUntil);
-        }
-        function setMode(three) {
-          frame.classList.toggle('is-3d', three);
-          tab2.classList.toggle('is-active', !three); tab3.classList.toggle('is-active', three);
-        }
-        var three = false, start = null;
-        function tick(now) {
-          if (start === null) start = now;
-          var t = now - start;
-          if (t > RUN + HOLD) { three = !three; setMode(three); start = now; t = 0; cam = null; shownBorne = -1; borneUntil = 0; }
-          draw(Math.min(1, t / RUN), now);
-          requestAnimationFrame(tick);
-        }
-        requestAnimationFrame(tick);
+        v2.addEventListener('ended', function () { show(v3); });
+        v3.addEventListener('ended', function () { show(v2); });
+        // Le 3D se charge pendant la seconde moitié du 2D, pour enchaîner sans attente.
+        v2.addEventListener('timeupdate', function () { if (v2.currentTime > 7 && v3.preload === 'none') { v3.preload = 'auto'; v3.load(); } });
+        tab2.addEventListener('click', function () { show(v2); });
+        tab3.addEventListener('click', function () { show(v3); });
+        if (!('IntersectionObserver' in window)) { visible = true; show(v2); return; }
+        new IntersectionObserver(function (entries) {
+          visible = entries[0].isIntersecting;
+          if (visible && !reduce) { var pr = cur.play(); if (pr && pr.catch) pr.catch(function () {}); }
+          else cur.pause();
+        }, { threshold: 0.35 }).observe(v2.parentNode);
       })();
       // Diaporama du hero : fondu enchaîné toutes les 3,2 s (coupe franche, sans fondu), zoom + glissement (CSS). Les photos suivantes ne sont
       // chargées qu'après la première (data-src), et la suivante est préchargée avant son tour.

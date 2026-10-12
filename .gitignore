@@ -35,3 +35,6 @@ scripts/videos
 scripts/frames
 scripts/album-out
 scripts/phone-shots
+
+# Films bruts exportés pour l'accueil (trop lourds), seuls les extraits de public/demo/ sont versionnés
+videos-brutes/
