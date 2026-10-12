@@ -2327,7 +2327,7 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 /* Fond teinté par type de section, pour les distinguer d'un coup d'œil : départ/arrivée (vert),
    cols (ocre), localités (bleu), panneaux ajoutés (sable). Teintes translucides : lisibles en
    thème clair comme sombre. */
-.pwiz-section--endpoint, .pwiz-section--cols, .pwiz-section--places, .pwiz-section--custom {
+.pwiz-section--endpoint, .pwiz-section--cols, .pwiz-section--places, .pwiz-section--lieudits, .pwiz-section--custom {
   padding: 10px 12px 12px; border-radius: 10px;
 }
 /* Départ et arrivée ressortent nettement : fond plus soutenu, bordure, titre vert plus lisible. */
@@ -2345,6 +2345,8 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
 :root[data-theme="dark"] .pwiz-section--endpoint .pwiz-section-label { color: #7fc796; }
 .pwiz-section--cols     { background: rgba(193,92,61,0.10); }
 .pwiz-section--places   { background: rgba(52,112,170,0.09); }
+.pwiz-section--lieudits { background: rgba(224,138,0,0.10); }
+.pwiz-section-count { font-weight: 600; opacity: .6; letter-spacing: 0; }
 .pwiz-section--custom   { background: rgba(170,135,60,0.12); }
 /* Épreuve : inscription (nom, date, distance), gardée pour le carton et l'album. */
 .pwiz-section--banner {

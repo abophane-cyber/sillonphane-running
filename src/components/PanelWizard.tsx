@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { LocalityInfo, ColMarker } from '../hooks/useLocality'
+import { isLieuditPlaceType, type LocalityInfo, type ColMarker } from '../hooks/useLocality'
 import type { AddPanelInfo } from './AnimationControls'
 import { OnboardingBubble } from './OnboardingBubble'
 import { PANEL_DRAG_MIME } from '../lib/panelDrag'
@@ -76,6 +76,19 @@ export function PanelWizard({
   // Temps prévus : trace sans heures réelles, ou temps prévus choisis à la place de ceux du GPX.
   const planned = !(realTimes && !race.plannedTimes)
   const isLoop = !!startName && !!endName && startName.trim().toLowerCase() === endName.trim().toLowerCase()
+
+  // Lieux du tracé par rubrique (le type n'est plus écrit à chaque ligne) ; cols repérés sur le relief et ceux
+  // venus des lieux, sans doublon.
+  const colItems = [
+    ...cols.map(c => ({ name: c.name, ele: c.ele as number | undefined })),
+    ...localities.filter(l => l.type === 'col' && !cols.some(c => c.name === l.name)).map(l => ({ name: l.name, ele: l.ele })),
+  ]
+  const towns = localities.filter(l => l.type !== 'col')
+  const placeGroups = [
+    { key: 'places', label: 'Localités', items: towns.filter(l => !isLieuditPlaceType(l.placeType)) },
+    { key: 'lieudits', label: 'Lieux-dits', items: towns.filter(l => isLieuditPlaceType(l.placeType)) },
+    { key: 'cols', label: 'Cols', items: colItems },
+  ]
 
   const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi'>('localite')
   const [addName, setAddName] = useState('')
@@ -246,53 +259,33 @@ export function PanelWizard({
           {!depHidden && !startIsCol && kindPicker(startKind, onStartKindChange)}
         </div>
 
-        {/* ── Cols repérés (décochés par défaut) ── */}
-        {cols.length > 0 && (
-          <div className="pwiz-section pwiz-section--cols">
-            <span className="pwiz-section-label">Cols</span>
+        {/* ── Lieux intermédiaires, rangés en trois rubriques : localités, lieux-dits, cols (décochés par défaut) ── */}
+        {localities.length + cols.length === 0 && (
+          <div className="pwiz-section pwiz-section--places">
+            <span className="pwiz-section-label">Localités</span>
+            <p className="pwiz-empty">Aucun lieu détecté sur ce tracé.</p>
+          </div>
+        )}
+        {placeGroups.map(g => g.items.length > 0 && (
+          <div key={g.key} className={`pwiz-section pwiz-section--${g.key}`}>
+            <span className="pwiz-section-label">{g.label} <span className="pwiz-section-count">({g.items.length})</span></span>
             <ul className="pwiz-list">
-              {cols.map(col => (
-                <li key={col.name} className="pwiz-item">
+              {g.items.map(it => (
+                <li key={it.name} className="pwiz-item">
                   <label className="pwiz-check">
                     <input
                       type="checkbox"
-                      checked={!excluded.has(col.name)}
-                      onChange={() => onToggleLocality(col.name)}
+                      checked={!excluded.has(it.name)}
+                      onChange={() => onToggleLocality(it.name)}
                     />
-                    <span className="pwiz-check-name">{col.name}</span>
-                    <span className="pwiz-check-type">▲ {col.ele} m</span>
+                    <span className="pwiz-check-name">{it.name}</span>
+                    {it.ele != null && <span className="pwiz-check-type">▲ {it.ele} m</span>}
                   </label>
                 </li>
               ))}
             </ul>
           </div>
-        )}
-
-        {/* ── Lieux intermédiaires ── */}
-        <div className="pwiz-section pwiz-section--places">
-          <span className="pwiz-section-label">Localités</span>
-          {localities.length === 0 ? (
-            <p className="pwiz-empty">Aucun lieu détecté sur ce tracé.</p>
-          ) : (
-            <ul className="pwiz-list">
-              {localities.map(loc => (
-                <li key={loc.name} className="pwiz-item">
-                  <label className="pwiz-check">
-                    <input
-                      type="checkbox"
-                      checked={!excluded.has(loc.name)}
-                      onChange={() => onToggleLocality(loc.name)}
-                    />
-                    <span className="pwiz-check-name">{loc.name}</span>
-                    <span className="pwiz-check-type">
-                      {loc.type === 'col' ? '▲ Col' : loc.placeType === 'hamlet' || loc.placeType === 'locality' ? 'Lieu-dit' : 'Localité'}
-                    </span>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        ))}
 
         {/* ── Inscription de l'épreuve (nom, date, distance), mémorisée avec le tracé ; vide = valeur par défaut ── */}
         <div className="pwiz-section pwiz-section--banner">
