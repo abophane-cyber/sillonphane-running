@@ -47,7 +47,8 @@ Reste à faire :
 - **Fin** : vue d'ensemble avec le profil.
 
 ### Après la course (GPX enregistré, heures réelles)
-- Détecter les heures fictives (tracé de planification) : masquer alors la date et la météo.
+- Détecter les heures fictives (tracé de planification). Météo : affichée si la date (et l'heure de départ) est
+  passée, même avec des heures fictives ; jamais pour une date à venir.
 - **Temps de passage** à chaque km, aux bornes et aux points de contrôle : allure moyenne, meilleur et moins bon km,
   comparaison des deux moitiés.
 - **Film** : chrono qui tourne, bornes « 10 KM · 52'31" », carton final (temps officiel, dossard, classement saisis
