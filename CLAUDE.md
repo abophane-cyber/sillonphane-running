@@ -5,7 +5,7 @@ Complète `../CLAUDE.md` (règles communes à tous les projets).
 ## Le projet
 
 Déclinaison de Sillonphane pour la **course sur route, du 5 km au marathon**. Publication prévue dans
-`www/running/` (OVH). Pas encore de code : le moteur de film viendra de `../Sillonphane-Rando`.
+`www/running/` (OVH). Moteur de film repris de `../Sillonphane-Rando`.
 
 Référence visuelle : la vidéo officielle « Parcours du marathon de Lille 2026 » (YouTube, chaîne LHDFA).
 Ne jamais reprendre de logo d'épreuve, de commune ou de sponsor sans l'accord de son titulaire.
@@ -25,13 +25,23 @@ son identifiant Android (`app.sillonphane.running`), ses URLs (`/running/downloa
 marque ses sauvegardes (`app: 'running'` dans le manifeste) : une sauvegarde d'une autre appli, ou l'ancien format
 .json de Rando, est refusée avec un message. Tout est centralisé dans `src/lib/appIdentity.ts`.
 
-Reste à faire :
-- **Rando** (`../Sillonphane-Rando`, en ligne) : y ajouter le même contrôle des sauvegardes (refuser celles dont
-  `app` ≠ `rando`, donc celles de Running) et le marquage `app: 'rando'` ; mise en ligne au prochain push.
-- **Mentions de Rando restées dans l'appli Running** : écran « Comment ça marche » de l'appli (`HowItWorks.tsx`),
-  commentaires (`AppLogoIcon`, `RibbonIcon`), sillon d'exemple et photos filigranées `sillonphane.fr/rando`
-  (`demoTrip.ts`, `scripts/demo-photos.mjs`), gabarit de couverture (`coverTemplates.ts`), `scripts/record.mjs`,
-  prototype `src/proto/`.
+Rando marque aussi ses sauvegardes (`app: 'rando'`) et refuse celles de Running (APK 3.54).
+
+Reste à faire — **mentions de Rando restées dans l'appli Running** (non visibles depuis l'accueil) : commentaires
+(`AppLogoIcon`, `RibbonIcon`), sillon d'exemple et photos filigranées `sillonphane.fr/rando` (`demoTrip.ts`,
+`scripts/demo-photos.mjs`), gabarit de couverture (`coverTemplates.ts`), `scripts/record.mjs`, prototype `src/proto/`,
+photos de rando de l'écran d'ouverture (`SplashScreen`, APK seulement).
+
+## Mise en ligne (www/running/)
+
+Pas encore en ligne : dépôt GitHub `abophane-cyber/Sillonphane-Running` à créer, puis workflow
+`.github/workflows/deploy-ovh.yml` repris de Rando (secrets OVH de Rando, `OVH_FTP_DIR` = www/running/).
+**Avant le premier envoi de Running**, ajouter `--exclude 'running/**'` au `rclone sync` du workflow de
+`../Sillonphane-site` (sinon le prochain push du site efface www/running/) et le pousser. Le lien vers Running sur
+la vitrine sillonphane.fr vient en dernier.
+
+Accueil : extraits du film (`public/demo/film-2d.*`, `film-3d.*`) et affiche d'exemple (`public/demo/affiche-demo.*`)
+tirés de la course « Demo Running » à Charnat ; films bruts dans `videos-brutes/` (non versionné).
 
 ## Plan
 
@@ -105,6 +115,6 @@ Reste à faire :
      nombre de pages) ; **Flexilivre** (A4 paysage, sans fond perdu, photos à distance du bord) = un seul PDF,
      couverture en 1re page et 4e en dernière. Intérieur complété de pages blanches jusqu'au multiple de 4 ; couverture
      vert nuit, tracés des courses au ruban vert · orange · crème ; puis offre d'impression de cet imprimeur.
-  4. Retirer le « Bientôt » de l'accueil.
+  4. *Fait* — Le « Bientôt » de l'accueil devient « Le livre de vos sillons ».
 - Comparaison avec un autre coureur ou l'édition précédente (deuxième ruban).
 - Offre organisateurs : film officiel du parcours aux couleurs de l'épreuve (logo et sponsors fournis par eux).
