@@ -5,7 +5,7 @@ import { fetchHistoricalWeather, type WeatherInfo } from '../lib/meteo'
 
 interface Props {
   track: GpxTrack
-  /** Course prévue (heures fictives ou prévues) : pas de météo, celle du jour du GPX ne serait pas celle de la course. */
+  /** Course à venir (heures prévues, départ pas encore passé) : pas de météo. */
   noWeather?: boolean
   manualDate?: string
   departureTime?: string

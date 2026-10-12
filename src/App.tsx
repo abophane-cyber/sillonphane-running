@@ -108,10 +108,11 @@ export default function App() {
   // Bornes tous les 5 km et temps de passage : réels (GPX enregistré) ou prévus (heure de départ + vitesses).
   const [race, setRace] = useState<RaceSettings>(DEFAULT_RACE_SETTINGS)
   const realTimes = useMemo(() => hasRealTimes(points, distances), [points, distances])
-  // Météo seulement pour une course courue (trace enregistrée, heures réelles) : pour une course prévue, celle du jour
-  // inscrit dans le GPX (tracé de planification) n'est pas celle de la course.
+  // Météo d'une course courue : trace enregistrée (heures réelles), ou heures prévues/fictives mais date et heure de
+  // départ passées (tracé redessiné après la course). Pour une course à venir, pas de météo.
   const plannedRace = !(realTimes && !race.plannedTimes)
-  const weather = plannedRace ? null : gpxWeather
+  const noWeather = plannedRace && !departurePassed(manualDate, departureTime)
+  const weather = noWeather ? null : gpxWeather
   const bornes = useMemo(() => race.bornesOff ? [] : computeBornes(points, distances, {
     useRealTimes: realTimes && !race.plannedTimes,
     startTime: departureTime, date: manualDate, speedsKmh: race.speeds,
@@ -869,7 +870,7 @@ export default function App() {
         {view === 'title' && activeTrack && (
           <TitleScreen
             track={activeTrack}
-            noWeather={plannedRace}
+            noWeather={noWeather}
             manualDate={manualDate || undefined}
             departureTime={departureTime || undefined}
             arrivalTime={arrivalTime || undefined}
