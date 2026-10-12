@@ -4,8 +4,8 @@ Complète `../CLAUDE.md` (règles communes à tous les projets).
 
 ## Le projet
 
-Déclinaison de Sillonphane pour la **course sur route, du 5 km au marathon**. Publication prévue dans
-`www/running/` (OVH). Moteur de film repris de `../Sillonphane-Rando`.
+Déclinaison de Sillonphane pour la **course sur route, du 5 km au marathon**. Publiée dans
+`www/running/` (OVH, sillonphane.fr/running/). Moteur de film repris de `../Sillonphane-Rando`.
 
 Référence visuelle : la vidéo officielle « Parcours du marathon de Lille 2026 » (YouTube, chaîne LHDFA).
 Ne jamais reprendre de logo d'épreuve, de commune ou de sponsor sans l'accord de son titulaire.
@@ -34,12 +34,11 @@ photos de rando de l'écran d'ouverture (`SplashScreen`, APK seulement).
 
 ## Mise en ligne (www/running/)
 
-Pas encore en ligne : dépôt GitHub `abophane-cyber/Sillonphane-Running` à créer, puis workflow
-`.github/workflows/deploy-ovh.yml` repris de Rando (secrets OVH de Rando, `OVH_FTP_DIR` = www/running/).
-**Avant le premier envoi de Running**, ajouter `--exclude 'running/**'` au `rclone sync` du workflow de
-`../Sillonphane-site` (sinon le prochain push du site efface www/running/) et le pousser. Le lien vers Running sur
-la vitrine sillonphane.fr vient en dernier : il est prêt sur la branche `running-en-ligne` de `../Sillonphane-site`
-(fiche « Disponible », boutons, pied de page), à fusionner dans `main` une fois Running vérifié en ligne.
+**En ligne depuis le 12 octobre 2026** : dépôt GitHub `abophane-cyber/sillonphane-running` (privé), chaque push sur
+`main` est publié par `.github/workflows/deploy-ovh.yml` (repris de Rando ; secrets OVH, `OVH_FTP_DIR` doit finir par
+`/running`, sinon l'envoi est refusé). Le workflow de `../Sillonphane-site` exclut `running/**` de sa synchronisation :
+ne jamais retirer cette exclusion. La vitrine sillonphane.fr présente Running comme disponible (fiche, boutons, pied
+de page).
 
 Accueil : extraits du film (`public/demo/film-2d.*`, `film-3d.*`) et affiche d'exemple (`public/demo/affiche-demo.*`)
 tirés de la course « Demo Running » à Charnat ; films bruts dans `videos-brutes/` (non versionné).
