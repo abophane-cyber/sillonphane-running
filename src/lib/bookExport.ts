@@ -19,6 +19,7 @@ import { formatElapsed, formatPace, type RaceAnalysis } from './raceSplits'
 import { RECORD_CATEGORIES, type RecordCategory } from './records'
 import { wrapSpreadForPages } from './printProfiles'
 import { getPhotoBlob } from './voyageDB'
+import { coverModelOnPaper, drawPhotoCover, type CoverFrame, type CoverItem, type CoverSafe } from './bookCover'
 import { sanitizeFilename } from './saveFile'
 
 const DPI = 300
@@ -536,6 +537,8 @@ const COVER_SAFE = 15
 /** Couleurs de la couverture selon son fond. Fond photo : la photo sur la 1re de couverture, vert nuit ailleurs. */
 interface CoverLook { bg: string; fg: (a: number) => string; accent: string }
 function coverLook(layout: BookLayout): CoverLook {
+  // Couverture dessinée d'après la photo : papier crème au dos et sur la tranche.
+  if (layout.coverBg === 'photo' && coverModelOnPaper(layout.coverModel)) return { bg: PAPER, fg: ink, accent: ACCENT }
   switch (layout.coverBg) {
     case 'noir': return { bg: '#0B0B0A', fg: cream, accent: '#F07D1A' }
     case 'papier': return { bg: PAPER, fg: ink, accent: ACCENT }
@@ -564,14 +567,27 @@ async function loadCoverPhoto(layout: BookLayout): Promise<{ img: HTMLImageEleme
   return { img, release: () => URL.revokeObjectURL(url) }
 }
 
-/** Photo plein cadre sur la 1re de couverture (jusqu'au bord rogné), assombrie du côté du titre pour le lire. */
-function drawCoverPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number,
-  pxPerMm: number, titleLow: boolean) {
-  drawPhoto(ctx, img, x, y, w, h, pxPerMm, 0)
-  ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.fillRect(x, y, w, h)
-  const g = titleLow ? ctx.createLinearGradient(0, y + h, 0, y + h * 0.45) : ctx.createLinearGradient(0, y, 0, y + h * 0.55)
-  g.addColorStop(0, 'rgba(0,0,0,0.62)'); g.addColorStop(1, 'rgba(0,0,0,0)')
-  ctx.fillStyle = g; ctx.fillRect(x, y, w, h)
+/** Courses montrées sur une couverture photo : celles cochées (3 au plus), sinon les 3 premières. */
+function coverItems(entries: Entry[], layout: BookLayout): CoverItem[] {
+  const ids = layout.coverTraceIds
+  // Ordre enregistré (chronologique ; modèle illustration : le tracé choisi en tête).
+  const chosen = ids ? ids.map(id => entries.find(e => e.course.track.id === id)).filter((e): e is Entry => !!e) : entries
+  return chosen.slice(0, 3).map(e => {
+    const d = e.course.track.elevGainM
+    return {
+      points: e.data.points,
+      date: new Date(`${e.course.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase(),
+      km: `${(e.data.officialM / 1000).toFixed(1).replace('.', ',')} km`,
+      dplus: d && d > 0 ? `${Math.round(d).toLocaleString('fr-FR')} m` : undefined,
+    }
+  })
+}
+
+/** Couverture photo (modèles photo, dessin, illustration) dans le cadre de la 1re de couverture. */
+function drawFrontFromPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, entries: Entry[], o: BookOptions,
+  frame: CoverFrame, safe: CoverSafe, pxPerMm: number) {
+  drawPhotoCover(ctx, img, o.layout.coverPhotoId ?? '', o.layout.coverModel ?? 'photo', coverItems(entries, o.layout),
+    { title: o.title, subtitle: o.layout.coverSubtitle?.trim() || periodLabel(entries), name: o.name }, frame, safe, pxPerMm)
 }
 
 /** 1re de couverture : titre, sous-titre (la période par défaut), nom ; tracés de toutes les courses (en option). */
@@ -634,10 +650,10 @@ async function renderWrapCover(entries: Entry[], o: BookOptions, pages: number):
   const fx = half + spine + COVER_SAFE
   const photo = await loadCoverPhoto(o.layout)
   if (photo) {
-    drawCoverPhoto(ctx, photo.img, half + spine, 0, SW - half - spine, SH, PX_PER_MM, o.layout.coverTitlePos === 'bas')
+    drawFrontFromPhoto(ctx, photo.img, entries, o, { x: half + spine, y: 0, w: SW - half - spine, h: SH },
+      { l: fx, r: SW - bleed - COVER_SAFE, t: top, b: bottom }, PX_PER_MM)
     photo.release()
-  }
-  drawCoverFront(ctx, entries, o, look, fx, SW - bleed - COVER_SAFE - fx, top, bottom)
+  } else drawCoverFront(ctx, entries, o, look, fx, SW - bleed - COVER_SAFE - fx, top, bottom)
   drawCoverBack(ctx, entries, o, look, bleed + COVER_SAFE, half - bleed - 2 * COVER_SAFE, top, bottom)
   // Dos : titre et période, de haut en bas.
   if (spine >= 6) {
@@ -666,10 +682,9 @@ async function renderCoverPage(entries: Entry[], o: BookOptions, side: 'front' |
   if (side === 'front') {
     const photo = await loadCoverPhoto(o.layout)
     if (photo) {
-      drawCoverPhoto(ctx, photo.img, 0, 0, w * 10, h * 10, pxPerMm, o.layout.coverTitlePos === 'bas')
+      drawFrontFromPhoto(ctx, photo.img, entries, o, { x: 0, y: 0, w: w * 10, h: h * 10 }, { l: x, r: x + cw, t: top, b: bottom }, pxPerMm)
       photo.release()
-    }
-    drawCoverFront(ctx, entries, o, look, x, cw, top, bottom)
+    } else drawCoverFront(ctx, entries, o, look, x, cw, top, bottom)
   } else drawCoverBack(ctx, entries, o, look, x + cw * 0.25, cw * 0.5, top, bottom)
   return canvas
 }

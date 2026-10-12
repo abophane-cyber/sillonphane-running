@@ -4,6 +4,7 @@ import { FRONT_PAGES, frontPageCount, frontPages, type BookCourse, type BookLayo
 import type { BookOptions, PreviewTarget } from '../lib/bookExport'
 import { RECORD_CATEGORIES, raceResult, type RecordCategory } from '../lib/records'
 import { getPhotoBlob } from '../lib/voyageDB'
+import type { CoverModel } from '../lib/bookCover'
 import { LivreApercu } from './LivreApercu'
 
 interface Props {
@@ -32,6 +33,14 @@ const COVER_BGS: { id: CoverBg; label: string; swatch: string }[] = [
   { id: 'papier', label: 'Papier crème', swatch: '#F6F2EA' },
   { id: 'photo', label: 'Une photo', swatch: 'linear-gradient(135deg,#6b8f71,#d9a066)' },
 ]
+
+/** Modèles de la couverture photo (cf. lib/bookCover.ts). */
+const COVER_MODELS: { id: CoverModel; label: string; hint: string }[] = [
+  { id: 'photo', label: 'Photo', hint: 'La photo en fond, le titre en haut, jusqu\'à 3 tracés en bas.' },
+  { id: 'dessin', label: 'Dessin', hint: 'La photo redessinée à l\'encre sépia sur papier crème, 3 tracés en bas.' },
+  { id: 'illustration', label: 'Illustration', hint: 'La photo en affiche illustrée qui se fond dans le papier, un tracé sous le titre.' },
+]
+const MAX_COVER_TRACES = 3
 
 /** Photos montrées au choix de la couverture, au plus. */
 const MAX_COVER_PHOTOS = 48
@@ -95,6 +104,17 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
     setLayout({ coverBg: bg, ...(bg === 'photo' && !layout.coverPhotoId && photos[0] ? { coverPhotoId: photos[0].id } : {}) })
   }
 
+  // Couverture photo : modèle et tracés montrés (absent = les 3 premières courses ; même règle que coverItems).
+  const model: CoverModel = layout.coverModel ?? 'photo'
+  const traceIds = (layout.coverTraceIds ?? courses.map(c => c.track.id)).filter(id => courses.some(c => c.track.id === id))
+    .slice(0, MAX_COVER_TRACES)
+  function toggleTrace(id: string) {
+    if (model === 'illustration') { setLayout({ coverTraceIds: [id, ...traceIds.filter(t => t !== id)] }); return }
+    const next = traceIds.includes(id) ? traceIds.filter(t => t !== id) : [...traceIds, id].slice(0, MAX_COVER_TRACES)
+    // Ordre des courses (chronologique), pas celui des clics.
+    setLayout({ coverTraceIds: courses.map(c => c.track.id).filter(t => next.includes(t)) })
+  }
+
   const sec = (target: PreviewTarget) => ({ onPointerDown: () => setFocus(target), onFocusCapture: () => setFocus(target) })
   const recordsOn = kept.includes('records')
 
@@ -143,24 +163,56 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                     </button>
                   ))}
                 </div>
-                {layout.coverBg === 'photo' && (
-                  <div className="livre-mep__photos" role="group" aria-label="Photo de couverture">
-                    {photos.map(p => (
-                      <button key={p.id} type="button" aria-pressed={layout.coverPhotoId === p.id} onClick={() => setLayout({ coverPhotoId: p.id })} title={p.name}>
-                        {thumbs[p.id] ? <img src={thumbs[p.id]} alt={p.name} /> : <span />}
-                      </button>
-                    ))}
-                  </div>
+                {layout.coverBg === 'photo' ? (
+                  <>
+                    <p className="livre__label">Photo</p>
+                    <div className="livre-mep__photos" role="group" aria-label="Photo de couverture">
+                      {photos.map(p => (
+                        <button key={p.id} type="button" aria-pressed={layout.coverPhotoId === p.id} onClick={() => setLayout({ coverPhotoId: p.id })} title={p.name}>
+                          {thumbs[p.id] ? <img src={thumbs[p.id]} alt={p.name} /> : <span />}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="livre__label">Modèle</p>
+                    <div className="livre__chips" role="group" aria-label="Modèle de couverture">
+                      {COVER_MODELS.map(m => (
+                        <button key={m.id} type="button" aria-pressed={model === m.id} onClick={() => setLayout({ coverModel: m.id })} title={m.hint}>{m.label}</button>
+                      ))}
+                    </div>
+                    <p className="livre__hint">{COVER_MODELS.find(m => m.id === model)?.hint}</p>
+                    <p className="livre__label">
+                      {model === 'illustration' ? 'Tracé sur la couverture' : `Tracés sur la couverture (${MAX_COVER_TRACES} au plus)`}
+                    </p>
+                    {courses.map(c => {
+                      const on = traceIds.includes(c.track.id)
+                      const full = model === 'illustration' ? traceIds.length >= 1 : traceIds.length >= MAX_COVER_TRACES
+                      return (
+                        <label key={c.track.id} className="livre__option">
+                          <input
+                            type={model === 'illustration' ? 'radio' : 'checkbox'}
+                            name="livre-cover-trace"
+                            checked={model === 'illustration' ? traceIds[0] === c.track.id : on}
+                            disabled={model !== 'illustration' && !on && full}
+                            onChange={() => toggleTrace(c.track.id)}
+                          />
+                          {c.track.poster?.title || c.track.name} · {new Date(`${c.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </label>
+                      )
+                    })}
+                  </>
+                ) : (
+                  <>
+                    <p className="livre__label">Titre</p>
+                    <div className="livre__chips" role="group" aria-label="Place du titre">
+                      <button type="button" aria-pressed={layout.coverTitlePos !== 'bas'} onClick={() => setLayout({ coverTitlePos: 'haut' })}>En haut</button>
+                      <button type="button" aria-pressed={layout.coverTitlePos === 'bas'} onClick={() => setLayout({ coverTitlePos: 'bas' })}>En bas</button>
+                    </div>
+                    <label className="livre__option">
+                      <input type="checkbox" checked={layout.coverTraces ?? true} onChange={e => setLayout({ coverTraces: e.target.checked })} />
+                      Tracés des courses
+                    </label>
+                  </>
                 )}
-                <p className="livre__label">Titre</p>
-                <div className="livre__chips" role="group" aria-label="Place du titre">
-                  <button type="button" aria-pressed={layout.coverTitlePos !== 'bas'} onClick={() => setLayout({ coverTitlePos: 'haut' })}>En haut</button>
-                  <button type="button" aria-pressed={layout.coverTitlePos === 'bas'} onClick={() => setLayout({ coverTitlePos: 'bas' })}>En bas</button>
-                </div>
-                <label className="livre__option">
-                  <input type="checkbox" checked={layout.coverTraces ?? layout.coverBg !== 'photo'} onChange={e => setLayout({ coverTraces: e.target.checked })} />
-                  Tracés des courses
-                </label>
               </section>
 
               <section className="livre__sec" {...sec('back')}>

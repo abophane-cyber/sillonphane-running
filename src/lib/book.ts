@@ -6,6 +6,7 @@ import type { Voyage, VoyageTrack } from '../types'
 import { PRINT_PROFILES, type PrintProfile } from './printProfiles'
 import { STORAGE_PREFIX } from './appIdentity'
 import type { RecordCategory } from './records'
+import type { CoverModel } from './bookCover'
 
 /** Pages d'en-tête, dans l'ordre : page de titre (à droite), records | progression, palmarès | sommaire. Chacune se
  * retire depuis l'écran « Mise en page du livre » (components/LivreMiseEnPage.tsx). */
@@ -26,6 +27,10 @@ export interface BookLayout {
   coverBg?: CoverBg
   /** Photo de couverture (fond « photo »). */
   coverPhotoId?: string
+  /** Fond « photo » : la photo telle quelle (défaut), redessinée en gravure, ou en affiche illustrée (cf. bookCover.ts). */
+  coverModel?: CoverModel
+  /** Fond « photo » : courses dont le tracé est sur la couverture (3 au plus) ; absent = les 3 premières. */
+  coverTraceIds?: string[]
   /** Sous-titre de la couverture ; absent = la période (« 2025 — 2026 »). */
   coverSubtitle?: string
   /** Tracés des courses sur la couverture (défaut oui). */
