@@ -859,8 +859,6 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
         </div>
       )}
 
-      {!loading && <RecordsBanner voyages={voyages} title="Mes records" />}
-
       {loading ? (
         <p className="vp-empty">Chargement…</p>
       ) : voyages.length === 0 ? (
