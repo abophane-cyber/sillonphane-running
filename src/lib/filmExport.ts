@@ -1744,9 +1744,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     for (let i = 0; i < visualPoints.length; i += openingStep) add(visualPoints[i], distances[i] / totalDistance)
     add(visualPoints[visualPoints.length - 1], 1)
     // Localités et cols traversés (panneaux du film) nommés sur l'ouverture ; ni lieux-dits, ni points d'intérêt, ni
-    // ravitaillements.
-    for (const ev of localitySpots) {
+    // ravitaillements. Départ en tête (prioritaire si deux noms se chevauchent), s'il n'est pas un lieu-dit.
+    for (const ev of [departureEvent, ...localitySpots]) {
+      if (!ev) continue
       if (ev.style !== 'standard' && ev.style !== 'col') continue
+      if (openingPoiRel.some(p => p.name === ev.name)) continue
       const q = exportMap.project([ev.lon, ev.lat])
       openingPoiRel.push({ x: q.x - pS.x, y: q.y - pS.y, name: ev.name, col: ev.style === 'col' })
     }

@@ -2230,11 +2230,13 @@ async function exportFilm3dImpl(
     date: opts.endCard?.date || opts.trailDate, distanceM: SHOWN_M, elevGainM,
   })
   // Localités et cols traversés (panneaux du film), posés au sol, nommés sur l'ouverture ; ni lieux-dits, ni points
-  // d'intérêt.
+  // d'intérêt. Départ en tête (prioritaire si deux noms se chevauchent), s'il est affiché et n'est pas un lieu-dit.
   const openingPois = scenePanels.filter(p => p.style === 'standard' || p.style === 'col').map(p => {
     const [px, pz] = cov.project(p.lon, p.lat)
     return { name: p.name, col: p.style === 'col', pos: new THREE.Vector3(px, meshHeightAt(px, pz), pz) }
   })
+  if (departurePanel && !opts.departureLieudit && opts.departureName)
+    openingPois.unshift({ name: opts.departureName, col: opts.departureColEle != null, pos: trailPts[0].clone() })
   const _poiV = new THREE.Vector3()
   const _townRay = new THREE.Raycaster(), _townPlane = new THREE.Plane(), _townUp = new THREE.Vector3(0, 1, 0), _townHit = new THREE.Vector3()
   let simElapsed = 0
