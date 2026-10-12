@@ -6,7 +6,7 @@ import type { Voyage, VoyageTrack } from '../types'
 import { PRINT_PROFILES, type PrintProfile } from './printProfiles'
 import { STORAGE_PREFIX } from './appIdentity'
 import type { RecordCategory } from './records'
-import type { CoverModel } from './bookCover'
+import type { CoverModel, TraceBox } from './bookCover'
 
 /** Pages d'en-tête, dans l'ordre : sommaire (page 1, à droite), records | progression, palmarès. Chacune se retire
  * depuis l'écran « Mise en page du livre » (components/LivreMiseEnPage.tsx) ; le sommaire ne liste que celles gardées.
@@ -37,6 +37,8 @@ export interface BookLayout {
   coverMotto?: string
   /** Modèle dessin : phrase du bas ; absent = « Des kilomètres qui ont du sens », vide = sans phrase. */
   coverTagline?: string
+  /** Fond « vagues » : place et taille du tracé (poignées de l'aperçu) ; absent = au milieu, au-dessus des vagues. */
+  coverTraceBox?: TraceBox
   /** Sous-titre de la couverture ; absent = la période (« 2025 — 2026 »). */
   coverSubtitle?: string
   /** Tracés des courses sur la couverture (défaut oui). */

@@ -4,7 +4,9 @@ import { FRONT_PAGES, frontPageCount, frontPages, type BookCourse, type BookLayo
 import type { BookOptions, PreviewTarget } from '../lib/bookExport'
 import { RECORD_CATEGORIES, raceResult, type RecordCategory } from '../lib/records'
 import { getPhotoBlob } from '../lib/voyageDB'
-import { DEFAULT_COVER_MOTTO, DEFAULT_COVER_TAGLINE, type CoverModel } from '../lib/bookCover'
+import { DEFAULT_COVER_MOTTO, DEFAULT_COVER_TAGLINE, defaultTraceBox, traceAspect, type CoverModel } from '../lib/bookCover'
+import { buildPosterData } from '../lib/poster'
+import { CoverTraceHandles } from './CoverTraceHandles'
 import { LivreApercu } from './LivreApercu'
 
 interface Props {
@@ -117,6 +119,22 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
     setLayout({ coverTraceIds: courses.map(c => c.track.id).filter(t => next.includes(t)) })
   }
 
+  // Couverture vagues : cadre à poignées sur l'aperçu pour placer et dimensionner le tracé.
+  const vaguesTrack = layout.coverBg === 'vagues' ? courses.find(c => c.track.id === traceIds[0])?.track : undefined
+  const vaguesAspect = useMemo(() => {
+    if (!vaguesTrack) return 1
+    try { return traceAspect(buildPosterData(vaguesTrack).points) } catch { return 1 }
+  }, [vaguesTrack])
+  const frameRatio = options.printer.profile.pageCm.w / options.printer.profile.pageCm.h
+  const traceHandles = vaguesTrack && (
+    <CoverTraceHandles
+      box={layout.coverTraceBox ?? defaultTraceBox(vaguesAspect, frameRatio)}
+      aspect={vaguesAspect}
+      frameRatio={frameRatio}
+      onChange={box => setLayout({ coverTraceBox: box })}
+    />
+  )
+
   const sec = (target: PreviewTarget) => ({ onPointerDown: () => setFocus(target), onFocusCapture: () => setFocus(target) })
   const recordsOn = kept.includes('records')
 
@@ -135,7 +153,7 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
 
       <div className="livre-mep">
         <div className="livre-mep__preview">
-          <LivreApercu courses={courses} options={options} bookKey={previewKey} paused={false} focus={focus} />
+          <LivreApercu courses={courses} options={options} bookKey={previewKey} paused={false} focus={focus} frontOverlay={traceHandles || undefined} />
           <p className={`livre-mep__count${pages < minPages ? ' is-short' : ''}`}>
             {pages} pages sur {minPages} minimum · dont {front} page{front > 1 ? 's' : ''} d'en-tête
           </p>
@@ -185,7 +203,17 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                     <p className="livre__hint">{COVER_MODELS.find(m => m.id === model)?.hint}</p>
                     </>)}
                     {layout.coverBg === 'vagues' && (
-                      <p className="livre__hint">Sans photo : vagues bleu nuit et orange, une course en grand avec sa date, sa distance et son D+.</p>
+                      <>
+                        <p className="livre__hint">
+                          Sans photo : vagues bleu nuit et orange, une course en grand avec sa date, sa distance et son D+.
+                          Sur l'aperçu, glissez le cadre pointillé pour déplacer le tracé, tirez un coin pour changer sa taille.
+                        </p>
+                        {layout.coverTraceBox && (
+                          <button type="button" className="vp-btn vp-btn--sm vp-btn--ghost livre-mep__reset" onClick={() => setLayout({ coverTraceBox: undefined })}>
+                            Remettre le tracé à sa place
+                          </button>
+                        )}
+                      </>
                     )}
                     <p className="livre__label">Devise en haut à droite (un mot ou groupe de mots par ligne)</p>
                     <textarea

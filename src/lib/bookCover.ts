@@ -423,6 +423,32 @@ export function drawPhotoCover(ctx: CanvasRenderingContext2D, img: HTMLImageElem
 
 // ── Couverture « Vagues » (sans photo) ───────────────────────────────────────
 
+/** Place du tracé sur la couverture, en fractions du cadre de la 1re de couverture : centre et largeur (la hauteur
+ * suit les proportions du tracé). Réglée avec les poignées de l'aperçu (écran « Mise en page du livre »). */
+export interface TraceBox { cx: number; cy: number; w: number }
+
+/** Largeur / hauteur du tracé (en distances réelles), 1 si dégénéré. */
+export function traceAspect(pts: { lat: number; lon: number }[]): number {
+  if (pts.length < 2) return 1
+  let a = Infinity, b = -Infinity, c = Infinity, d = -Infinity, s = 0
+  for (const p of pts) { a = Math.min(a, p.lon); b = Math.max(b, p.lon); c = Math.min(c, p.lat); d = Math.max(d, p.lat); s += p.lat }
+  const w = (b - a) * Math.cos(s / pts.length * Math.PI / 180), h = d - c
+  return w > 0 && h > 0 ? Math.max(0.15, Math.min(7, w / h)) : 1
+}
+
+/** Place par défaut : au milieu, au-dessus des vagues, dans 40 % × 36 % du cadre. */
+export function defaultTraceBox(aspect: number, frameRatio: number): TraceBox {
+  return { cx: 0.53, cy: 0.4, w: Math.min(0.4, 0.36 * aspect / frameRatio) }
+}
+
+/** Rectangle du tracé (fractions du cadre) : largeur réglée, hauteur selon ses proportions. */
+export function traceRect(pts: { lat: number; lon: number }[], box: TraceBox | undefined, frameRatio: number) {
+  const aspect = traceAspect(pts)
+  const bx = box ?? defaultTraceBox(aspect, frameRatio)
+  const h = bx.w * frameRatio / aspect
+  return { x: bx.cx - bx.w / 2, y: bx.cy - h / 2, w: bx.w, h }
+}
+
 function calendar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
   ctx.save()
   ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = s * 0.1; ctx.lineJoin = 'round'
@@ -440,7 +466,7 @@ function calendar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number
  * de la maquette (1536 × 1024) sur tout le cadre ; textes dans la zone sûre.
  */
 export function drawGraphicCover(ctx: CanvasRenderingContext2D, item: CoverItem | undefined, t: CoverTexts,
-  f: CoverFrame, safe: CoverSafe) {
+  f: CoverFrame, safe: CoverSafe, box?: TraceBox) {
   const P = (safe.b - safe.t) / 870
   const Y = (yd: number) => safe.t + (yd - 100) * P
   const X = (xd: number) => f.x + xd / 1536 * f.w, Yf = (yd: number) => f.y + yd / 1024 * f.h
@@ -510,7 +536,8 @@ export function drawGraphicCover(ctx: CanvasRenderingContext2D, item: CoverItem 
   motto(ctx, t.motto, safe.r, Y(100), P, 'rgba(15,27,42,0.85)', 'rgba(15,27,42,0.85)')
 
   if (item) {
-    drawTrace(ctx, item.points, X(450), Yf(255), X(1200) - X(450), Yf(745) - Yf(255), 4.6 * P, true)
+    const b = traceRect(item.points, box, f.w / f.h)
+    drawTrace(ctx, item.points, f.x + b.x * f.w, f.y + b.y * f.h, b.w * f.w, b.h * f.h, 4.6 * P, true)
     const ic = 28 * P, tx = left + ic + 34 * P
     calendar(ctx, left + ic / 2, Y(505), ic, ORANGE2)
     text(ctx, item.date, tx, Y(500), `500 ${21 * P}px ${SANS}`, DARK, 'left', 2 * P)

@@ -153,3 +153,15 @@
   .livre__badge svg { width: 28px; height: 28px; }
   .livre__head .livre__title, .livre__title { font-size: 1.8rem; }
 }
+
+/* Poignées du tracé de la couverture vagues (CoverTraceHandles), posées sur la 1re de couverture de l'aperçu. */
+.livre-apercu__front { position: absolute; left: 50%; top: 0; width: 50%; height: 100%; cursor: default; }
+.cover-handles { position: absolute; inset: 0; touch-action: none; }
+.cover-handles__box { position: absolute; box-sizing: border-box; border: 1.5px dashed var(--livre-accent, #C15C3D);
+  background: rgba(193,92,61,.06); cursor: move; touch-action: none; }
+.cover-handles__knob { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: #fff;
+  border: 2px solid var(--livre-accent, #C15C3D); box-shadow: 0 1px 4px rgba(0,0,0,.3); touch-action: none; }
+.cover-handles__knob.is-nw { left: -8px; top: -8px; cursor: nwse-resize; }
+.cover-handles__knob.is-se { right: -8px; bottom: -8px; cursor: nwse-resize; }
+.cover-handles__knob.is-ne { right: -8px; top: -8px; cursor: nesw-resize; }
+.cover-handles__knob.is-sw { left: -8px; bottom: -8px; cursor: nesw-resize; }

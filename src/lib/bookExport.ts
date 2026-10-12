@@ -579,7 +579,7 @@ async function drawFront(ctx: CanvasRenderingContext2D, entries: Entry[], o: Boo
     title: o.title, subtitle: o.layout.coverSubtitle?.trim() || periodLabel(entries), name: o.name,
     motto: mottoLines(o.layout.coverMotto), tagline: o.layout.coverTagline ?? DEFAULT_COVER_TAGLINE,
   }
-  if (o.layout.coverBg === 'vagues') { drawGraphicCover(ctx, coverItems(entries, o.layout)[0], texts, frame, safe); return }
+  if (o.layout.coverBg === 'vagues') { drawGraphicCover(ctx, coverItems(entries, o.layout)[0], texts, frame, safe, o.layout.coverTraceBox); return }
   const photo = await loadCoverPhoto(o.layout)
   if (photo) {
     drawPhotoCover(ctx, photo.img, o.layout.coverPhotoId ?? '', o.layout.coverModel ?? 'photo', coverItems(entries, o.layout),

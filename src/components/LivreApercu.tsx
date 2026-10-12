@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { BookCourse } from '../lib/book'
 import { openBookPreview, type BookOptions, type BookPreview, type PreviewSide, type PreviewTarget } from '../lib/bookExport'
@@ -12,6 +12,9 @@ interface Props {
   paused: boolean
   /** Page à montrer (écran « Mise en page du livre ») : l'aperçu y revient à chaque réglage. */
   focus?: PreviewTarget
+  /** Calque posé sur la 1re de couverture (moitié droite de la vue « Couverture »), hors plein écran : poignées du
+   * tracé de la couverture vagues. */
+  frontOverlay?: ReactNode
 }
 
 /** Largeur de dessin d'une double page (px) : assez pour lire les titres, léger pour un téléphone. */
@@ -37,7 +40,7 @@ interface Images { preview: BookPreview | null; byWidth: Map<number, Map<number,
 
 /** Aperçu du livre, feuilleté double page par double page, dessiné comme l'export (en basse définition) ; plein écran
  * sur demande. */
-export function LivreApercu({ courses, options, bookKey, paused, focus }: Props) {
+export function LivreApercu({ courses, options, bookKey, paused, focus, frontOverlay }: Props) {
   const [preview, setPreview] = useState<BookPreview | null>(null)
   const [failed, setFailed] = useState(false)
   const [view, setView] = useState(0)
@@ -132,9 +135,13 @@ export function LivreApercu({ courses, options, bookKey, paused, focus }: Props)
   const stale = !src || !same
   const label = preview ? viewLabel(preview.views[current]) : ''
 
-  const stage = (cls: string, width?: string) => (
+  const onFront = !!preview && preview.views[current]?.[1] === 'front'
+  const stage = (cls: string, width?: string, overlay?: ReactNode) => (
     <div className={cls} style={{ aspectRatio: String(ratio), width }}>
       {src && <img src={src} alt={preview ? `Aperçu : ${label}` : 'Aperçu'} className={stale ? 'is-stale' : ''} />}
+      {overlay && onFront && (
+        <div className="livre-apercu__front" onClick={e => e.stopPropagation()}>{overlay}</div>
+      )}
       {!exact && (!src || stale) && (
         <span className="livre-apercu__wait">{paused ? 'Aperçu en pause pendant l\'export…' : 'Dessin de l\'aperçu…'}</span>
       )}
@@ -156,7 +163,7 @@ export function LivreApercu({ courses, options, bookKey, paused, focus }: Props)
   return (
     <div className="livre-apercu" tabIndex={0} onKeyDown={onKey} aria-label="Aperçu du livre">
       <div onClick={() => preview && setFull(true)} className="livre-apercu__open" title="Voir en plein écran">
-        {stage('livre-apercu__stage')}
+        {stage('livre-apercu__stage', undefined, frontOverlay)}
       </div>
       {nav(false)}
       {full && createPortal(
