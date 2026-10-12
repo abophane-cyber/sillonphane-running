@@ -3,7 +3,7 @@
 // et que le banc de test continue de l'appeler avec des littéraux.
 
 import type { Panel3d } from './filmExport3d'
-import type { LocalityInfo } from '../../hooks/useLocality'
+import { isLieuditPlaceType, type LocalityInfo } from '../../hooks/useLocality'
 import type { WeatherInfo } from '../meteo'
 
 /** Panneaux 3D depuis la même sélection que le film 2D (voir src/lib/filmExport.ts:572-590). */
@@ -34,7 +34,7 @@ export function localitiesToPanels3d(
       ele: loc.ele,
       style: loc.type === 'col' ? 'col'
         : loc.placeType === 'poi' ? 'poi'
-        : (loc.placeType === 'hamlet' || loc.placeType === 'locality') ? 'lieudit'
+        : isLieuditPlaceType(loc.placeType) ? 'lieudit'
         : 'standard',
     }))
 }

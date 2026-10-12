@@ -2229,10 +2229,11 @@ async function exportFilm3dImpl(
     // Date du widget « Épreuve » (carton de fin) si elle est saisie, sinon celle du tracé.
     date: opts.endCard?.date || opts.trailDate, distanceM: SHOWN_M, elevGainM,
   })
-  // Lieux connus (points d'intérêt du film), posés au sol, pour l'ouverture.
-  const openingPois = scenePanels.filter(p => p.style === 'poi').map(p => {
+  // Localités et cols traversés (panneaux du film), posés au sol, nommés sur l'ouverture ; ni lieux-dits, ni points
+  // d'intérêt.
+  const openingPois = scenePanels.filter(p => p.style === 'standard' || p.style === 'col').map(p => {
     const [px, pz] = cov.project(p.lon, p.lat)
-    return { name: p.name, pos: new THREE.Vector3(px, meshHeightAt(px, pz), pz) }
+    return { name: p.name, col: p.style === 'col', pos: new THREE.Vector3(px, meshHeightAt(px, pz), pz) }
   })
   const _poiV = new THREE.Vector3()
   const _townRay = new THREE.Raycaster(), _townPlane = new THREE.Plane(), _townUp = new THREE.Vector3(0, 1, 0), _townHit = new THREE.Vector3()
@@ -2434,7 +2435,7 @@ async function exportFilm3dImpl(
       }
       const pois = openingPois.map(p => {
         _poiV.copy(p.pos).project(camera)
-        return { name: p.name, x: (_poiV.x + 1) / 2 * OUT_W, y: (1 - _poiV.y) / 2 * OUT_H, ok: _poiV.z < 1 }
+        return { name: p.name, col: p.col, x: (_poiV.x + 1) / 2 * OUT_W, y: (1 - _poiV.y) / 2 * OUT_H, ok: _poiV.z < 1 }
       })
       drawOpening(ctx2d, OUT_W, OUT_H, simElapsed, pts, openingTxt, pois)
     }

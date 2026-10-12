@@ -5,6 +5,7 @@
 
 import maplibregl from 'maplibre-gl'
 import type { GpxPoint } from '../types'
+import { isLieuditPlaceType } from '../hooks/useLocality'
 import { makeStyle } from './mapStyle'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { drawElevOverlay, elevOverlayRect } from './drawElevOverlay'
@@ -1382,7 +1383,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         bestI = -1
       }
     }
-    const style: SignStyle = loc.type === 'col' ? 'col' : loc.placeType === 'poi' ? 'poi' : loc.placeType === 'ravito' ? 'ravito' : (loc.placeType === 'hamlet' || loc.placeType === 'locality') ? 'lieudit' : 'standard'
+    const style: SignStyle = loc.type === 'col' ? 'col' : loc.placeType === 'poi' ? 'poi' : loc.placeType === 'ravito' ? 'ravito' : isLieuditPlaceType(loc.placeType) ? 'lieudit' : 'standard'
     return passes.map(m => {
       const triggerProgress = Math.min(m / totalDistance, 1)
       const arriveFrame = walkWarp ? Math.round(walkWarp.timeAtM(triggerProgress * totalDistance) * fps) : Math.round(triggerProgress * estTotalFrames)
@@ -1742,11 +1743,12 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     }
     for (let i = 0; i < visualPoints.length; i += openingStep) add(visualPoints[i], distances[i] / totalDistance)
     add(visualPoints[visualPoints.length - 1], 1)
-    // Lieux connus (points d'intérêt du film) posés sur l'ouverture.
+    // Localités et cols traversés (panneaux du film) nommés sur l'ouverture ; ni lieux-dits, ni points d'intérêt, ni
+    // ravitaillements.
     for (const ev of localitySpots) {
-      if (ev.style !== 'poi') continue
+      if (ev.style !== 'standard' && ev.style !== 'col') continue
       const q = exportMap.project([ev.lon, ev.lat])
-      openingPoiRel.push({ x: q.x - pS.x, y: q.y - pS.y, name: ev.name })
+      openingPoiRel.push({ x: q.x - pS.x, y: q.y - pS.y, name: ev.name, col: ev.style === 'col' })
     }
   }
   // Cadrage de l'ouverture : plan d'ensemble (OPENING_PUSH : rapprochement pendant le titre, nul), puis plongée
@@ -1859,7 +1861,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     if (v) {
       const sc = Math.pow(2, v.z - ovZoom)
       drawOpening(ctx, OUT_W, OUT_H, tS, openingRel.map(p => ({ x: p0.x + p.x * sc, y: p0.y + p.y * sc, f: p.f })), openingTxt,
-        openingPoiRel.map(p => ({ x: p0.x + p.x * sc, y: p0.y + p.y * sc, name: p.name })))
+        openingPoiRel.map(p => ({ ...p, x: p0.x + p.x * sc, y: p0.y + p.y * sc })))
     }
     drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
     if (useWC && encoder) {
