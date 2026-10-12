@@ -1511,27 +1511,33 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   /** Scène de départ : le panneau de départ est au premier plan, décalé vers le bas devant les personnages. */
   const signY = (ev: unknown, y: number, scale: number) =>
     ev === departureEvent ? y + START_SIGN_OFFSET_PX * scale * FILM_SCALE : y
-  /** Écart (px, taille de marche) laissé entre un repère du départ (« Place de l'Église ») et le nom de la ville. */
-  const START_LANDMARK_GAP = 12
-  /** Rectangle d'un repère visible au départ, élargi de START_LANDMARK_GAP ; `lift` : remontée du lieu connu. */
-  const startLandmarkBox = (ev: LocalityEvent, pt: { x: number; y: number }, s: number, lift = 0): Box => {
+  /** Écart (px, taille de marche) laissé entre un repère (« Place de l'Église ») et le nom de la ville de départ ou
+   * d'arrivée. */
+  const LANDMARK_GAP = 12
+  /** Rectangle d'un repère, élargi de LANDMARK_GAP ; `lift` : remontée du lieu connu. */
+  const landmarkBox = (ev: LocalityEvent, pt: { x: number; y: number }, s: number, lift = 0): Box => {
     const b = signBox(locSignCache, ev.name, ev.style, pt.x, signY(ev, pt.y, s) - lift, s * endK(ev), undefined, ev.ele)
-    const g = START_LANDMARK_GAP * s
+    const g = LANDMARK_GAP * s
     return { x: b.x - g, y: b.y - g, w: b.w + 2 * g, h: b.h + 2 * g }
   }
-  /** Décalage du nom de la ville de départ pour dégager les repères du départ (`boxes`, cf. startLandmarkBox) et les
-   * bornes (`more`) : le plus petit pas qui les dégage, vers le bas d'abord (cf. clearOffset). */
-  function departureShift(boxes: Box[], s: number, more: Box[] = []): [number, number] {
-    if (!departureEvent) return [0, 0]
-    const dp = exportMap.project([departureEvent.lon, departureEvent.lat])
-    return clearOffset(signBox(locSignCache, departureEvent.name, departureEvent.style, dp.x, signY(departureEvent, dp.y, s),
-      s * endK(departureEvent), undefined, departureEvent.ele), [...boxes, ...more], 400)
+  /** Rectangles des repères `list` (sauf celui du nom de `ev`) autour de la ville de départ ou d'arrivée `ev`. */
+  const landmarkBoxes = (ev: LocalityEvent, list: LocalityEvent[], project: ProjectFn, s: number, lifted = false) => list
+    .filter(l => l.name !== ev.name)
+    .map(l => { const p = project(l.lon, l.lat); return landmarkBox(l, p, s, lifted ? poiLift.get(l) ?? 0 : 0) })
+  /** Décalage du nom de la ville de départ ou d'arrivée `ev` pour dégager les repères `list` (cf. landmarkBoxes) et les
+   * rectangles `more` (bornes) : le plus petit pas qui les dégage, vers le bas d'abord (cf. clearOffset). */
+  function endpointShift(ev: LocalityEvent | null, project: ProjectFn, s: number, list: LocalityEvent[], more: Box[] = [], lifted = false): [number, number] {
+    if (!ev) return [0, 0]
+    const p = project(ev.lon, ev.lat)
+    return clearOffset(signBox(locSignCache, ev.name, ev.style, p.x, signY(ev, p.y, s), s * endK(ev), undefined, ev.ele),
+      [...landmarkBoxes(ev, list, project, s, lifted), ...more], 400)
   }
+  const exportProject: ProjectFn = (lon, lat) => exportMap.project([lon, lat])
   /** Ouverture et dézoom du départ : panneau de départ et panneaux déjà visibles au début de la course (repère tout
    * proche du départ, ex. « Porte de Paris »). */
   function drawStartSigns(timeAlpha = 0, alpha = 1) {
     const landmarks = localityEvents.filter(e => e.showFrame === 0)
-    const depShift = departureShift(landmarks.map(ev => startLandmarkBox(ev, exportMap.project([ev.lon, ev.lat]), signScale())), signScale())
+    const depShift = endpointShift(departureEvent, exportProject, signScale(), landmarks)
     for (const ev of [...landmarks, ...(departureEvent ? [departureEvent] : [])]) {
       const pt = exportMap.project([ev.lon, ev.lat])
       const [dx, dy] = ev === departureEvent ? depShift : [0, 0]
@@ -2023,12 +2029,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
           // Nom de commune sur une borne (« LILLE » sous la médaille du 10 km) : écarté du plus petit pas qui la
           // dégage, vers le bas d'abord, en douceur.
           const y0 = signY(ev, pt.y, 1)
-          // Ville de départ : écartée aussi des repères du départ encore affichés (« Place de l'Église »), comme à
+          // Ville de départ ou d'arrivée : écartée aussi des repères affichés autour (« Place de l'Église »), comme à
           // l'ouverture (cf. drawStartSigns), et revient en douceur quand ils s'effacent.
-          const landmarkOcc = ev !== departureEvent ? [] : localityEvents
-            .filter(l => l.showFrame === 0 && signAlpha(f, l.showFrame, l.hideFrame, SIGN_FADE_FRAMES) > 0)
-            .map(l => { const p = project(l.lon, l.lat); return startLandmarkBox(l, p, 1, poiLift.get(l) ?? 0) })
-          const [tx, ty] = clearOffset(signBox(locSignCache, ev.name, ev.style, pt.x, y0, endK(ev), undefined, ev.ele), [...borneOcc, ...landmarkOcc], landmarkOcc.length ? 400 : 220)
+          const [tx, ty] = ev === departureEvent || ev === arrivalEvent
+            ? endpointShift(ev, project, 1, localityEvents.filter(l => signAlpha(f, l.showFrame, l.hideFrame, SIGN_FADE_FRAMES) > 0), borneOcc, true)
+            : clearOffset(signBox(locSignCache, ev.name, ev.style, pt.x, y0, endK(ev)), borneOcc)
           const [cx, cy] = townShift.get(ev) ?? [tx, ty]
           const s: [number, number] = [cx + (tx - cx) * 0.2, cy + (ty - cy) * 0.2]
           townShift.set(ev, s)
@@ -2109,10 +2114,20 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 1)
       drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale())
 
+      // Ville d'arrivée (et de départ) : écartée des repères et des bornes comme pendant la course (même décalage
+      // lissé, sans saut à la ligne d'arrivée).
+      const endBorneOcc = borneBoxes(locSignCache, opts.bornes ?? [], opts.ravitos ?? [], it => exportProject(it.lon, it.lat), signScale())
       for (const ev of [...localitySpots, ...(departureEvent ? [departureEvent] : []), ...(arrivalEvent ? [arrivalEvent] : [])]) {
         const pt = exportMap.project([ev.lon, ev.lat])
+        let sh: [number, number] = [0, 0]
+        if (ev === departureEvent || ev === arrivalEvent) {
+          const [tx, ty] = endpointShift(ev, exportProject, signScale(), localitySpots, endBorneOcc)
+          const [cx, cy] = townShift.get(ev) ?? [tx, ty]
+          sh = [cx + (tx - cx) * 0.2, cy + (ty - cy) * 0.2]
+          townShift.set(ev, sh)
+        }
         if (pt.x > -300 && pt.x < OUT_W + 300 && pt.y > -200 && pt.y < OUT_H + 200)
-          drawLocSign(ctx, locSignCache, ev.name, pt.x, signY(ev, pt.y, signScale()), ev.style, ev.ele, 1, signScale() * endK(ev))
+          drawLocSign(ctx, locSignCache, ev.name, pt.x + sh[0], signY(ev, pt.y, signScale()) + sh[1], ev.style, ev.ele, 1, signScale() * endK(ev))
       }
 
       drawWeatherCard(ctx, OUT_W, opts.weather ?? null, 1)
@@ -2236,12 +2251,16 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
           ctx.save()
           ctx.globalAlpha = a
           // Nom de la ville (départ, arrivée) sous une borne ou un ravitaillement (« LILLE » sous la médaille du 10 km) :
-          // écarté du plus petit pas qui le dégage, en douceur quand les bornes reviennent.
+          // écarté du plus petit pas qui le dégage, en douceur quand les bornes reviennent. Départ et arrivée évitent aussi
+          // les repères tant qu'ils sont affichés, en partant du décalage du plan d'arrivée (pas de saut).
           const y0 = signY(ev, pt.y, signScale())
-          const [tx, ty] = ovBorneOcc.length
-            ? clearOffset(signBox(locSignCache, ev.name, ev.style, pt.x, y0, signScale() * endK(ev), undefined, ev.ele), ovBorneOcc, 400)
-            : [0, 0]
-          const [cx, cy] = ovTownShift.get(ev) ?? [0, 0]
+          const shown = localitySpots.filter(l => l.style === 'col' || locFade > 0)
+          const [tx, ty] = isEndpoint && shown.length
+            ? endpointShift(ev, exportProject, signScale(), shown, ovBorneOcc)
+            : ovBorneOcc.length
+              ? clearOffset(signBox(locSignCache, ev.name, ev.style, pt.x, y0, signScale() * endK(ev), undefined, ev.ele), ovBorneOcc, 400)
+              : [0, 0]
+          const [cx, cy] = ovTownShift.get(ev) ?? (isEndpoint ? townShift.get(ev) : undefined) ?? [0, 0]
           const sh: [number, number] = [cx + (tx - cx) * 0.2, cy + (ty - cy) * 0.2]
           ovTownShift.set(ev, sh)
           drawLocSign(ctx, locSignCache, ev.name, pt.x + sh[0], y0 + sh[1], ev.style, ev.ele, 1, signScale() * endK(ev))
