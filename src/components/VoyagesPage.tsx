@@ -80,6 +80,7 @@ function DownloadIcon() {
 // ── Détail d'un sillon ───────────────────────────────────────────────────────
 function SillonDetail({
   voyage, onBack, onChange, onOpenTrack, onCreateAlbum, onBook, focusTrackId,
+  backupBusy, onExportBackup, onImportBackup,
 }: {
   voyage: Voyage
   onBack: () => void
@@ -90,6 +91,10 @@ function SillonDetail({
   onBook?: () => void
   /** Tracé à déplier + faire défiler à l'ouverture (retour d'un « Voir le film »). */
   focusTrackId?: string | null
+  /** Sauvegarde / restauration de tous les sillons (boutons en haut à droite). */
+  backupBusy?: boolean
+  onExportBackup?: () => void
+  onImportBackup?: () => void
 }) {
   const [playingUrl, setPlayingUrl] = useState<string | null>(null)
   const [playerError, setPlayerError] = useState<string | null>(null)
@@ -472,6 +477,23 @@ function SillonDetail({
         }}
       />
 
+      {(onExportBackup || onImportBackup) && (
+        <div className="sd__tools">
+          {onExportBackup && (
+            <button type="button" className="sd-btn sd-btn--light" disabled={backupBusy} onClick={onExportBackup}
+              title="Enregistre tous vos sillons (tracés, photos, films) dans un fichier — à déposer dans un dossier synchronisé (pCloud, Drive, OneDrive…) pour le retrouver sur un autre appareil">
+              💾 Sauvegarder
+            </button>
+          )}
+          {onImportBackup && (
+            <button type="button" className="sd-btn sd-btn--light" disabled={backupBusy} onClick={onImportBackup}
+              title="Restaure les sillons depuis un fichier de sauvegarde">
+              📂 Restaurer
+            </button>
+          )}
+        </div>
+      )}
+
       <div className={`sd__layout${onBook ? ' sd__layout--book' : ''}`}>
         <div className="sd__main">
           <header className="sd__head">
@@ -725,6 +747,8 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
     onImported: async () => {
       const repaired = await Promise.all((await getAllVoyages()).map(repairOrphanedPhotos))
       setVoyages(repaired.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
+      // Restauration depuis l'écran d'un sillon : il est rechargé (retour à la liste s'il n'existe plus).
+      setSelected(prev => (prev ? repaired.find(x => x.id === prev.id) ?? null : prev))
     },
     afterSaved: () => setBackupStatus(getBackupStatus()),
   })
@@ -791,17 +815,28 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
 
   useHeaderBack('Retour', onBack, !selected)
 
+  const backupInput = (
+    <input ref={backupInputRef} type="file" accept="application/zip,.zip,application/json,.json,.txt,text/plain" style={{ display: 'none' }} onChange={handleImportBackup} />
+  )
+
   if (selected) {
     return (
-      <SillonDetail
-        voyage={selected}
-        onBack={() => { setSelected(null); setFocusTrackId(null) }}
-        onChange={handleVoyageChange}
-        onOpenTrack={onOpenTrack}
-        onCreateAlbum={onCreateAlbum}
-        onBook={onBook}
-        focusTrackId={focusTrackId}
-      />
+      <>
+        {backupInput}
+        <SillonDetail
+          voyage={selected}
+          onBack={() => { setSelected(null); setFocusTrackId(null) }}
+          onChange={handleVoyageChange}
+          onOpenTrack={onOpenTrack}
+          onCreateAlbum={onCreateAlbum}
+          onBook={onBook}
+          focusTrackId={focusTrackId}
+          backupBusy={!!backupBusy}
+          onExportBackup={handleExportBackup}
+          onImportBackup={() => backupInputRef.current?.click()}
+        />
+        {backupBusy && <BackupOverlay {...overlayProps} />}
+      </>
     )
   }
 
@@ -813,7 +848,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
           <h1 className="vp-page__title">Mes sillons</h1>
         </div>
         <div className="vp-page__header-actions">
-          <input ref={backupInputRef} type="file" accept="application/zip,.zip,application/json,.json,.txt,text/plain" style={{ display: 'none' }} onChange={handleImportBackup} />
+          {backupInput}
           <button className="vp-btn vp-btn--sm vp-btn--ghost" disabled={!!backupBusy} onClick={handleExportBackup} title="Enregistre tous vos sillons (tracés, photos, films) dans un fichier — à déposer dans un dossier synchronisé (pCloud, Drive, OneDrive…) pour le retrouver sur un autre appareil">
             💾 Sauvegarder
           </button>
