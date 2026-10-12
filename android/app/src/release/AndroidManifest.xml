@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Build release = version Play Store. Google Play interdit qu'une appli se mette à jour hors du
+     Store : on retire REQUEST_INSTALL_PACKAGES (déclarée dans src/main pour l'APK du site, voir
+     UpdatePrompt.tsx). Le JS désactive la bannière de mise à jour dans ce build (VITE_DISTRIBUTION=play).
+     SCHEDULE_EXACT_ALARM vient de @capacitor/local-notifications : l'appli ne programme aucune
+     notification, et Google Play réserve cette permission aux applis d'alarme/agenda. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" tools:node="remove" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" tools:node="remove" />
+</manifest>
