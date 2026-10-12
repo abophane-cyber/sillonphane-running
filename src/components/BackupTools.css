@@ -1,0 +1,21 @@
+/* Sauvegarder / Restaurer (BackupTools) : en haut à droite de la zone principale, sur la photo.
+   « .app-main div. » : l'emporte sur « .vp-page > * { position: relative } » (App.css). */
+.app-main div.backup-tools { position: absolute; top: 22px; right: 28px; z-index: 5; display: flex; gap: 10px; }
+.backup-tools__btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 9px; font: inherit;
+  font-size: .9rem; font-weight: 600; white-space: nowrap; cursor: pointer; color: #191817;
+  background: rgba(255,255,255,0.92); border: 1px solid rgba(43,41,39,0.2); box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  transition: border-color .15s; }
+.backup-tools__btn:hover { border-color: rgba(43,41,39,0.45); }
+.backup-tools__btn:disabled { opacity: .55; cursor: default; }
+
+/* Plus de photo libre à droite : au-dessus du contenu, alignés à droite. */
+@media (max-width: 1240px) {
+  .app-main div.backup-tools { position: static; justify-content: flex-end; margin-bottom: 10px; }
+  .vp-page > div.backup-tools { position: relative; margin-bottom: -6px; }
+  .sd > div.backup-tools { margin: 0; padding: 16px 20px 0; }
+  .sd > div.backup-tools + .sd__layout { padding-top: 10px; }
+}
+/* Mes sillons : l'encadré du titre, centré, atteindrait les boutons sous 1500 px. */
+@media (max-width: 1500px) {
+  .app-main .vp-page > div.backup-tools { position: relative; top: auto; right: auto; justify-content: flex-end; margin-bottom: -6px; }
+}

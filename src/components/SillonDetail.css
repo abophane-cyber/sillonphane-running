@@ -12,10 +12,6 @@
   scrollbar-width: thin; scrollbar-color: var(--sd-brick) rgba(43,41,39,0.08);
 }
 .sd { position: relative; }
-/* Sauvegarder / Restaurer : en haut à droite, sur la photo. */
-.sd__tools { position: absolute; top: 22px; right: 28px; z-index: 5; display: flex; gap: 10px; }
-.sd__tools .sd-btn { background: rgba(255,255,255,0.92); box-shadow: 0 4px 14px rgba(0,0,0,0.12); }
-.sd__tools .sd-btn:disabled { opacity: .55; cursor: default; }
 .sd__layout { display: grid; grid-template-columns: minmax(0, 1020px); justify-content: center; gap: 56px;
   padding: 30px 32px 90px; }
 .sd__layout--book { grid-template-columns: minmax(0, 1020px) 420px; }
@@ -156,11 +152,7 @@
   .sd__quote { display: none; }
 }
 @media (max-width: 1240px) {
-  .sd__layout, .sd__layout--book { grid-template-columns: minmax(0, 1020px); padding: 22px 20px 110px; }
-  /* Plus de photo libre à droite : les boutons passent au-dessus de l'en-tête, alignés à droite. */
-  .sd__tools { position: static; justify-content: flex-end; padding: 16px 20px 0; }
-  .sd__tools + .sd__layout { padding-top: 10px; }
-  /* Plus de place à droite : seul le bouton reste, fixé en bas à droite. */
+  .sd__layout, .sd__layout--book { grid-template-columns: minmax(0, 1020px); padding: 22px 20px 110px; }  /* Plus de place à droite : seul le bouton reste, fixé en bas à droite. */
   .sd-book { position: fixed; top: auto; right: 16px; bottom: 16px; margin: 0; padding: 0; background: none; box-shadow: none;
     -webkit-backdrop-filter: none; backdrop-filter: none; z-index: 40; }
   .sd-book__title, .sd-book__lead, .sd-book__art, .sd-book__list { display: none; }

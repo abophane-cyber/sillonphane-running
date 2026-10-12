@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { VoyagePhoto } from '../types'
 import { FRONT_PAGES, frontPageCount, frontPages, type BookCourse, type BookLayout, type BookPrefs, type CoverBg, type FrontPageId } from '../lib/book'
 import type { BookOptions, PreviewTarget } from '../lib/bookExport'
@@ -20,6 +20,8 @@ interface Props {
   minPages: number
   /** Retour à « Créer le livre ». */
   onClose: () => void
+  /** Boutons Sauvegarder / Restaurer, en haut à droite (comme sur les autres pages). */
+  tools?: ReactNode
 }
 
 type Tab = 'couverture' | 'pages'
@@ -36,7 +38,7 @@ const MAX_COVER_PHOTOS = 48
 
 /** Écran « Mise en page du livre » : couverture (fond, photo, textes, tracés), 4e de couverture, pages d'en-tête
  * gardées, cases de la page Records, contenu des carnets ; l'aperçu montre la page en cours de réglage. */
-export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault, previewKey, pages, minPages, onClose }: Props) {
+export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault, previewKey, pages, minPages, onClose, tools }: Props) {
   const [tab, setTab] = useState<Tab>('couverture')
   const [focus, setFocus] = useState<PreviewTarget>('front')
   const layout = prefs.layout ?? {}
@@ -98,6 +100,7 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
 
   return (
     <div className="livre livre--wide">
+      {tools}
       <button type="button" className="livre__back" onClick={onClose}>← Le livre</button>
       <div className="livre-mep__head">
         <h1 className="livre__title">Mise en page du livre</h1>

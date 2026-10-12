@@ -9,6 +9,8 @@ import { prepareBook, type PreparedBook } from '../lib/bookExport'
 import { raceResult, formatRecordTime } from '../lib/records'
 import { saveFileWithPicker } from '../lib/saveFile'
 import { useHeaderBack } from '../hooks/useHeaderBack'
+import { useBackupControls } from '../hooks/useBackupControls'
+import { BackupTools } from './BackupTools'
 import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { BookIcon } from './SillonDetailParts'
 import { PrintOfferOverlay } from './PrintOfferOverlay'
@@ -49,6 +51,9 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
   const alive = useRef(true)
 
   useEffect(() => { getAllVoyages().then(setVoyages) }, [])
+  // Sauvegarder / Restaurer en haut à droite ; une restauration recharge les courses.
+  const backup = useBackupControls({ onImported: async () => { setVoyages(await getAllVoyages()) } })
+  const tools = <BackupTools backup={backup} />
   useEffect(() => { saveBookPrefs(prefs) }, [prefs])
   useEffect(() => () => { alive.current = false }, [])
   useHeaderBack('Retour', () => (editing ? setEditing(false) : onBack()))
@@ -154,12 +159,14 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
         pages={pages}
         minPages={minPages}
         onClose={() => setEditing(false)}
+        tools={tools}
       />
     )
   }
 
   return (
     <div className="livre">
+      {tools}
       <button type="button" className="livre__back" onClick={onBack}>← Mes sillons</button>
       <header className="livre__head">
         <span className="livre__badge"><BookIcon size={40} /></span>

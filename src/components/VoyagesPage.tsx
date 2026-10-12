@@ -9,7 +9,7 @@ import {
 import { FILM_MUSIC, filmAudioSupported, type FilmAudioSpec } from '../lib/filmAudio'
 import { useHeaderBack } from '../hooks/useHeaderBack'
 import { useBackupControls } from '../hooks/useBackupControls'
-import { BackupOverlay } from './BackupOverlay'
+import { BackupTools } from './BackupTools'
 import { AlbumPageEditor } from './AlbumPageEditor'
 import { AlbumPrintView } from './AlbumPrintView'
 import { AlbumPhotoPage } from './AlbumPhotoPage'
@@ -80,7 +80,7 @@ function DownloadIcon() {
 // ── Détail d'un sillon ───────────────────────────────────────────────────────
 function SillonDetail({
   voyage, onBack, onChange, onOpenTrack, onCreateAlbum, onBook, focusTrackId,
-  backupBusy, onExportBackup, onImportBackup,
+  backup,
 }: {
   voyage: Voyage
   onBack: () => void
@@ -92,9 +92,7 @@ function SillonDetail({
   /** Tracé à déplier + faire défiler à l'ouverture (retour d'un « Voir le film »). */
   focusTrackId?: string | null
   /** Sauvegarde / restauration de tous les sillons (boutons en haut à droite). */
-  backupBusy?: boolean
-  onExportBackup?: () => void
-  onImportBackup?: () => void
+  backup?: ReturnType<typeof useBackupControls>
 }) {
   const [playingUrl, setPlayingUrl] = useState<string | null>(null)
   const [playerError, setPlayerError] = useState<string | null>(null)
@@ -477,22 +475,7 @@ function SillonDetail({
         }}
       />
 
-      {(onExportBackup || onImportBackup) && (
-        <div className="sd__tools">
-          {onExportBackup && (
-            <button type="button" className="sd-btn sd-btn--light" disabled={backupBusy} onClick={onExportBackup}
-              title="Enregistre tous vos sillons (tracés, photos, films) dans un fichier — à déposer dans un dossier synchronisé (pCloud, Drive, OneDrive…) pour le retrouver sur un autre appareil">
-              💾 Sauvegarder
-            </button>
-          )}
-          {onImportBackup && (
-            <button type="button" className="sd-btn sd-btn--light" disabled={backupBusy} onClick={onImportBackup}
-              title="Restaure les sillons depuis un fichier de sauvegarde">
-              📂 Restaurer
-            </button>
-          )}
-        </div>
-      )}
+      {backup && <BackupTools backup={backup} />}
 
       <div className={`sd__layout${onBook ? ' sd__layout--book' : ''}`}>
         <div className="sd__main">
@@ -740,10 +723,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
   const [newName, setNewName]   = useState('')
   const [loading, setLoading]   = useState(true)
   const [backupStatus, setBackupStatus] = useState(() => getBackupStatus())
-  const {
-    backupBusy, backupInputRef, overlayProps,
-    handleExportBackup, handleImportBackup,
-  } = useBackupControls({
+  const backup = useBackupControls({
     onImported: async () => {
       const repaired = await Promise.all((await getAllVoyages()).map(repairOrphanedPhotos))
       setVoyages(repaired.sort((a, b) => b.createdAt.localeCompare(a.createdAt)))
@@ -752,6 +732,7 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
     },
     afterSaved: () => setBackupStatus(getBackupStatus()),
   })
+  const { backupBusy, handleExportBackup } = backup
   const hasContent = voyages.some(v => v.tracks.length > 0 || v.photos.length > 0 || v.films.length > 0)
 
   useEffect(() => {
@@ -815,46 +796,30 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
 
   useHeaderBack('Retour', onBack, !selected)
 
-  const backupInput = (
-    <input ref={backupInputRef} type="file" accept="application/zip,.zip,application/json,.json,.txt,text/plain" style={{ display: 'none' }} onChange={handleImportBackup} />
-  )
-
   if (selected) {
     return (
-      <>
-        {backupInput}
-        <SillonDetail
-          voyage={selected}
-          onBack={() => { setSelected(null); setFocusTrackId(null) }}
-          onChange={handleVoyageChange}
-          onOpenTrack={onOpenTrack}
-          onCreateAlbum={onCreateAlbum}
-          onBook={onBook}
-          focusTrackId={focusTrackId}
-          backupBusy={!!backupBusy}
-          onExportBackup={handleExportBackup}
-          onImportBackup={() => backupInputRef.current?.click()}
-        />
-        {backupBusy && <BackupOverlay {...overlayProps} />}
-      </>
+      <SillonDetail
+        voyage={selected}
+        onBack={() => { setSelected(null); setFocusTrackId(null) }}
+        onChange={handleVoyageChange}
+        onOpenTrack={onOpenTrack}
+        onCreateAlbum={onCreateAlbum}
+        onBook={onBook}
+        focusTrackId={focusTrackId}
+        backup={backup}
+      />
     )
   }
 
   return (
     <div className="vp-page">
+      <BackupTools backup={backup} />
       <div className="vp-page__header">
         <div className="vp-page__title-row">
           <AppLogoIcon size={30} />
           <h1 className="vp-page__title">Mes sillons</h1>
         </div>
         <div className="vp-page__header-actions">
-          {backupInput}
-          <button className="vp-btn vp-btn--sm vp-btn--ghost" disabled={!!backupBusy} onClick={handleExportBackup} title="Enregistre tous vos sillons (tracés, photos, films) dans un fichier — à déposer dans un dossier synchronisé (pCloud, Drive, OneDrive…) pour le retrouver sur un autre appareil">
-            💾 Sauvegarder
-          </button>
-          <button className="vp-btn vp-btn--sm vp-btn--ghost" disabled={!!backupBusy} onClick={() => backupInputRef.current?.click()} title="Restaure les sillons depuis un fichier de sauvegarde">
-            📂 Restaurer
-          </button>
           <button className="vp-btn" onClick={() => setCreating(true)}>+ Nouveau dossier</button>
           {onAlbum && (
             <button className="vp-btn vp-btn--ghost" onClick={onAlbum}><AlbumIcon size={18} /> Créer mon affiche</button>
@@ -931,7 +896,6 @@ export function VoyagesPage({ onBack, onOpenTrack, onCreateAlbum, onAlbum, onBoo
           ))}
         </div>
       )}
-      {backupBusy && <BackupOverlay {...overlayProps} />}
     </div>
   )
 }
