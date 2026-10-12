@@ -43,7 +43,7 @@ const CREAM = '244,237,224'
 const ink = (a: number) => `rgba(${INK},${a})`
 const cream = (a: number) => `rgba(${CREAM},${a})`
 const THEME: Theme = { light: true, fg: INK, bg: PAPER, accent: '#E4602A' }
-/** Ruban de la couverture et de la page de titre : vert · orange · crème, signature du site. */
+/** Ruban de la couverture : vert · orange · crème, signature du site. */
 const TRACE_STOPS = ribbonStops('trois-couleurs')
 
 export interface BookOptions {
@@ -78,7 +78,7 @@ interface Entry {
 }
 
 type Page =
-  | { kind: 'title' } | { kind: 'records' } | { kind: 'progress' } | { kind: 'palmares' }
+  | { kind: 'records' } | { kind: 'progress' } | { kind: 'palmares' }
   | { kind: 'toc'; front: [string, number][] }
   | { kind: 'poster'; e: Entry } | { kind: 'carnet'; e: Entry } | { kind: 'photos'; e: Entry; half: 0 | 1 }
   | { kind: 'blank' } | { kind: 'colophon' }
@@ -175,19 +175,6 @@ function drawTraces(ctx: CanvasRenderingContext2D, entries: Entry[], x: number, 
 }
 
 // ── Pages d'en-tête ──────────────────────────────────────────────────────────
-
-function drawTitlePage(ctx: CanvasRenderingContext2D, entries: Entry[], o: BookOptions) {
-  drawTraces(ctx, entries, M + 40, M + 30, UW - 2 * M - 80, UH * 0.46, 3)
-  const cx = UW / 2
-  const t = wrapFit(ctx, o.title, 600, SERIF, 64, 30, UW - 2 * M - 80, 2)
-  let y = UH * 0.46 + M + 90
-  t.lines.forEach(l => { text(ctx, l, cx, y, `600 ${t.size}px ${SERIF}`, ink(0.95), 'center'); y += t.size * 1.12 })
-  text(ctx, periodLabel(entries), cx, y + 8, `600 16px ${SANS}`, ACCENT, 'center', 4)
-  const km = entries.reduce((s, e) => s + e.data.officialM, 0) / 1000
-  const meta = `${entries.length} course${entries.length > 1 ? 's' : ''} · ${Math.round(km).toLocaleString('fr-FR')} km`
-  text(ctx, meta, cx, y + 40, `500 14px ${SANS}`, ink(0.6), 'center', 1)
-  if (o.name) text(ctx, o.name, cx, UH - M - 6, `italic 500 22px ${SERIF}`, ink(0.85), 'center')
-}
 
 function bestByCategory(entries: Entry[]): Partial<Record<RecordCategory, Entry>> {
   const best: Partial<Record<RecordCategory, Entry>> = {}
@@ -748,7 +735,8 @@ function layoutBook(courses: BookCourse[], o: BookOptions): { entries: Entry[]; 
   const front = frontPages(o.layout)
   const toc: [string, number][] = []
   const plan: Page[] = front.map((id: FrontPageId, i): Page => {
-    if (id !== 'title' && id !== 'toc') toc.push([FRONT_PAGES.find(p => p.id === id)!.label, i + 1])
+    // Sommaire en page 1 : il liste les pages gardées (rempli au fil de la boucle, avant tout dessin).
+    if (id !== 'toc') toc.push([FRONT_PAGES.find(p => p.id === id)!.label, i + 1])
     return id === 'toc' ? { kind: 'toc', front: toc } : { kind: id }
   })
   if (plan.length % 2 === 0) plan.push({ kind: 'blank' })
@@ -770,7 +758,6 @@ async function drawPage(ctx: CanvasRenderingContext2D, page: Page, n: number, k:
   ctx.fillStyle = PAPER; ctx.fillRect(0, 0, UW, UH)
   const imgsOf = (e: Entry) => e.photos.map(p => loaded.get(p.id)).filter((x): x is HTMLImageElement => !!x)
   switch (page.kind) {
-    case 'title': drawTitlePage(ctx, entries, o); break
     case 'records': drawRecords(ctx, entries, o.layout); folio(ctx, n); break
     case 'progress': drawProgress(ctx, entries); folio(ctx, n); break
     case 'palmares': drawPalmares(ctx, entries); folio(ctx, n); break

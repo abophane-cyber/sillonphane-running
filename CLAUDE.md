@@ -90,8 +90,8 @@ Reste à faire :
      bouton en haut de Mes sillons : courses choisies **dans tous les sillons** (filtre par période : années ou
      dates), car une saison ne suffit pas au minimum de pages des imprimeurs (WhiteWall : 28, Flexilivre : 24) ; titre du livre, nom,
      note par course (`VoyageTrack.bookNote`). Une double page par course (affiche | carnet : temps de passage, profil,
-     photos, note), double page photos en option ; en tête page de titre, records | progression, palmarès | sommaire
-     (5 pages). Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
+     photos, note), double page photos en option ; en tête sommaire (page 1, ne liste que les pages d'en-tête gardées), records | progression, palmarès
+     (5 pages avec la page blanche ; plus de page de titre). Compteur « 22 pages sur 28 minimum », export bloqué en dessous.
      Écran « Mise en page du livre » (`components/LivreMiseEnPage.tsx`, bouton « Modifier la couverture et les
      pages » au-dessus de l'aperçu ; réglages `BookLayout` dans `lib/book.ts`) : couverture (fond vert nuit, noir,
      papier ou photo d'une course ; titre, sous-titre, nom ; titre en haut ou en bas ; tracés ; avec une photo, trois

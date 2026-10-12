@@ -1,6 +1,6 @@
 // Livre de Mes sillons : les affiches des courses choisies dans tous les sillons, une double page par course (affiche +
-// carnet : temps de passage, profil, photos, note), double page photos en option ; en tête page de titre, records,
-// progression, palmarès et sommaire. Le nombre de pages doit atteindre le minimum de l'imprimeur (WhiteWall : 28,
+// carnet : temps de passage, profil, photos, note), double page photos en option ; en tête sommaire, records,
+// progression et palmarès. Le nombre de pages doit atteindre le minimum de l'imprimeur (WhiteWall : 28,
 // Flexilivre : 24) pour l'export. Dessin et PDF : lib/bookExport.ts.
 import type { Voyage, VoyageTrack } from '../types'
 import { PRINT_PROFILES, type PrintProfile } from './printProfiles'
@@ -8,15 +8,15 @@ import { STORAGE_PREFIX } from './appIdentity'
 import type { RecordCategory } from './records'
 import type { CoverModel } from './bookCover'
 
-/** Pages d'en-tête, dans l'ordre : page de titre (à droite), records | progression, palmarès | sommaire. Chacune se
- * retire depuis l'écran « Mise en page du livre » (components/LivreMiseEnPage.tsx). */
-export type FrontPageId = 'title' | 'records' | 'progress' | 'palmares' | 'toc'
+/** Pages d'en-tête, dans l'ordre : sommaire (page 1, à droite), records | progression, palmarès. Chacune se retire
+ * depuis l'écran « Mise en page du livre » (components/LivreMiseEnPage.tsx) ; le sommaire ne liste que celles gardées.
+ * (Plus de page de titre : la couverture la remplace.) */
+export type FrontPageId = 'toc' | 'records' | 'progress' | 'palmares'
 export const FRONT_PAGES: { id: FrontPageId; label: string }[] = [
-  { id: 'title', label: 'Page de titre' },
+  { id: 'toc', label: 'Sommaire' },
   { id: 'records', label: 'Records' },
   { id: 'progress', label: 'Progression' },
   { id: 'palmares', label: 'Palmarès' },
-  { id: 'toc', label: 'Sommaire' },
 ]
 
 /** Fond de la couverture : vert nuit (défaut), noir, papier crème, ou une photo d'une des courses. */

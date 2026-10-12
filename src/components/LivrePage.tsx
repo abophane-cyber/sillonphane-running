@@ -174,8 +174,7 @@ export function LivrePage({ onBack, onOpenPoster }: Props) {
       </header>
       <p className="livre__lead">
         Choisissez les courses de vos sillons : chacune occupe une double page (son affiche, et en face son carnet :
-        temps de passage, profil, photos, votre note). En tête du livre : page de titre, records, progression, palmarès
-        et sommaire.
+        temps de passage, profil, photos, votre note). En tête du livre : sommaire, records, progression et palmarès.
       </p>
 
       {courses.length === 0 ? (
