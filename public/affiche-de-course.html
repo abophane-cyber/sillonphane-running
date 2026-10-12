@@ -71,11 +71,11 @@
     .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; margin: 16px 0; }
     .card--forest { background: var(--forest-light); border-color: rgba(47,72,57,0.18); }
 
-    /* Illustration de l'affiche (portrait 3:4, encadrée) */
+    /* Affiche d'exemple (format A, encadrée) */
     .preview { margin: 32px 0; }
     .poster { max-width: 360px; margin: 0 auto; padding: 12px; background: #2B2724; border-radius: 4px;
       box-shadow: 0 8px 18px rgba(12,11,10,0.30), 0 40px 70px -12px rgba(12,11,10,0.5); }
-    .poster svg { display: block; width: 100%; height: auto; }
+    .poster img { display: block; width: 100%; height: auto; }
     .preview__caption { margin: 14px 0 0; font-size: 0.82rem; color: var(--ink-faint); text-align: center; }
 
     .partners { display: flex; flex-wrap: wrap; gap: 12px; margin: 16px 0; }
@@ -122,74 +122,31 @@
     </p>
 
     <div class="preview">
-      <div class="poster" role="img" aria-label="Illustration d'une affiche de course : titre « Mon semi-marathon à Lille », tracé du parcours, temps officiel, temps de passage et profil">
-        <svg viewBox="0 0 300 400" aria-hidden="true">
-          <defs>
-            <linearGradient id="poster-rib" gradientUnits="userSpaceOnUse" x1="70" y1="230" x2="230" y2="90">
-              <stop offset="0%" stop-color="#2F4839" /><stop offset="50%" stop-color="#C15C3D" /><stop offset="100%" stop-color="#F5F3EF" />
-            </linearGradient>
-            <linearGradient id="poster-prof" x1="0" x2="1">
-              <stop offset="0%" stop-color="#2F4839" /><stop offset="50%" stop-color="#C15C3D" /><stop offset="100%" stop-color="#F5F3EF" />
-            </linearGradient>
-            <clipPath id="poster-map"><rect x="16" y="66" width="268" height="176" rx="3" /></clipPath>
-          </defs>
-          <rect width="300" height="400" fill="#121714" />
-          <text x="16" y="24" font-family="Plus Jakarta Sans, sans-serif" font-size="6" font-weight="700" letter-spacing="2.4" fill="#D97A3D">FINISHER</text>
-          <text x="16" y="45" font-family="Playfair Display, Georgia, serif" font-size="19" font-weight="700" fill="#F4EDE0">Mon semi-marathon à Lille</text>
-          <text x="16" y="57" font-family="Plus Jakarta Sans, sans-serif" font-size="6.5" fill="#F4EDE0" fill-opacity="0.72">21,1 km · 25 octobre 2026 · Lille</text>
-          <g clip-path="url(#poster-map)">
-            <rect x="16" y="66" width="268" height="176" fill="#1B221E" />
-            <g stroke="#26302A" stroke-width="7" fill="none"><path d="M0,170 L300,120" /><path d="M90,60 L130,260" /><path d="M200,60 L230,260" /><path d="M0,225 L300,200" /></g>
-            <path d="M150,175 C170,160 205,168 210,192 C214,214 186,224 166,216 C146,208 136,186 150,175Z" fill="#1A2E21" />
-            <path d="M70,230 C82,196 64,160 96,150 C126,140 120,110 150,104 C176,98 168,132 196,134 C222,136 214,104 238,96 C250,92 252,82 244,76" fill="none" stroke="#000" stroke-opacity="0.55" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M70,230 C82,196 64,160 96,150 C126,140 120,110 150,104 C176,98 168,132 196,134 C222,136 214,104 238,96 C250,92 252,82 244,76" fill="none" stroke="url(#poster-rib)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" />
-            <g font-family="Plus Jakarta Sans, sans-serif" font-size="6" font-weight="800" fill="#F4EDE0" text-anchor="middle">
-              <circle cx="80" cy="168" r="6.5" fill="#121714" stroke="#5E7A55" stroke-width="1.3" /><text x="80" y="170.2">5</text>
-              <circle cx="140" cy="108" r="6.5" fill="#121714" stroke="#C8854A" stroke-width="1.3" /><text x="140" y="110.2">10</text>
-              <circle cx="198" cy="134" r="6.5" fill="#121714" stroke="#E2A06E" stroke-width="1.3" /><text x="198" y="136.2">15</text>
-              <circle cx="236" cy="98" r="6.5" fill="#121714" stroke="#F0D9C2" stroke-width="1.3" /><text x="236" y="100.2">20</text>
-            </g>
-            <circle cx="70" cy="230" r="4" fill="#F5F3EF" />
-            <circle cx="244" cy="76" r="4" fill="#2F4839" stroke="#F5F3EF" stroke-width="1.4" />
-          </g>
-          <text x="16" y="262" font-family="Plus Jakarta Sans, sans-serif" font-size="5" font-weight="700" letter-spacing="1.8" fill="#F4EDE0" fill-opacity="0.6">TEMPS OFFICIEL</text>
-          <text x="16" y="292" font-family="Playfair Display, Georgia, serif" font-size="32" font-weight="700" fill="#F4EDE0">1 h 43'10"</text>
-          <g font-family="Plus Jakarta Sans, sans-serif" font-size="6" text-anchor="end">
-            <text x="248" y="270" fill="#F4EDE0" fill-opacity="0.55">Dossard</text><text x="284" y="270" font-weight="700" fill="#F4EDE0">4127</text>
-            <text x="248" y="282" fill="#F4EDE0" fill-opacity="0.55">Allure</text><text x="284" y="282" font-weight="700" fill="#F4EDE0">4'53"/km</text>
-          </g>
-          <path d="M16,304 L284,304 M16,336 L284,336" stroke="#F4EDE0" stroke-opacity="0.18" />
-          <g font-family="Plus Jakarta Sans, sans-serif" text-anchor="middle">
-            <g font-size="4.6" font-weight="700" letter-spacing="1.2" fill="#D97A3D">
-              <text x="43" y="314">5 KM</text><text x="96" y="314">10 KM</text><text x="150" y="314">15 KM</text><text x="204" y="314">20 KM</text><text x="257" y="314">ARRIVÉE</text>
-            </g>
-            <g font-size="8" font-weight="700" fill="#F4EDE0">
-              <text x="43" y="327">24'18"</text><text x="96" y="327">48'29"</text><text x="150" y="327">1 h 13'07"</text><text x="204" y="327">1 h 38'08"</text><text x="257" y="327">1 h 43'10"</text>
-            </g>
-          </g>
-          <path d="M16,380 L16,366 C40,365 56,360 80,362 C104,364 120,355 146,352 C170,350 186,360 210,358 C236,356 256,364 284,362 L284,380Z" fill="url(#poster-prof)" fill-opacity="0.3" />
-          <path d="M16,366 C40,365 56,360 80,362 C104,364 120,355 146,352 C170,350 186,360 210,358 C236,356 256,364 284,362" fill="none" stroke="url(#poster-prof)" stroke-width="1.4" />
-          <text x="284" y="394" text-anchor="end" font-family="Playfair Display, Georgia, serif" font-size="6.5" font-weight="700" fill="#F4EDE0" fill-opacity="0.7">Sillonphane</text>
-        </svg>
+      <div class="poster">
+        <picture>
+          <source srcset="demo/affiche-demo.webp" type="image/webp">
+          <img src="demo/affiche-demo.jpg" width="760" height="1074" decoding="async"
+               alt="Exemple d'affiche de course, modèle « la carte » : titre Demo Running, date, petite carte de France, tracé du parcours sur les vues aériennes de l'IGN avec les kilomètres, départ et arrivée à Charnat, temps 2:22:51, allure 6'00&quot;/km et profil (23,8 km, 136 m D+)">
+        </picture>
       </div>
-      <p class="preview__caption">Illustration, données d'exemple.</p>
+      <p class="preview__caption">Exemple réel, modèle « la carte » : une course de démonstration à Charnat.</p>
     </div>
 
     <h2>Ce que montre l'affiche</h2>
     <ul>
       <li><strong>Votre titre</strong>, « Mon semi-marathon à Lille » par exemple, avec la distance, la date et la ville.</li>
-      <li><strong>Le tracé</strong>, avec le ruban de couleur du film, les bornes tous les 5 km, le départ et l'arrivée.</li>
+      <li><strong>Le tracé</strong>, avec les kilomètres, le départ et l'arrivée.</li>
       <li><strong>Votre temps officiel</strong>, votre dossard et votre classement, saisis par vous : l'appli ne va rien chercher ailleurs.</li>
       <li><strong>Vos temps de passage</strong> tous les 5 km, votre meilleur et votre moins bon kilomètre, la comparaison des deux moitiés.</li>
       <li><strong>Le profil</strong> du parcours.</li>
-      <li><strong>Deux photos, si vous le voulez</strong> : l'arrivée, la médaille.</li>
+      <li><strong>Jusqu'à trois photos, si vous le voulez</strong> : l'arrivée, la médaille… (selon le modèle).</li>
     </ul>
 
     <h2>À votre goût</h2>
     <ul>
-      <li><strong>Le fond</strong> : vues aériennes de l'IGN assombries, plan de nuit, plan clair ou fond uni.</li>
+      <li><strong>Le modèle et le fond</strong> : quatre modèles, sur blanc cassé, crème, papier, lin, gris clair, vert nuit ou noir ; le tracé aux couleurs du logo, dans la couleur de votre choix, ou sans tracé.</li>
       <li><strong>Ce que vous montrez</strong> : chaque information se masque d'un geste. Le classement, par exemple, peut rester entre vous et vous.</li>
-      <li><strong>Le format</strong> : affiche 30 × 40 cm pour l'impression, image carrée ou story pour les réseaux.</li>
+      <li><strong>Le format</strong> : A3, A4 ou carré 30 × 30 cm, en haute définition pour l'impression ou en image pour les réseaux.</li>
     </ul>
 
     <h2>Tirage</h2>
