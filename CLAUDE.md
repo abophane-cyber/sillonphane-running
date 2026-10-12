@@ -38,7 +38,8 @@ Pas encore en ligne : dépôt GitHub `abophane-cyber/Sillonphane-Running` à cr�
 `.github/workflows/deploy-ovh.yml` repris de Rando (secrets OVH de Rando, `OVH_FTP_DIR` = www/running/).
 **Avant le premier envoi de Running**, ajouter `--exclude 'running/**'` au `rclone sync` du workflow de
 `../Sillonphane-site` (sinon le prochain push du site efface www/running/) et le pousser. Le lien vers Running sur
-la vitrine sillonphane.fr vient en dernier.
+la vitrine sillonphane.fr vient en dernier : il est prêt sur la branche `running-en-ligne` de `../Sillonphane-site`
+(fiche « Disponible », boutons, pied de page), à fusionner dans `main` une fois Running vérifié en ligne.
 
 Accueil : extraits du film (`public/demo/film-2d.*`, `film-3d.*`) et affiche d'exemple (`public/demo/affiche-demo.*`)
 tirés de la course « Demo Running » à Charnat ; films bruts dans `videos-brutes/` (non versionné).
