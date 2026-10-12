@@ -19,7 +19,7 @@ import {
 import { getTrackPacing, headingToScreen } from '../lib/trackPacing'
 import { borneNumber, borneReached, borneTimeLine, type Borne, type Ravito } from '../lib/raceSplits'
 import { CAPTION_HOLD_S, type StreetRun } from '../lib/routeStreets'
-import { PLACE_HOLD_S, drawStreetAlongPath, poiIconFor, poiLines, streetLabel, streetLabelAlpha } from '../lib/mapLabels'
+import { PLACE_HOLD_S, clearOffset, drawStreetAlongPath, poiIconFor, poiLines, streetLabel, streetLabelAlpha, type Box } from '../lib/mapLabels'
 import { ANIM_SETTINGS } from '../hooks/useAnimationSettings'
 import { RIBBON_FULL_GRADIENT, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonGradient, ribbonHeadM } from '../lib/ribbon'
 import { makeStyle, EMPTY_FC } from '../lib/mapStyle'
@@ -1572,6 +1572,57 @@ export function TrackMap({
     }
     if (loadedRef.current) place(); else mapRef.current.once('load', place)
   }, [arrivalNameOverride, arrivalColEle, arrivalLieudit, points])
+
+  // Nom de la ville de départ ou d'arrivée posé sur un repère (« Place de l'Église ») ou une borne : écarté du plus
+  // petit pas qui les dégage, vers le bas d'abord, comme dans les films (endpointShift, filmExport.ts). Rectangles
+  // mesurés à l'écran (au plus toutes les 120 ms), décalage en douceur (transition CSS de `translate`).
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    const GAP = 12
+    let last = 0
+    const shown = (e: Element) => {
+      const r = e.getBoundingClientRect()
+      if (r.width === 0 || r.height === 0) return false
+      const v = e as Element & { checkVisibility?: (o: object) => boolean }
+      return v.checkVisibility ? v.checkVisibility({ visibilityProperty: true, opacityProperty: true })
+        : getComputedStyle(e).visibility !== 'hidden'
+    }
+    let timer = 0
+    const avoid = () => {
+      const now = performance.now()
+      // Au plus toutes les 120 ms, avec une dernière mesure une fois la carte immobile.
+      window.clearTimeout(timer)
+      if (now - last < 120) { timer = window.setTimeout(avoid, 130); return }
+      last = now
+      const ends = [departureMarkerRef.current, arrivalMarkerRef.current].filter((m): m is maplibregl.Marker => !!m).map(m => m.getElement())
+      if (!ends.length) return
+      const origin = map.getContainer().getBoundingClientRect()
+      const box = (r: DOMRect, g = 0): Box => ({ x: r.left - origin.left - g, y: r.top - origin.top - g, w: r.width + 2 * g, h: r.height + 2 * g })
+      const obstacles: Box[] = []
+      map.getContainer().querySelectorAll('.maplibregl-marker').forEach(m => {
+        if (ends.includes(m as HTMLElement)) return
+        m.querySelectorAll('.loc-sign__board, .borne-medal').forEach(b => { if (shown(b)) obstacles.push(box(b.getBoundingClientRect(), GAP)) })
+      })
+      for (const el of ends) {
+        const sign = el.querySelector<HTMLElement>('.loc-sign'), board = el.querySelector('.loc-sign__board')
+        if (!sign || !board) continue
+        // Rectangle sans le décalage en cours (valeur animée de `translate`).
+        const [cx = 0, cy = 0] = getComputedStyle(sign).translate.split(' ').map(v => parseFloat(v) || 0)
+        const base = box(board.getBoundingClientRect())
+        base.x -= cx; base.y -= cy
+        const [dx, dy] = clearOffset(base, obstacles, 400)
+        const next = dx || dy ? `${dx}px ${dy}px` : ''
+        if (sign.style.translate !== next) {
+          sign.style.transition = 'translate 0.35s ease-out'
+          sign.style.translate = next
+        }
+      }
+    }
+    avoid()
+    map.on('render', avoid)
+    return () => { map.off('render', avoid); window.clearTimeout(timer) }
+  }, [points])
 
   // Dépôt d'un panneau ajouté glissé depuis la liste de l'assistant (panelDrag.ts) : posé au point du
   // tracé le plus proche du point de dépôt. La position « déplacée » interne est mise à jour aussi,
