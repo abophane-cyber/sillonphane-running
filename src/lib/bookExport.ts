@@ -19,7 +19,7 @@ import { formatElapsed, formatPace, type RaceAnalysis } from './raceSplits'
 import { RECORD_CATEGORIES, type RecordCategory } from './records'
 import { wrapSpreadForPages } from './printProfiles'
 import { getPhotoBlob } from './voyageDB'
-import { coverModelOnPaper, drawPhotoCover, mottoLines, DEFAULT_COVER_TAGLINE, type CoverFrame, type CoverItem, type CoverSafe } from './bookCover'
+import { coverModelOnPaper, drawGraphicCover, drawPhotoCover, mottoLines, DEFAULT_COVER_TAGLINE, type CoverFrame, type CoverItem, type CoverSafe } from './bookCover'
 import { sanitizeFilename } from './saveFile'
 
 const DPI = 300
@@ -526,6 +526,8 @@ interface CoverLook { bg: string; fg: (a: number) => string; accent: string }
 function coverLook(layout: BookLayout): CoverLook {
   // Couverture dessinée d'après la photo : papier crème au dos et sur la tranche.
   if (layout.coverBg === 'photo' && coverModelOnPaper(layout.coverModel)) return { bg: PAPER, fg: ink, accent: ACCENT }
+  // Vagues : papier clair au dos, accent orange de la couverture.
+  if (layout.coverBg === 'vagues') return { bg: '#F3F1EC', fg: ink, accent: '#E5731F' }
   switch (layout.coverBg) {
     case 'papier': return { bg: PAPER, fg: ink, accent: ACCENT }
     default: return { bg: NIGHT, fg: cream, accent: '#F07D1A' }
@@ -569,14 +571,21 @@ function coverItems(entries: Entry[], layout: BookLayout): CoverItem[] {
   })
 }
 
-/** Couverture photo (modèles photo, dessin, illustration) dans le cadre de la 1re de couverture. */
-function drawFrontFromPhoto(ctx: CanvasRenderingContext2D, img: HTMLImageElement, entries: Entry[], o: BookOptions,
+/** 1re de couverture dans son cadre : vagues (sans photo), photo (modèles photo, dessin, illustration), sinon fond uni
+ * (titre, tracés de toutes les courses). */
+async function drawFront(ctx: CanvasRenderingContext2D, entries: Entry[], o: BookOptions, look: CoverLook,
   frame: CoverFrame, safe: CoverSafe, pxPerMm: number) {
-  drawPhotoCover(ctx, img, o.layout.coverPhotoId ?? '', o.layout.coverModel ?? 'photo', coverItems(entries, o.layout),
-    {
-      title: o.title, subtitle: o.layout.coverSubtitle?.trim() || periodLabel(entries), name: o.name,
-      motto: mottoLines(o.layout.coverMotto), tagline: o.layout.coverTagline ?? DEFAULT_COVER_TAGLINE,
-    }, frame, safe, pxPerMm)
+  const texts = {
+    title: o.title, subtitle: o.layout.coverSubtitle?.trim() || periodLabel(entries), name: o.name,
+    motto: mottoLines(o.layout.coverMotto), tagline: o.layout.coverTagline ?? DEFAULT_COVER_TAGLINE,
+  }
+  if (o.layout.coverBg === 'vagues') { drawGraphicCover(ctx, coverItems(entries, o.layout)[0], texts, frame, safe); return }
+  const photo = await loadCoverPhoto(o.layout)
+  if (photo) {
+    drawPhotoCover(ctx, photo.img, o.layout.coverPhotoId ?? '', o.layout.coverModel ?? 'photo', coverItems(entries, o.layout),
+      texts, frame, safe, pxPerMm)
+    photo.release()
+  } else drawCoverFront(ctx, entries, o, look, safe.l, safe.r - safe.l, safe.t, safe.b)
 }
 
 /** 1re de couverture : titre, sous-titre (la période par défaut), nom ; tracés de toutes les courses (en option). */
@@ -637,12 +646,8 @@ async function renderWrapCover(entries: Entry[], o: BookOptions, pages: number):
   const half = (SW - spine) / 2
   const top = bleed + COVER_SAFE, bottom = SH - bleed - COVER_SAFE
   const fx = half + spine + COVER_SAFE
-  const photo = await loadCoverPhoto(o.layout)
-  if (photo) {
-    drawFrontFromPhoto(ctx, photo.img, entries, o, { x: half + spine, y: 0, w: SW - half - spine, h: SH },
-      { l: fx, r: SW - bleed - COVER_SAFE, t: top, b: bottom }, PX_PER_MM)
-    photo.release()
-  } else drawCoverFront(ctx, entries, o, look, fx, SW - bleed - COVER_SAFE - fx, top, bottom)
+  await drawFront(ctx, entries, o, look, { x: half + spine, y: 0, w: SW - half - spine, h: SH },
+    { l: fx, r: SW - bleed - COVER_SAFE, t: top, b: bottom }, PX_PER_MM)
   drawCoverBack(ctx, entries, o, look, bleed + COVER_SAFE, half - bleed - 2 * COVER_SAFE, top, bottom)
   // Dos : titre et période, de haut en bas.
   if (spine >= 6) {
@@ -669,11 +674,7 @@ async function renderCoverPage(entries: Entry[], o: BookOptions, side: 'front' |
   const { canvas, ctx } = coverCanvas(w * 10, h * 10, look.bg, pxPerMm)
   const x = COVER_SAFE, cw = w * 10 - 2 * COVER_SAFE, top = COVER_SAFE, bottom = h * 10 - COVER_SAFE
   if (side === 'front') {
-    const photo = await loadCoverPhoto(o.layout)
-    if (photo) {
-      drawFrontFromPhoto(ctx, photo.img, entries, o, { x: 0, y: 0, w: w * 10, h: h * 10 }, { l: x, r: x + cw, t: top, b: bottom }, pxPerMm)
-      photo.release()
-    } else drawCoverFront(ctx, entries, o, look, x, cw, top, bottom)
+    await drawFront(ctx, entries, o, look, { x: 0, y: 0, w: w * 10, h: h * 10 }, { l: x, r: x + cw, t: top, b: bottom }, pxPerMm)
   } else drawCoverBack(ctx, entries, o, look, x + cw * 0.25, cw * 0.5, top, bottom)
   return canvas
 }

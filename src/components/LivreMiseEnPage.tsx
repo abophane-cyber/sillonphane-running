@@ -31,6 +31,7 @@ const COVER_BGS: { id: CoverBg; label: string; swatch: string }[] = [
   { id: 'nuit', label: 'Vert nuit', swatch: '#121714' },
   { id: 'papier', label: 'Papier crème', swatch: '#F6F2EA' },
   { id: 'photo', label: 'Une photo', swatch: 'linear-gradient(135deg,#6b8f71,#d9a066)' },
+  { id: 'vagues', label: 'Vagues', swatch: 'linear-gradient(160deg,#F3F1EC 0 45%,#EE7F2D 45% 60%,#1E2A33 60%)' },
 ]
 
 /** Modèles de la couverture photo (cf. lib/bookCover.ts). */
@@ -107,8 +108,10 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
   const model: CoverModel = layout.coverModel ?? 'photo'
   const traceIds = (layout.coverTraceIds ?? courses.map(c => c.track.id)).filter(id => courses.some(c => c.track.id === id))
     .slice(0, MAX_COVER_TRACES)
+  // Un seul tracé : modèle illustration et fond vagues.
+  const single = layout.coverBg === 'vagues' || model === 'illustration'
   function toggleTrace(id: string) {
-    if (model === 'illustration') { setLayout({ coverTraceIds: [id, ...traceIds.filter(t => t !== id)] }); return }
+    if (single) { setLayout({ coverTraceIds: [id, ...traceIds.filter(t => t !== id)] }); return }
     const next = traceIds.includes(id) ? traceIds.filter(t => t !== id) : [...traceIds, id].slice(0, MAX_COVER_TRACES)
     // Ordre des courses (chronologique), pas celui des clics.
     setLayout({ coverTraceIds: courses.map(c => c.track.id).filter(t => next.includes(t)) })
@@ -156,14 +159,15 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                 <p className="livre__label">Fond</p>
                 <div className="livre-mep__swatches" role="group" aria-label="Fond de la couverture">
                   {COVER_BGS.map(b => (
-                    <button key={b.id} type="button" aria-pressed={(layout.coverBg === 'papier' || layout.coverBg === 'photo' ? layout.coverBg : 'nuit') === b.id} onClick={() => pickBg(b.id)}
+                    <button key={b.id} type="button" aria-pressed={(COVER_BGS.some(c => c.id === layout.coverBg) ? layout.coverBg : 'nuit') === b.id} onClick={() => pickBg(b.id)}
                       disabled={b.id === 'photo' && !photos.length} title={b.id === 'photo' && !photos.length ? 'Aucune photo dans les courses choisies' : undefined}>
                       <span style={{ background: b.swatch }} />{b.label}
                     </button>
                   ))}
                 </div>
-                {layout.coverBg === 'photo' ? (
+                {layout.coverBg === 'photo' || layout.coverBg === 'vagues' ? (
                   <>
+                    {layout.coverBg === 'photo' && (<>
                     <p className="livre__label">Photo</p>
                     <div className="livre-mep__photos" role="group" aria-label="Photo de couverture">
                       {photos.map(p => (
@@ -179,6 +183,10 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                       ))}
                     </div>
                     <p className="livre__hint">{COVER_MODELS.find(m => m.id === model)?.hint}</p>
+                    </>)}
+                    {layout.coverBg === 'vagues' && (
+                      <p className="livre__hint">Sans photo : vagues bleu nuit et orange, une course en grand avec sa date, sa distance et son D+.</p>
+                    )}
                     <p className="livre__label">Devise en haut à droite (un mot ou groupe de mots par ligne)</p>
                     <textarea
                       className="livre__note"
@@ -188,7 +196,7 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                       placeholder="Laissez vide pour ne rien afficher"
                       onChange={e => setLayout({ coverMotto: e.target.value })}
                     />
-                    {model === 'dessin' && (
+                    {layout.coverBg === 'photo' && model === 'dessin' && (
                       <div className="livre__fields">
                         <label>Phrase du bas
                           <input value={layout.coverTagline ?? DEFAULT_COVER_TAGLINE} maxLength={60} placeholder="Laissez vide pour ne rien afficher"
@@ -202,18 +210,18 @@ export function LivreMiseEnPage({ courses, options, prefs, setPrefs, nameDefault
                       </button>
                     )}
                     <p className="livre__label">
-                      {model === 'illustration' ? 'Tracé sur la couverture' : `Tracés sur la couverture (${MAX_COVER_TRACES} au plus)`}
+                      {single ? 'Tracé sur la couverture' : `Tracés sur la couverture (${MAX_COVER_TRACES} au plus)`}
                     </p>
                     {courses.map(c => {
                       const on = traceIds.includes(c.track.id)
-                      const full = model === 'illustration' ? traceIds.length >= 1 : traceIds.length >= MAX_COVER_TRACES
+                      const full = single ? traceIds.length >= 1 : traceIds.length >= MAX_COVER_TRACES
                       return (
                         <label key={c.track.id} className="livre__option">
                           <input
-                            type={model === 'illustration' ? 'radio' : 'checkbox'}
+                            type={single ? 'radio' : 'checkbox'}
                             name="livre-cover-trace"
-                            checked={model === 'illustration' ? traceIds[0] === c.track.id : on}
-                            disabled={model !== 'illustration' && !on && full}
+                            checked={single ? traceIds[0] === c.track.id : on}
+                            disabled={!single && !on && full}
                             onChange={() => toggleTrace(c.track.id)}
                           />
                           {c.track.poster?.title || c.track.name} · {new Date(`${c.date}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}

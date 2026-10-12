@@ -420,3 +420,106 @@ export function drawPhotoCover(ctx: CanvasRenderingContext2D, img: HTMLImageElem
   }
   ctx.restore()
 }
+
+// ── Couverture « Vagues » (sans photo) ───────────────────────────────────────
+
+function calendar(ctx: CanvasRenderingContext2D, x: number, y: number, s: number, color: string) {
+  ctx.save()
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = s * 0.1; ctx.lineJoin = 'round'
+  const l = x - s * 0.5, t = y - s * 0.85, w = s, h = s * 0.85
+  ctx.strokeRect(l, t, w, h)
+  ctx.beginPath(); ctx.moveTo(l, t + h * 0.28); ctx.lineTo(l + w, t + h * 0.28); ctx.stroke()
+  for (const dx of [0.28, 0.72]) { ctx.beginPath(); ctx.moveTo(l + w * dx, t - s * 0.12); ctx.lineTo(l + w * dx, t + s * 0.1); ctx.stroke() }
+  for (let r = 0; r < 2; r++) for (let c = 0; c < 3; c++) ctx.fillRect(l + w * (0.22 + c * 0.25), t + h * (0.48 + r * 0.24), s * 0.08, s * 0.08)
+  ctx.restore()
+}
+
+/**
+ * 1re de couverture « Vagues », sans photo : papier clair, grand titre, devise, une course (date, distance, D+ en
+ * colonne et son tracé en travers de la page), vagues bleu nuit et orange en bas, courbes de niveau. Formes reprises
+ * de la maquette (1536 × 1024) sur tout le cadre ; textes dans la zone sûre.
+ */
+export function drawGraphicCover(ctx: CanvasRenderingContext2D, item: CoverItem | undefined, t: CoverTexts,
+  f: CoverFrame, safe: CoverSafe) {
+  const P = (safe.b - safe.t) / 870
+  const Y = (yd: number) => safe.t + (yd - 100) * P
+  const X = (xd: number) => f.x + xd / 1536 * f.w, Yf = (yd: number) => f.y + yd / 1024 * f.h
+  const NAVY = '#1E2A33', ORANGE2 = '#EE7F2D'
+  ctx.save()
+  ctx.beginPath(); ctx.rect(f.x, f.y, f.w, f.h); ctx.clip()
+  ctx.fillStyle = '#F3F1EC'; ctx.fillRect(f.x, f.y, f.w, f.h)
+
+  // Courbes de niveau, au milieu.
+  ctx.lineWidth = 0.7 * P
+  for (let k = 0; k < 9; k++) {
+    ctx.strokeStyle = k % 4 === 0 ? 'rgba(238,127,45,0.22)' : 'rgba(120,118,110,0.18)'
+    ctx.beginPath()
+    for (let i = 0; i <= 80; i++) {
+      const u = i / 80
+      const xd = 120 + u * 1300
+      const yd = 760 - u * 420 + k * 28 + Math.sin(u * 7 + k * 0.7) * 26 + Math.sin(u * 17 + k) * 7
+      if (i) ctx.lineTo(X(xd), Yf(yd)); else ctx.moveTo(X(xd), Yf(yd))
+    }
+    ctx.stroke()
+  }
+
+  /** Forme fermée : suite de courbes de Bézier en coordonnées de maquette. */
+  const shape = (fill: string, start: [number, number], curves: number[][], close: [number, number][] = []) => {
+    ctx.beginPath(); ctx.moveTo(X(start[0]), Yf(start[1]))
+    for (const c of curves) {
+      if (c.length === 6) ctx.bezierCurveTo(X(c[0]), Yf(c[1]), X(c[2]), Yf(c[3]), X(c[4]), Yf(c[5]))
+      else ctx.lineTo(X(c[0]), Yf(c[1]))
+    }
+    for (const [x, y] of close) ctx.lineTo(X(x), Yf(y))
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill()
+  }
+  const line = (stroke: string, w: number, start: [number, number], curves: number[][]) => {
+    ctx.beginPath(); ctx.moveTo(X(start[0]), Yf(start[1]))
+    for (const c of curves) ctx.bezierCurveTo(X(c[0]), Yf(c[1]), X(c[2]), Yf(c[3]), X(c[4]), Yf(c[5]))
+    ctx.strokeStyle = stroke; ctx.lineWidth = w * P; ctx.stroke()
+  }
+  // Voiles gris clair à droite.
+  shape('rgba(214,210,200,0.55)', [960, 700], [[1120, 600, 1220, 380, 1536, 290]], [[1536, 1024], [960, 1024]])
+  shape('rgba(226,222,214,0.7)', [1100, 760], [[1250, 640, 1350, 560, 1536, 540]], [[1536, 1024], [1100, 1024]])
+  // Vague bleu nuit à droite.
+  shape(NAVY, [1170, 640], [[1290, 560, 1340, 420, 1536, 410], [1536, 720], [1400, 700, 1300, 640, 1170, 640]])
+  // Bande orange.
+  shape(ORANGE2, [470, 880], [[650, 820, 760, 640, 900, 610], [1050, 580, 1200, 640, 1536, 715], [1536, 780],
+    [1250, 700, 1100, 665, 960, 685], [820, 705, 700, 860, 520, 905]])
+  // Grande vague bleu nuit en bas.
+  shape(NAVY, [0, 780], [[150, 760, 300, 800, 450, 850], [600, 905, 700, 770, 850, 770], [1000, 770, 1250, 850, 1536, 960]],
+    [[1536, 1024], [0, 1024]])
+  shape('#24323C', [0, 900], [[300, 860, 600, 880, 800, 940], [900, 970, 1000, 1000, 1050, 1024]], [[0, 1024]])
+  // Bande orange dans la vague du bas.
+  shape(ORANGE2, [300, 1024], [[500, 940, 750, 892, 960, 902], [965, 922], [760, 918, 540, 962, 400, 1024]])
+  // Filets.
+  line(ORANGE2, 1.4, [0, 800], [[260, 740, 260, 900, 0, 920]])
+  line('rgba(255,255,255,0.75)', 0.9, [1060, 1024], [[1220, 900, 1380, 830, 1536, 790]])
+  line(ORANGE2, 1.2, [1170, 560], [[1330, 460, 1440, 380, 1536, 250]])
+  line(ORANGE2, 1.2, [1180, 860], [[1300, 900, 1420, 950, 1536, 1000]])
+
+  // Textes.
+  const left = Math.max(safe.l, f.x + f.w * 0.08)
+  const tt = wrapFit(ctx, t.title, 800, SANS, 118 * P, 48 * P, f.w * 0.6, 1)
+  const ty = Y(100) + tt.size * 0.8
+  text(ctx, tt.lines[0] ?? '', left, ty, `800 ${tt.size}px ${SANS}`, '#0F1B2A', 'left', -1.5 * P)
+  let y = ty + 66 * P
+  if (t.subtitle) { text(ctx, t.subtitle, left, y, `600 ${36 * P}px ${SANS}`, ORANGE2, 'left', 11 * P); y += 32 * P }
+  ctx.fillStyle = ORANGE2; ctx.fillRect(left, y, 92 * P, 2.4 * P)
+  if (t.name) text(ctx, t.name.toUpperCase(), left, y + 46 * P, `400 ${21 * P}px ${SANS}`, DARK, 'left', 7 * P)
+  motto(ctx, t.motto, safe.r, Y(100), P, 'rgba(15,27,42,0.85)', 'rgba(15,27,42,0.85)')
+
+  if (item) {
+    drawTrace(ctx, item.points, X(450), Yf(255), X(1200) - X(450), Yf(745) - Yf(255), 4.6 * P, true)
+    const ic = 28 * P, tx = left + ic + 34 * P
+    calendar(ctx, left + ic / 2, Y(505), ic, ORANGE2)
+    text(ctx, item.date, tx, Y(500), `500 ${21 * P}px ${SANS}`, DARK, 'left', 2 * P)
+    pin(ctx, left + ic / 2, Y(560), ic, ORANGE2)
+    text(ctx, item.km, tx, Y(555), `500 ${21 * P}px ${SANS}`, DARK, 'left', 1 * P)
+    if (item.dplus) {
+      mountain(ctx, left + ic / 2, Y(610), ic, ORANGE2)
+      text(ctx, item.dplus, tx, Y(608), `500 ${21 * P}px ${SANS}`, DARK, 'left', 1 * P)
+    }
+  }
+  ctx.restore()
+}

@@ -96,7 +96,7 @@ Reste à faire :
      pages » au-dessus de l'aperçu ; réglages `BookLayout` dans `lib/book.ts`) : couverture (fond vert nuit,
      papier ou photo d'une course ; titre, sous-titre, nom ; titre en haut ou en bas ; tracés ; avec une photo, trois
      modèles dans `lib/bookCover.ts` : Photo = la photo en fond et jusqu'à 3 tracés choisis, Dessin = la photo redessinée
-     en gravure sépia sur papier crème, Illustration = la photo en aplats fondus dans le papier et un tracé), 4e de couverture
+     en gravure sépia sur papier crème, Illustration = la photo en aplats fondus dans le papier et un tracé ; fond Vagues sans photo = vagues bleu nuit et orange et une course en grand ; devise et phrase du bas modifiables), 4e de couverture
      (records, texte libre), pages d'en-tête retirables (page blanche ajoutée si leur nombre est pair), distances de la
      page Records et totaux, contenu du carnet (temps de passage, profil, photos) ; l'aperçu montre la page réglée.
      Export (`lib/bookExport.ts`, pages dessinées sur canvas à 300 dpi) selon l'imprimeur choisi à l'écran : **WhiteWall**
