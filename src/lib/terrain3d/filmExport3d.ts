@@ -1467,7 +1467,18 @@ async function exportFilm3dImpl(
   }
   const panelSprites: { sprite: Label; t: number; isCol: boolean }[] = scenePanels.map((pnl, idx) => {
     const panelT = panelCurveParams[idx]
-    const anchor = trailPts[Math.round(panelAnchorParams[idx] * RESAMPLE_COUNT)]
+    let anchor = trailPts[Math.round(panelAnchorParams[idx] * RESAMPLE_COUNT)]
+    if (pnl.style === 'standard' || pnl.style === 'lieudit') {
+      // Nom couché au sol : posé sur le bourg lui-même (point de la localité), pas sur le tracé qui le longe
+      // (« PUY-GUILLAUME » écrit à gauche du bourg) ; rapproché du tracé s'il en est à plus de TOWN_MAX_OFF_M.
+      const TOWN_MAX_OFF_M = 1200
+      const [px, pz] = cov.project(pnl.lon, pnl.lat)
+      const dx = px - anchor.x, dz = pz - anchor.z, d = Math.hypot(dx, dz)
+      const k = d > TOWN_MAX_OFF_M ? TOWN_MAX_OFF_M / d : 1
+      const x = anchor.x + dx * k, z = anchor.z + dz * k
+      const [lon, lat] = cov.unproject(x, z)
+      anchor = new THREE.Vector3(x, elevAtLonLat(lon, lat) - minElev + 3.5, z)
+    }
     const sprite = makeLocSprite(pnl.name, pnl.style, anchor, panelAnchorParams[idx], pnl.ele) // orienté au point posé
     return { sprite, t: panelT, isCol: pnl.style === 'col' }
   })
