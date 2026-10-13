@@ -10,7 +10,7 @@ import { dirname, resolve } from 'path'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const out = resolve(ROOT, 'public/downloads/qr-sillonphane-running.svg')
-const url = process.argv[2] || 'https://sillonphane.fr/rando'
+const url = process.argv[2] || 'https://sillonphane.fr/running'
 
 const svg = await QRCode.toString(url, {
   type: 'svg',
