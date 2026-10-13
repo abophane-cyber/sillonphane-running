@@ -363,9 +363,9 @@
       .book picture, .book img { display: block; width: 100%; height: auto; }
       .book img { border-radius: 6px; box-shadow: 0 8px 18px rgba(12,11,10,0.18), 0 34px 64px -14px rgba(12,11,10,0.40); }
       .book figcaption { margin-top: 14px; text-align: center; font-size: 0.9rem; color: var(--ink-soft); }
-      .book--spread { max-width: 1120px; margin: 0 auto; }
-      .book-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 1120px; margin: 56px auto 0; }
-      @media (max-width: 760px) { .book-pair { grid-template-columns: 1fr; gap: 36px; margin-top: 40px; } }
+      .book--spread { max-width: 1120px; margin: 56px auto 0; }
+      .book-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 1120px; margin: 0 auto; }
+      @media (max-width: 760px) { .book-pair { grid-template-columns: 1fr; gap: 36px; } .book--spread { margin-top: 40px; } }
       .book-checks { max-width: 640px; margin: 52px auto 0; }
       .split__body { text-align: left; }
       .split__body .eyebrow { display: block; text-align: center; }
@@ -841,15 +841,6 @@
             </p>
           </div>
 
-          <figure class="book book--spread">
-            <picture>
-              <source srcset="demo/livre-double-page.webp" type="image/webp">
-              <img src="demo/livre-double-page.jpg" width="1810" height="727" loading="lazy" decoding="async"
-                   alt="Double page du livre : à gauche l'affiche de la course Demo Running, à droite son carnet avec le temps, la distance, l'allure, le dénivelé, deux photos et le profil d'altitude">
-            </picture>
-            <figcaption>Une double page par course : l'affiche à gauche, le carnet à droite.</figcaption>
-          </figure>
-
           <div class="book-pair">
             <figure class="book">
               <picture>
@@ -868,6 +859,15 @@
               <figcaption>Le palmarès, avec vos records et votre progression.</figcaption>
             </figure>
           </div>
+
+          <figure class="book book--spread">
+            <picture>
+              <source srcset="demo/livre-double-page.webp" type="image/webp">
+              <img src="demo/livre-double-page.jpg" width="1810" height="727" loading="lazy" decoding="async"
+                   alt="Double page du livre : à gauche l'affiche de la course Demo Running, à droite son carnet avec le temps, la distance, l'allure, le dénivelé, deux photos et le profil d'altitude">
+            </picture>
+            <figcaption>Une double page par course : l'affiche à gauche, le carnet à droite.</figcaption>
+          </figure>
 
           <ul class="checks book-checks">
             <li><span class="ck">✓</span> Courses choisies dans tous vos sillons, par années ou entre deux dates</li>
