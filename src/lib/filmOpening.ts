@@ -221,67 +221,6 @@ export function drawOpeningRibbon(ctx: CanvasRenderingContext2D, w: number, h: n
   ctx.restore()
 }
 
-// ─── Lieux connus ────────────────────────────────────────────────────────────
-
-/** Lieu nommé sur l'ouverture (localité ou col traversé) à l'écran ; `col` : repère en triangle au lieu du point. */
-export interface OpeningPoi { x: number; y: number; name: string; ok?: boolean; col?: boolean }
-
-/** Coupe un nom en deux lignes équilibrées au-delà de 14 caractères (« Citadelle / de Lille »). */
-function poiLines(name: string): string[] {
-  if (name.length <= 14 || !name.includes(' ')) return [name]
-  const words = name.split(' ')
-  let best = [name], bestD = Infinity
-  for (let i = 1; i < words.length; i++) {
-    const a = words.slice(0, i).join(' '), b = words.slice(i).join(' ')
-    const d = Math.abs(a.length - b.length)
-    if (d < bestD) { bestD = d; best = [a, b] }
-  }
-  return best
-}
-
-/** Localités et cols traversés : point blanc cerclé (triangle pour un col), tige, nom blanc au-dessus (étiquette
- * flottante). Au plus 6, hors zone du titre, hors champ et étiquettes qui en chevauchent une autre écartés. Ni
- * lieux-dits, ni points d'intérêt, ni noms de rues sur l'ouverture. */
-function drawOpeningPois(ctx: CanvasRenderingContext2D, w: number, h: number, pois: OpeningPoi[], alpha: number): void {
-  if (alpha <= 0 || !pois.length) return
-  const k = h / 1080
-  ctx.save()
-  ctx.globalAlpha = alpha
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'alphabetic'
-  const size = Math.round(21 * k)
-  ctx.font = `600 ${size}px ${FONT}`
-  const stem = 30 * k
-  const boxes: { x0: number; y0: number; x1: number; y1: number }[] = []
-  let count = 0
-  for (const p of pois) {
-    if (count >= 6) break
-    if (p.ok === false || p.x <= w * 0.42 || p.x >= w - 80 * k || p.y <= 120 * k || p.y >= h - 60 * k) continue
-    const lines = poiLines(p.name)
-    const half = Math.max(...lines.map(l => ctx.measureText(l).width)) / 2 + 6 * k
-    const box = { x0: p.x - half, x1: p.x + half, y0: p.y - stem - 8 * k - lines.length * size * 1.15, y1: p.y + 6 * k }
-    if (boxes.some(b => box.x0 < b.x1 && box.x1 > b.x0 && box.y0 < b.y1 && box.y1 > b.y0)) continue
-    boxes.push(box); count++
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'
-    ctx.lineWidth = 1.5 * k
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(p.x, p.y - stem); ctx.stroke()
-    ctx.fillStyle = '#ffffff'
-    ctx.beginPath()
-    if (p.col) { const r = 7 * k; ctx.moveTo(p.x, p.y - r); ctx.lineTo(p.x + r, p.y + r * 0.7); ctx.lineTo(p.x - r, p.y + r * 0.7); ctx.closePath() }
-    else ctx.arc(p.x, p.y, 5 * k, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.strokeStyle = 'rgba(10,14,18,0.7)'
-    ctx.lineWidth = 2 * k
-    ctx.stroke()
-    ctx.shadowColor = 'rgba(0,0,0,0.85)'
-    ctx.shadowBlur = 8 * k
-    ctx.fillStyle = '#ffffff'
-    lines.forEach((l, i) => ctx.fillText(l, p.x, p.y - stem - 8 * k - (lines.length - 1 - i) * size * 1.15))
-    ctx.shadowColor = 'transparent'
-  }
-  ctx.restore()
-}
-
 // ─── Titre ───────────────────────────────────────────────────────────────────
 
 export interface OpeningText {
@@ -513,14 +452,13 @@ export function drawOpeningTitle(ctx: CanvasRenderingContext2D, w: number, h: nu
   ctx.restore()
 }
 
-/** Ouverture complète par-dessus l'image de la carte : étalonnage et lumière, ruban fixe, lieux connus, titre. */
+/** Ouverture complète par-dessus l'image de la carte : étalonnage et lumière, ruban fixe, titre. Aucun nom de lieu
+ * sur le tracé (points d'intérêt, places : confus à cette échelle). */
 export function drawOpening(
   ctx: CanvasRenderingContext2D, w: number, h: number, t: number, ribbon: OpeningPt[], txt: OpeningText,
-  pois: OpeningPoi[] = [],
 ): void {
   if (t >= OPENING_S) return
   drawOpeningLight(ctx, w, h, t)
   drawOpeningRibbon(ctx, w, h, ribbon, openingRibbonAlpha(t))
-  drawOpeningPois(ctx, w, h, pois, titleAlpha(t))
   drawOpeningTitle(ctx, w, h, txt, t)
 }

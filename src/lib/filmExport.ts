@@ -21,7 +21,7 @@ import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueu
 import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
-import { drawOpening, loadOpeningFont, openingDiveK, openingHudAlpha, openingText, OPENING, OPENING_S, type OpeningPoi, type OpeningPt } from './filmOpening'
+import { drawOpening, loadOpeningFont, openingDiveK, openingHudAlpha, openingText, OPENING, OPENING_S, type OpeningPt } from './filmOpening'
 import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
@@ -1734,7 +1734,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // projection est linéaire à zoom fixe, carte au nord) : placés ensuite à chaque image sans la carte.
   const openingStep = Math.max(1, Math.floor(visualPoints.length / 2000))
   const openingRel: OpeningPt[] = []
-  const openingPoiRel: OpeningPoi[] = []
   {
     const pS = exportMap.project(startLngLat)
     const add = (p: { lon: number; lat: number }, f: number) => {
@@ -1743,15 +1742,6 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     }
     for (let i = 0; i < visualPoints.length; i += openingStep) add(visualPoints[i], distances[i] / totalDistance)
     add(visualPoints[visualPoints.length - 1], 1)
-    // Localités et cols traversés (panneaux du film) nommés sur l'ouverture ; ni lieux-dits, ni points d'intérêt, ni
-    // ravitaillements. Départ en tête (prioritaire si deux noms se chevauchent), s'il n'est pas un lieu-dit.
-    for (const ev of [departureEvent, ...localitySpots]) {
-      if (!ev) continue
-      if (ev.style !== 'standard' && ev.style !== 'col') continue
-      if (openingPoiRel.some(p => p.name === ev.name)) continue
-      const q = exportMap.project([ev.lon, ev.lat])
-      openingPoiRel.push({ x: q.x - pS.x, y: q.y - pS.y, name: ev.name, col: ev.style === 'col' })
-    }
   }
   // Cadrage de l'ouverture : plan d'ensemble (OPENING_PUSH : rapprochement pendant le titre, nul), puis plongée
   // vers le plan du départ, zoom en échelle log et écart du départ au centre de l'image interpolé (la caméra fond sur
@@ -1862,8 +1852,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     }
     if (v) {
       const sc = Math.pow(2, v.z - ovZoom)
-      drawOpening(ctx, OUT_W, OUT_H, tS, openingRel.map(p => ({ x: p0.x + p.x * sc, y: p0.y + p.y * sc, f: p.f })), openingTxt,
-        openingPoiRel.map(p => ({ ...p, x: p0.x + p.x * sc, y: p0.y + p.y * sc })))
+      drawOpening(ctx, OUT_W, OUT_H, tS, openingRel.map(p => ({ x: p0.x + p.x * sc, y: p0.y + p.y * sc, f: p.f })), openingTxt)
     }
     drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
     if (useWC && encoder) {
