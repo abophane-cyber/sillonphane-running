@@ -2033,7 +2033,7 @@ async function exportFilm3dImpl(
   const PRESENT_MOVE_S = 1.2
   /** Avance de la coureuse devant la tête du ruban, en hauteurs de corps à l'écran, mesurée LE LONG du parcours (dans un
    * virage, elle reste sur la route au lieu de partir tout droit hors du ruban). */
-  const RUNNER_LEAD_BODY = 0.12
+  const RUNNER_LEAD_BODY = 0.2
   let runnerStage: 'wait' | 'intro' | 'run' | 'outro' = 'wait'
   let presentTurned = false // tournée vers le chemin au début du glissement vers le ruban
   let runnerLead = 0
