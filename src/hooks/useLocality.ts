@@ -82,11 +82,27 @@ interface OsmToponym {
   lat: number
   type: string
   score: number       // type + importance OSM
+  pop?: number        // population OSM (absente si non renseignée)
+}
+
+// Un bourg classé « village » dans OSM (Puy-Guillaume, ~2 700 hab.) a souvent son centre à plus de 500 m d'un parcours
+// qui le longe ou le traverse par la périphérie : on élargit les distances selon la population (inconnue : entre-deux).
+function villageWidening(t: OsmToponym): number {
+  if (t.type !== 'village') return 0
+  if (t.pop == null) return 500
+  return t.pop >= 1000 ? 1000 : 0
+}
+function trackDistLimit(t: OsmToponym): number {
+  return (TRACK_DIST_RANDO[t.type] ?? 200) + villageWidening(t)
+}
+function proximityLimit(t: OsmToponym): number {
+  return (TYPE_PROXIMITY_RANDO[t.type] ?? 300) + villageWidening(t)
 }
 
 // Cache par bbox — en mémoire + localStorage (survit au rechargement)
 const bboxCache = new Map<string, Promise<OsmToponym[]>>()
-const LS_BBOX = 'running:sillon_bbox_'
+// v2 : les entrées gardent la population (pop)
+const LS_BBOX = 'running:sillon_bbox2_'
 
 function lsGetBbox(key: string): OsmToponym[] | null {
   try { const v = localStorage.getItem(LS_BBOX + key); return v ? JSON.parse(v) : null } catch { return null }
@@ -133,7 +149,7 @@ async function doOverpassFetch(points: GpxPoint[]): Promise<OsmToponym[]> {
       const pop = parseInt(e.tags.population ?? '0') || 0
       const baseScore = TYPE_SCORE[e.tags.place] ?? 0
       const popBonus = pop > 0 ? Math.min(2, Math.log10(pop) / 2) : 0
-      return { name: e.tags.name, lon: e.lon, lat: e.lat, type: e.tags.place, score: baseScore + popBonus }
+      return { name: e.tags.name, lon: e.lon, lat: e.lat, type: e.tags.place, score: baseScore + popBonus, ...(pop > 0 ? { pop } : {}) }
     })
     .filter((t: OsmToponym, _: number, all: OsmToponym[]) => {
       if (t.type !== 'hamlet' && t.type !== 'locality') return true
@@ -636,14 +652,9 @@ export async function computeAllLocalities(
   const arrivalInfo   = bestEndpointPlace(last.lon, last.lat, toponyms, arrNom)
   const total = distances[distances.length - 1] || 1
 
-  const filtered = toponyms.filter(t => {
-    const d = minDistToTrack(t.lon, t.lat, points)
-    const limit = TRACK_DIST_RANDO[t.type] ?? 200
-    return d < limit
-  })
+  const filtered = toponyms.filter(t => minDistToTrack(t.lon, t.lat, points) < trackDistLimit(t))
 
   const LOOKAHEAD = 150
-  const proximityTable = TYPE_PROXIMITY_RANDO
   // Échantillonnage plus fin que le trigger d'affichage (400m) pour ne manquer aucun
   // lieu candidat que la lecture en direct pourrait détecter entre deux points de grille
   const PRECOMPUTE_STEP = 50
@@ -666,7 +677,7 @@ export async function computeAllLocalities(
     let best: OsmToponym | null = null
     let bestScore = -1
     for (const t of filtered) {
-      const proximity = proximityTable[t.type] ?? 300
+      const proximity = proximityLimit(t)
       const dist = approxDist(lon, lat, t.lon, t.lat)
       if (dist > proximity) continue
       const combined = t.score * 1000 - dist
@@ -735,11 +746,7 @@ export function useLocality(
     const last = points[points.length - 1]
 
     fetchToponymsForTrack(points).then(async toponyms => {
-      toponymsRef.current = toponyms.filter(t => {
-        const d = minDistToTrack(t.lon, t.lat, points)
-        const limit = TRACK_DIST_RANDO[t.type] ?? 200
-        return d < limit
-      })
+      toponymsRef.current = toponyms.filter(t => minDistToTrack(t.lon, t.lat, points) < trackDistLimit(t))
       lastDistRef.current = 0
       currentKeyRef.current = ''
 
@@ -815,7 +822,7 @@ export function useLocality(
     let bestScore = -1
 
     for (const t of toponyms) {
-      const proximity = TYPE_PROXIMITY_RANDO[t.type] ?? 300
+      const proximity = proximityLimit(t)
       const dist = approxDist(lon, lat, t.lon, t.lat)
       if (dist > proximity) continue
 
