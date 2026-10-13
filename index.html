@@ -519,6 +519,8 @@
       .way__ic svg { width: 22px; height: 22px; fill: none; stroke: var(--forest); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
       .way.is-mine .way__ic { background: var(--terracotta-light); }
       .way.is-mine .way__ic svg { stroke: var(--terracotta); }
+      /* Appli Android : son icône à la place du pictogramme */
+      .way__ic--app, .way.is-mine .way__ic--app { background: none; border-radius: 10px; object-fit: cover; }
       .way__txt { min-width: 0; }
       .way__txt > strong { display: block; font-family: 'Playfair Display', serif; font-size: 1.08rem; color: var(--ink); margin-bottom: 2px; }
       @media (min-width: 781px) { .way__txt > strong { white-space: nowrap; } }
@@ -1019,7 +1021,7 @@
                 <div class="way__act"><a class="btn btn--terra btn--way" href="app.html?start">Ouvrir Sillonphane-Running</a></div>
               </div>
               <div class="way" data-way="android">
-                <span class="way__ic"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2" /><line x1="11" y1="18" x2="13" y2="18" /></svg></span>
+                <img class="way__ic way__ic--app" src="icons/android-running.png" alt="" width="44" height="44" loading="lazy">
                 <div class="way__txt">
                   <strong>L'appli Android sur votre téléphone</strong>
                   <span>Enregistrez votre course au format GPX en direct avec le GPS : pas de wifi, pas d'utilisation de données.</span>
