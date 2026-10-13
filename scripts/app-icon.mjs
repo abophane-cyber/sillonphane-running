@@ -38,11 +38,11 @@ const content = `
   <defs><linearGradient id="sg" x1="330" y1="140" x2="180" y2="375" gradientUnits="userSpaceOnUse">
     <stop offset="0%" stop-color="#f0cfa8"/><stop offset="40%" stop-color="#d07840"/>
     <stop offset="75%" stop-color="#5a8a60"/><stop offset="100%" stop-color="#1e4a2a"/></linearGradient></defs>
-  <g transform="translate(31 23.5) scale(0.105)">
+  <g transform="translate(23.2 18) scale(0.1304)">
     <path d="M 330 140 C 175 80, 50 215, 256 258 C 462 300, 340 450, 182 390" fill="none" stroke="url(#sg)" stroke-width="62" stroke-linecap="round"/>
     <circle cx="330" cy="140" r="18" fill="#f0e0c8"/><circle cx="182" cy="390" r="18" fill="#f0f0f0"/>
   </g>
-  <text transform="translate(33 54) rotate(-90)" text-anchor="middle" dominant-baseline="central"
+  <text transform="translate(31 54) rotate(-90)" text-anchor="middle" dominant-baseline="central"
     font-family="Jakarta" font-weight="700" font-size="${textSize}" letter-spacing="0.3" fill="${YELLOW}">${app.label}</text>
   <circle cx="73" cy="73" r="8.6" fill="${YELLOW}" stroke="${BG}" stroke-width="1.2"/>
   <g transform="translate(66.4 66.4) scale(0.55)" fill="none" stroke="${BG}" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
