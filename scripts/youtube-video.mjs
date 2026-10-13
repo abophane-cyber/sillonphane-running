@@ -1,16 +1,15 @@
 /**
  * youtube-video.mjs — Monte la vidéo de présentation YouTube de Sillonphane-Running (1920×1080, 30 i/s),
- * moins de 60 s pour que la story Instagram (story-video.mjs) la reprenne sans coupe.
+ * 60 s au plus pour que la story Instagram (story-video.mjs) la reprenne sans coupe.
  *
  * Usage : node scripts/youtube-video.mjs
  * Résultat : scripts/videos/sillonphane-running-presentation.mp4 (dossier non versionné).
  *
  * Sources (non versionnées) :
- *   videos-brutes/Demo_Running_2D (5).mp4, Demo_Running_3d (1).mp4  films de la course « Demo Running »
- *   videos-brutes/Demo Running - affiche A3 réseaux.jpg                affiche (Modèle 4, la carte)
- *   scripts/videos/livre/*.png|jpg  pages du livre PDF (doubles pages, rendues vers 3000 px de large),
- *                                   dans l'ordre des noms ; sans elles, écran « à insérer ».
- * Tant qu'un film manque, son plan est remplacé par un écran « à insérer ».
+ *   videos-brutes/Demo_Running_2D 13-10.mp4, Demo_Running_3d 13-10.mp4  films de la course « Demo Running »
+ *   videos-brutes/Demo Running - affiche A4 réseaux.jpg                  affiche (Modèle 1)
+ * Livre : images de l'accueil, public/demo/livre-*.jpg (couverture, double page, palmarès).
+ * Tant qu'un film manque, son plan reprend l'extrait de l'accueil (public/demo/film-*.mp4).
  *
  * Message (voir CLAUDE.md du dossier parent) : la trace GPX/KML donne le film et l'affiche ; aucun nom
  * d'épreuve (« Demo Running » est notre course d'exemple). Musique : la même que la vidéo Rando (MUSIC).
@@ -19,7 +18,7 @@
  * fichiers, musique seule.
  */
 import { execFileSync, spawnSync } from 'child_process'
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'fs'
 import { dirname, join, resolve } from 'path'
 import { fileURLToPath } from 'url'
 import ffmpeg from 'ffmpeg-static'
@@ -32,16 +31,16 @@ const OUT = join(OUT_DIR, 'sillonphane-running-presentation.mp4')
 const RAW = join(ROOT, 'videos-brutes')
 
 const W = 1920, H = 1080, FPS = 30
-// 2D : borne du 5 km et ravitaillement vers 24-30 s ; 3D : arrivée à Dorat, borne du 10 km, vers 46-54 s.
-const FILM_2D = { file: join(RAW, 'Demo_Running_2D (5).mp4'), start: 22, duration: 7.5 }
-const FILM_3D = { file: join(RAW, 'Demo_Running_3d (1).mp4'), start: 46, duration: 7.5 }
+// 2D : ouverture (titre, distance, D+ sur le tracé) vers 2-6 s, puis borne du 5 km vers 24-30 s ;
+// 3D : arrivée à Dorat, borne du 10 km, vers 46-53 s.
+const FILM_2D_TITLE = { file: join(RAW, 'Demo_Running_2D 13-10.mp4'), start: 2.2, duration: 3.6 }
+const FILM_2D = { file: join(RAW, 'Demo_Running_2D 13-10.mp4'), start: 23, duration: 6 }
+const FILM_3D = { file: join(RAW, 'Demo_Running_3d 13-10.mp4'), start: 46, duration: 7 }
 const FILM_2D_FALLBACK = join(ROOT, 'public/demo/film-2d.mp4')
 const FILM_3D_FALLBACK = join(ROOT, 'public/demo/film-3d.mp4')
-const POSTER = [join(RAW, 'Demo Running - affiche A3 réseaux.jpg'), join(ROOT, 'public/demo/affiche-demo.jpg')].find(existsSync)
-const BOOK_DIR = join(OUT_DIR, 'livre')
-const BOOK_PAGES = existsSync(BOOK_DIR)
-  ? readdirSync(BOOK_DIR).filter(f => /\.(png|jpe?g)$/i.test(f)).sort().slice(0, 3).map(f => join(BOOK_DIR, f))
-  : []
+const POSTER = [join(RAW, 'Demo Running - affiche A4 réseaux.jpg'), join(ROOT, 'public/demo/affiche-demo.jpg')].find(existsSync)
+const BOOK_PAGES = ['livre-couverture', 'livre-double-page', 'livre-palmares']
+  .map(n => join(ROOT, `public/demo/${n}.jpg`)).filter(existsSync)
 
 // Même musique que la vidéo Rando (MP3 tiré du WAV d'origine), à partir de « start » s.
 const MUSIC = { file: 'P:/Ma musique/Projet 3.mp3', start: 0 }
@@ -50,8 +49,8 @@ const MUSIC = { file: 'P:/Ma musique/Projet 3.mp3', start: 0 }
 const VOICE_DIR = join(OUT_DIR, 'commentaire')
 const VOICE = [
   { n: 1, shot: 'ouverture', at: 1.5 }, // Après Sillonphane-Rando, voici Sillonphane-Running…
-  { n: 2, shot: 'principe', at: 0.2 },  // Importez la trace GPX ou KML de votre course…
-  { n: 3, shot: 'film-2d', at: 0.3 },   // Vous obtenez le film de votre course, en 2D ou en 3D…
+  { n: 2, shot: 'principe', at: 0.2 },  // Alors, comment ça marche ? Vous importez la trace…
+  { n: 3, shot: 'film-titre', at: 0.6 }, // Vous obtenez le film de votre course, en 2D ou en 3D…
   { n: 4, shot: 'affiche', at: 0.3 },   // Composez aussi l'affiche de votre course…
   { n: 5, shot: 'livre', at: 0.3 },     // Et réunissez vos affiches, vos records et votre progression…
   { n: 6, shot: 'livre', at: 4.8 },     // Affiches et livres s'impriment chez nos partenaires…
@@ -59,7 +58,7 @@ const VOICE = [
   { n: 8, shot: 'fin', at: 0.5 },       // Rendez-vous sur sillonphane.fr/running. À bientôt !
 ]
 const COMMENTAIRE = `1. Après Sillonphane-Rando, voici Sillonphane-Running : vos courses, du 5 kilomètres au marathon, deviennent des souvenirs.
-2. Importez la trace GPX ou KML de votre course, ou enregistrez-la avec votre téléphone.
+2. Alors, comment ça marche ? Vous importez la trace GPX ou KML de votre course, ou vous l'enregistrez avec votre téléphone Android.
 3. Vous obtenez le film de votre course, en 2D ou en 3D, avec le chrono et vos temps de passage.
 4. Composez aussi l'affiche de votre course, à imprimer ou à partager.
 5. Et réunissez vos affiches, vos records et votre progression dans un livre.
@@ -198,7 +197,7 @@ const SIGLE = `
 // 1. Ouverture sur le modèle du hero de sillonphane.fr/running : fondu depuis le noir sur la photo de course,
 // logo qui se dessine, « Après Sillonphane-Rando… » puis le titre de Running en fondu enchaîné.
 await htmlShot('ouverture', {
-  dur: 9.5,
+  dur: 9.2,
   css: `
     #photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 55%; filter: saturate(1.05) contrast(1.04); }
     .scrim { position: absolute; inset: 0; background:
@@ -234,7 +233,7 @@ await htmlShot('ouverture', {
 
 // 2. Comment ça marche : les trois étapes de la landing, l'une après l'autre.
 await htmlShot('principe', {
-  dur: 7.5,
+  dur: 8,
   css: `
     #all { background: #FAF9F6; color: #191817; }
     .head { position: absolute; top: 110px; left: 0; right: 0; text-align: center; }
@@ -253,11 +252,12 @@ await htmlShot('principe', {
     </div>`,
   frame: `(t) => {
     document.getElementById('all').style.opacity = clamp(t / 0.4)
-    ;['s1', 's2', 's3'].forEach((id, i) => rise(document.getElementById(id), t, 0.6 + i * 1.4))
+    ;['s1', 's2', 's3'].forEach((id, i) => rise(document.getElementById(id), t, 0.8 + i * 1.6))
   }`,
 })
 
-film('film-2d', FILM_2D, 'Le film en 2D : chrono et temps de passage', FILM_2D_FALLBACK)
+film('film-titre', FILM_2D_TITLE, 'Le film de votre course', FILM_2D_FALLBACK)
+film('film-2d', FILM_2D, 'En 2D : chrono et temps de passage', FILM_2D_FALLBACK)
 film('film-3d', FILM_3D, '…ou en 3D, sur les vues aériennes de l’IGN', FILM_3D_FALLBACK)
 
 // 3. Affiche : l'affiche d'exemple à gauche, lent zoom ; texte à droite.
@@ -295,7 +295,7 @@ if (BOOK_PAGES.length) {
     dur: 9,
     css: `
       #all { background: radial-gradient(ellipse at 50% 40%, #3A3835 0%, #191817 75%); }
-      .pg { position: absolute; left: 50%; top: 44%; width: 1000px; opacity: 0; border-radius: 3px;
+      .pg { position: absolute; left: 50%; top: 45%; max-width: 1120px; max-height: 540px; opacity: 0; border-radius: 3px;
         box-shadow: 0 18px 50px rgba(0,0,0,0.55), 0 3px 10px rgba(0,0,0,0.35); }
       .cap { position: absolute; left: 0; right: 0; bottom: 34px; text-align: center; color: #FAF9F6; opacity: 0;
         font-family: 'Playfair Display', Georgia, serif; font-size: 2.1rem; }
@@ -308,7 +308,9 @@ if (BOOK_PAGES.length) {
       const per = ${per}, fade = ${fade}, n = ${BOOK_PAGES.length}
       for (let i = 0; i < n; i++) {
         const el = document.getElementById('p' + i), t0 = i * per
-        el.style.opacity = i === 0 ? clamp((t - t0 + 0.01) / 0.5) : clamp((t - t0 + fade / 2) / fade)
+        // Fondu enchaîné : la page s'efface pendant que la suivante apparaît (formats différents : sinon elle dépasse).
+        const fadeIn = i === 0 ? clamp((t - t0 + 0.01) / 0.5) : clamp((t - t0 + fade / 2) / fade)
+        el.style.opacity = i < n - 1 ? Math.min(fadeIn, clamp((t0 + per + fade / 2 - t) / fade)) : fadeIn
         const k = clamp((t - t0 + fade / 2) / (per + fade))
         el.style.transform = 'translate(-50%, -50%) scale(' + (1 + 0.06 * k) + ')'
         el.style.zIndex = i
@@ -324,21 +326,21 @@ if (BOOK_PAGES.length) {
     text('affiches, records et progression', { font: SERIF_I, size: 52, color: STONE, y: 540, from: 0.4, to: 4.6 }),
     text('Impression chez WhiteWall et Flexilivre', { font: SERIF, size: 76, color: STONE, y: 420, from: 4.8 }),
     text('code de réduction inclus', { font: SERIF_I, size: 52, color: STONE, y: 540, from: 5.2 }),
-    text('Déposer les pages du livre dans scripts/videos/livre/', { size: 30, color: STONE, y: 900, to: 9 }),
+    text('Images public/demo/livre-*.jpg introuvables', { size: 30, color: STONE, y: 900, to: 9 }),
   ])
-  console.log(`⚠ ${BOOK_DIR} vide : écran provisoire pour le livre`)
+  console.log('⚠ public/demo/livre-*.jpg absents : écran provisoire pour le livre')
 }
 
-card('principes', 4.5, FOREST, [
-  text('Sans compte, sans pub, sans IA et gratuit', { font: SERIF, size: 76, color: STONE, y: 'h/2-text_h/2', from: 0.2, to: 4.5 }),
+card('principes', 3.8, FOREST, [
+  text('Sans compte, sans pub, sans IA et gratuit', { font: SERIF, size: 76, color: STONE, y: 'h/2-text_h/2', from: 0.2, to: 3.8 }),
 ])
 
 // Image fixe jusqu'au bout : les textes apparaissent puis ne s'effacent plus.
-card('fin', 7, STONE, [
+card('fin', 6.2, STONE, [
   text('Sur ordinateur, téléphone et tablette', { size: 50, color: FOREST, y: 360, from: 0.2, fade: 0.6 }),
   text('sillonphane.fr/running', { font: SERIF, size: 120, color: TERRA, y: 460, from: 0.5, fade: 0.6 }),
   text('Essayez avec votre parcours', { font: SERIF_I, size: 44, color: INK, y: 640, from: 1, fade: 0.6 }),
-  text('À bientôt !', { font: SERIF, size: 64, color: FOREST, y: 800, from: 4, fade: 0.6 }),
+  text('À bientôt !', { font: SERIF, size: 64, color: FOREST, y: 800, from: 3.6, fade: 0.6 }),
 ])
 
 // ─── Assemblage ───────────────────────────────────────────────────────────────
@@ -352,6 +354,7 @@ ff(['-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', silent])
 const shotStart = {}
 let clock = 0
 for (const s of segments) { shotStart[s.name] ??= clock; clock += duration(s.file) }
+console.log(segments.map(s => `${s.name} à ${shotStart[s.name].toFixed(1)} s`).join(' · '))
 const voices = VOICE.map(v => ({ ...v, file: join(VOICE_DIR, `${v.n}.wav`) })).filter(v => existsSync(v.file))
 
 if (existsSync(MUSIC.file)) {

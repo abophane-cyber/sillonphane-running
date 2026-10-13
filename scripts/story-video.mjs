@@ -24,9 +24,9 @@ const OUT = join(OUT_DIR, 'sillonphane-running-story.mp4')
 const TMP = join(OUT_DIR, 'tmp-story')
 const SITE = join(ROOT, '../Sillonphane-site/landing')
 
-// Mêmes repères que youtube-video.mjs : ouverture de 9,5 s, écran de fin de 7 s.
-const OPENING = 9.5, END_CARD = 7
-// La vidéo YouTube de Running dure déjà moins de 60 s : reprise entière, sans coupe (CUT = null).
+// Mêmes repères que youtube-video.mjs : ouverture de 9,2 s, écran de fin de 6,2 s.
+const OPENING = 9.2, END_CARD = 6.2
+// La vidéo YouTube de Running dure 60 s au plus : reprise entière, sans coupe (CUT = null).
 // Si elle s'allonge, retirer un passage sans voix : CUT = { from, to }, raccordé en fondu de XFADE s.
 const CUT = null, XFADE = 0.5
 
