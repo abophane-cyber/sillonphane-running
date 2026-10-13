@@ -354,6 +354,19 @@
       .dossards__ic { flex-shrink: 0; width: 44px; height: 44px; }
       .dossards strong { display: block; font-family: 'Playfair Display', serif; font-size: 1.08rem; color: var(--ink); }
       .split__body .dossards p { margin: 4px 0 0; font-size: 0.9rem; line-height: 1.6; text-align: left; color: var(--ink-soft); }
+      a.dossards { color: inherit; transition: border-color .18s, box-shadow .18s; }
+      a.dossards:hover { border-color: var(--forest); box-shadow: 0 6px 20px rgba(47,72,57,0.14); color: inherit; }
+
+      /* ---- Le livre de vos sillons : pages réelles, posées comme un livre ouvert ---- */
+      .section--book { background: var(--stone-100); border-top: 1px solid var(--line); }
+      .book { margin: 0; }
+      .book picture, .book img { display: block; width: 100%; height: auto; }
+      .book img { border-radius: 6px; box-shadow: 0 8px 18px rgba(12,11,10,0.18), 0 34px 64px -14px rgba(12,11,10,0.40); }
+      .book figcaption { margin-top: 14px; text-align: center; font-size: 0.9rem; color: var(--ink-soft); }
+      .book--spread { max-width: 1120px; margin: 0 auto; }
+      .book-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; max-width: 1120px; margin: 56px auto 0; }
+      @media (max-width: 760px) { .book-pair { grid-template-columns: 1fr; gap: 36px; margin-top: 40px; } }
+      .book-checks { max-width: 640px; margin: 52px auto 0; }
       .split__body { text-align: left; }
       .split__body .eyebrow { display: block; text-align: center; }
       .split__body h2 { text-align: center; margin: 10px 0 0; }
@@ -584,6 +597,7 @@
           <a href="comment-ca-marche.html">Comment ça marche</a>
           <a href="#film">Le film 2D ou 3D</a>
           <a href="affiche-de-course.html">L'affiche</a>
+          <a href="#livre">Le livre</a>
         </nav>
 
         <div class="hdr__actions">
@@ -788,28 +802,81 @@
               <li><span class="ck">✓</span> Quatre modèles, fond au choix (crème, papier, lin, vert nuit, noir…) et tracé à vos couleurs</li>
               <li><span class="ck">✓</span> <span>Tirage A3, A4 ou carré 30 × 30 cm livré chez vous, <strong>à prix réduit</strong>, ou image pour les réseaux</span></li>
             </ul>
-            <p class="split__note">Tirage via nos partenaires (<strong>WhiteWall</strong>, <strong>Flexilivre</strong>) — <strong>réduction exclusive</strong> chez chacun, dévoilée à l'enregistrement de l'affiche.<br><em>Le lien WhiteWall est un lien d'affiliation : nous touchons une commission, sans surcoût pour vous.</em></p>
+            <p class="split__note">Tirage via nos partenaires (<strong>WhiteWall</strong>, <strong>Flexilivre</strong>) — <strong>réduction exclusive</strong> chez chacun, dévoilée à l'enregistrement de l'affiche.</p>
 
             <div class="poster">
               <picture>
                 <source srcset="demo/affiche-demo.webp" type="image/webp">
-                <img src="demo/affiche-demo.jpg" width="760" height="1074" loading="lazy" decoding="async"
-                     alt="Exemple d'affiche de course, modèle « la carte » : titre Demo Running, date, petite carte de France, tracé du parcours sur les vues aériennes de l'IGN avec les kilomètres, départ et arrivée à Charnat, temps 2:22:51, allure 6'00&quot;/km et profil (23,8 km, 136 m D+)">
+                <img src="demo/affiche-demo.jpg" width="760" height="1075" loading="lazy" decoding="async"
+                     alt="Exemple d'affiche de course : titre Demo Running, 23,8 km, 1er octobre 2026, Charnat ; tracé du parcours sur une carte sombre avec les kilomètres, deux photos de coureurs, temps 2 h 11'56&quot;, allure 5'33&quot;/km et profil d'altitude">
               </picture>
             </div>
 
-            <div class="dossards">
+            <a class="dossards" href="#livre">
               <svg class="dossards__ic" viewBox="0 0 44 44" aria-hidden="true">
                 <rect x="6" y="9" width="32" height="26" rx="3" fill="#fff" stroke="#2F4839" stroke-width="2" />
                 <circle cx="11" cy="14" r="1.6" fill="#2F4839" /><circle cx="33" cy="14" r="1.6" fill="#2F4839" />
                 <text x="22" y="28" text-anchor="middle" font-family="Plus Jakarta Sans, sans-serif" font-weight="800" font-size="11" fill="#C15C3D">21,1</text>
               </svg>
               <div>
-                <strong>Le livre de vos sillons</strong>
-                <p>Au fil des courses, vos affiches se rangent dans Mes sillons. Réunissez-les en un livre à faire imprimer (WhiteWall, Flexilivre) : une double page par course, vos records sur 5 km, 10 km, semi et marathon, votre progression saison après saison.</p>
+                <strong>Puis le livre de vos sillons ↓</strong>
+                <p>Toutes vos affiches réunies en un livre imprimé, saison après saison.</p>
               </div>
-            </div>
+            </a>
           </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Le livre de vos sillons -->
+      <section class="section section--book" id="livre">
+        <div class="wrap">
+          <div class="section__head">
+            <span class="eyebrow">Le livre de vos sillons</span>
+            <h2>Toutes vos courses<br>dans un livre</h2>
+            <p>
+              Au fil des courses, vos affiches se rangent dans Mes sillons. Choisissez celles d'une saison ou de
+              plusieurs années et réunissez-les en un livre à faire imprimer : une double page par course, vos
+              records et votre palmarès.
+            </p>
+          </div>
+
+          <figure class="book book--spread">
+            <picture>
+              <source srcset="demo/livre-double-page.webp" type="image/webp">
+              <img src="demo/livre-double-page.jpg" width="1810" height="727" loading="lazy" decoding="async"
+                   alt="Double page du livre : à gauche l'affiche de la course Demo Running, à droite son carnet avec le temps, la distance, l'allure, le dénivelé, deux photos et le profil d'altitude">
+            </picture>
+            <figcaption>Une double page par course : l'affiche à gauche, le carnet à droite.</figcaption>
+          </figure>
+
+          <div class="book-pair">
+            <figure class="book">
+              <picture>
+                <source srcset="demo/livre-couverture.webp" type="image/webp">
+                <img src="demo/livre-couverture.jpg" width="904" height="735" loading="lazy" decoding="async"
+                     alt="Couverture du livre : « Mes courses 2024 — 2026 » sur la photo d'un départ de course en ville, avec les tracés, dates, distances et dénivelés de trois courses">
+              </picture>
+              <figcaption>La couverture : votre photo, vos années, les tracés de vos courses.</figcaption>
+            </figure>
+            <figure class="book">
+              <picture>
+                <source srcset="demo/livre-palmares.webp" type="image/webp">
+                <img src="demo/livre-palmares.jpg" width="922" height="724" loading="lazy" decoding="async"
+                     alt="Page Palmarès du livre : tableau des courses avec date, nom, distance, temps et allure">
+              </picture>
+              <figcaption>Le palmarès, avec vos records et votre progression.</figcaption>
+            </figure>
+          </div>
+
+          <ul class="checks book-checks">
+            <li><span class="ck">✓</span> Courses choisies dans tous vos sillons, par années ou entre deux dates</li>
+            <li><span class="ck">✓</span> Records sur 5 km, 10 km, semi et marathon, progression saison après saison</li>
+            <li><span class="ck">✓</span> Couverture à votre goût : photo d'une course, dessin ou illustration, tracés, titre</li>
+            <li><span class="ck">✓</span> <span>Livre imprimé chez nos partenaires (<strong>WhiteWall</strong>, <strong>Flexilivre</strong>), fichiers prêts à l'envoi</span></li>
+          </ul>
+          <div class="section__cta">
+            <a class="btn btn--forest" href="app.html?start">Commencer par une course →</a>
           </div>
         </div>
       </section>
