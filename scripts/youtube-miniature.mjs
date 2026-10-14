@@ -4,9 +4,11 @@
  * Usage : node scripts/youtube-miniature.mjs
  * Résultat : scripts/videos/sillonphane-running-miniature.jpg (dossier non versionné).
  *
- * Fond : vue d'ensemble du ruban dans le film 3D de la course « Demo Running » (videos-brutes/, non versionné ;
- * sinon l'extrait de l'accueil). À droite, l'affiche (Modèle 1). Message (voir CLAUDE.md du dossier parent) : la
- * trace GPX donne le film et l'affiche ; aucun nom d'épreuve. Coin bas droit laissé libre (durée affichée par YouTube).
+ * Fond : videos-brutes/miniature-photo.webp (coureuse au bord de l'eau, titre « Sillonphane Running » déjà peint
+ * dessus ; non versionné). Par-dessus, à droite : une image du film 3D (ruban de la course « Demo Running ») et
+ * l'affiche (Modèle 1) ; en bas à gauche : « Votre course en film » et les principes. Message (voir CLAUDE.md du
+ * dossier parent) : la trace GPS donne le film et l'affiche ; aucun nom d'épreuve. Coin bas droit laissé libre
+ * (durée affichée par YouTube).
  */
 import { execFileSync } from 'child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
@@ -21,6 +23,8 @@ const OUT = join(OUT_DIR, 'sillonphane-running-miniature.jpg')
 const RAW = join(ROOT, 'videos-brutes')
 const SITE = join(ROOT, 'public')
 
+const PHOTO = join(RAW, 'miniature-photo.webp')
+if (!existsSync(PHOTO)) throw new Error(`Photo de fond introuvable : ${PHOTO}`)
 // Plan du film 3D où tout le ruban est visible, après le titre d'ouverture.
 const FILM_3D = existsSync(join(RAW, 'Demo_Running_3d 13-10.mp4'))
   ? { file: join(RAW, 'Demo_Running_3d 13-10.mp4'), at: 6.2 }
@@ -31,71 +35,58 @@ const W = 1280, H = 720
 const fileUrl = p => 'file:///' + p.replace(/\\/g, '/')
 
 mkdirSync(OUT_DIR, { recursive: true })
-const FOND = join(OUT_DIR, 'miniature-fond.jpg')
+const FILM = join(OUT_DIR, 'miniature-film.jpg')
 execFileSync(ffmpeg, ['-loglevel', 'error', '-y', '-ss', String(FILM_3D.at), '-i', FILM_3D.file,
-  '-frames:v', '1', '-q:v', '2', FOND])
+  '-frames:v', '1', '-vf', 'crop=1440:810:360:150', '-q:v', '2', FILM])
 
 const html = `<!doctype html><html><head><meta charset="utf-8"><style>
   @font-face { font-family: 'Playfair Display'; font-weight: 400 900; src: url('${fileUrl(join(SITE, 'fonts/playfair-display-latin.woff2'))}'); }
-  @font-face { font-family: 'Playfair Display'; font-style: italic; font-weight: 400; src: url('${fileUrl(join(SITE, 'fonts/playfair-display-italic-latin.woff2'))}'); }
   @font-face { font-family: 'Plus Jakarta Sans'; font-weight: 400 700; src: url('${fileUrl(join(SITE, 'fonts/plus-jakarta-sans-latin.woff2'))}'); }
   * { margin: 0; box-sizing: border-box; }
-  body { width: ${W}px; height: ${H}px; overflow: hidden; background: #0d1410; font-family: 'Plus Jakarta Sans', sans-serif; }
-  .fond { position: absolute; inset: 0; background: url('${fileUrl(FOND)}') 62% 40% / 118% auto no-repeat;
-    filter: saturate(1.15) contrast(1.05); }
-  .voile { position: absolute; inset: 0;
-    background: linear-gradient(90deg, rgba(8,14,10,.94) 0%, rgba(8,14,10,.82) 30%, rgba(8,14,10,.25) 58%, rgba(8,14,10,0) 72%),
-                linear-gradient(0deg, rgba(8,14,10,.55) 0%, rgba(8,14,10,0) 30%); }
-  .texte { position: absolute; left: 64px; top: 60px; width: 640px; color: #F5F3EF; }
-  .marque { display: flex; align-items: center; gap: 14px; font-weight: 700; font-size: 25px; letter-spacing: .02em; }
-  .marque svg { width: 34px; height: 48px; }
-  .marque b { color: #E9874F; }
-  .nouveau { display: inline-block; margin-left: 6px; padding: 5px 12px; border-radius: 999px; background: #C15C3D;
-    font-size: 15px; letter-spacing: .14em; text-transform: uppercase; color: #fff; }
-  h1 { margin-top: 34px; font-family: 'Playfair Display', serif; font-weight: 900; line-height: .98;
-    font-size: 108px; letter-spacing: -.01em; text-shadow: 0 6px 30px rgba(0,0,0,.55); }
-  h1 .film { display: block; font-size: 122px;
-    background: linear-gradient(90deg, #FFD9A0 0%, #F7A25C 40%, #F07C3E 100%);
-    -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 6px 22px rgba(0,0,0,.5)); }
-  .sous { margin-top: 26px; font-size: 31px; font-weight: 600; line-height: 1.3; }
-  .sous i { font-family: 'Playfair Display', serif; font-style: italic; font-weight: 400; color: #F0CFA8; }
-  .pastilles { display: flex; gap: 12px; margin-top: 28px; }
-  .pastilles span { padding: 9px 18px; border-radius: 999px; font-size: 21px; font-weight: 700;
-    background: rgba(245,243,239,.12); border: 2px solid rgba(245,243,239,.45); }
-  .pastilles span:first-child { background: #F5F3EF; color: #2F4839; border-color: #F5F3EF; }
-  .affiche { position: absolute; right: 58px; top: 52px; width: 300px; transform: rotate(5deg);
-    border: 7px solid #FAF9F6; border-radius: 4px; box-shadow: 0 24px 60px rgba(0,0,0,.65), 0 4px 12px rgba(0,0,0,.4); }
-  .affiche img { display: block; width: 100%; }
-  .etiquette { position: absolute; right: 250px; top: 420px; transform: rotate(-4deg); padding: 10px 18px;
-    background: #F5F3EF; color: #2F4839; font-weight: 700; font-size: 22px; border-radius: 6px;
-    box-shadow: 0 10px 26px rgba(0,0,0,.5); }
+  body { width: ${W}px; height: ${H}px; overflow: hidden; position: relative; background: #0d1410;
+    font-family: 'Plus Jakarta Sans', sans-serif; color: #F5F3EF; }
+  .fond { position: absolute; inset: 0; background: url('${fileUrl(PHOTO)}') 50% 0 / auto 100% no-repeat; }
+  .voile { position: absolute; left: 0; right: 0; bottom: 0; height: 250px;
+    background: linear-gradient(0deg, rgba(8,14,10,.92) 0%, rgba(8,14,10,.7) 45%, rgba(8,14,10,0) 100%); }
+  .carte { position: absolute; border: 6px solid #FAF9F6; border-radius: 4px;
+    box-shadow: 0 22px 50px rgba(0,0,0,.6), 0 4px 12px rgba(0,0,0,.4); background: #FAF9F6; }
+  .carte img { display: block; width: 100%; }
+  .film { left: 1002px; top: 404px; width: 250px; transform: rotate(-4deg); z-index: 2; }
+  .film .lecture { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px;
+    border-radius: 50%; background: rgba(193,92,61,.92); box-shadow: 0 4px 16px rgba(0,0,0,.5); }
+  .film .lecture::after { content: ''; position: absolute; left: 21px; top: 15px;
+    border-left: 19px solid #fff; border-top: 12px solid transparent; border-bottom: 12px solid transparent; }
+  .affiche { left: 1088px; top: 150px; width: 165px; transform: rotate(6deg); z-index: 1; }
+  .etiquette { position: absolute; padding: 6px 13px; border-radius: 6px; background: #F5F3EF; color: #2F4839;
+    font-weight: 700; font-size: 18px; box-shadow: 0 8px 20px rgba(0,0,0,.45); z-index: 3; }
   .etiquette em { font-style: normal; color: #C15C3D; }
+  .e-film { left: 1012px; top: 566px; transform: rotate(-4deg); }
+  .e-affiche { left: 1130px; top: 128px; transform: rotate(6deg); }
+  .texte { position: absolute; left: 48px; bottom: 34px; }
+  h2 { font-family: 'Playfair Display', serif; font-weight: 900; font-size: 64px; line-height: 1;
+    text-shadow: 0 4px 22px rgba(0,0,0,.6); }
+  h2 span { color: #F7A25C; }
+  .pastilles { display: flex; gap: 10px; margin-top: 16px; }
+  .pastilles span { padding: 7px 15px; border-radius: 999px; font-size: 19px; font-weight: 700;
+    background: rgba(245,243,239,.14); border: 2px solid rgba(245,243,239,.5); }
+  .pastilles span:first-child { background: #F5F3EF; color: #2F4839; border-color: #F5F3EF; }
 </style></head><body>
   <div class="fond"></div><div class="voile"></div>
+  <div class="carte film"><img src="${fileUrl(FILM)}"><div class="lecture"></div></div>
+  <div class="etiquette e-film">Le <em>film</em> 2D / 3D</div>
+  ${POSTER ? `<div class="carte affiche"><img src="${fileUrl(POSTER)}"></div>
+  <div class="etiquette e-affiche">+ l'<em>affiche</em></div>` : ''}
   <div class="texte">
-    <div class="marque">
-      <svg viewBox="96 34 154 218"><defs><linearGradient id="g" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stop-color="#2F4839"/><stop offset="50%" stop-color="#C15C3D"/><stop offset="100%" stop-color="#F5F3EF"/>
-      </linearGradient></defs>
-      <path d="M 138,225 C 168,232 212,230 224,206 C 234,188 226,166 188,160 C 160,156 122,146 122,114 C 122,82 156,60 220,60"
-        fill="none" stroke="url(#g)" stroke-width="29" stroke-linecap="round"/>
-      <circle cx="220" cy="60" r="11" fill="#2F4839" stroke="#F5F3EF" stroke-width="4"/>
-      <circle cx="138" cy="225" r="11" fill="#F5F3EF"/></svg>
-      <span>Sillonphane-<b>Running</b></span><span class="nouveau">Nouveau</span>
-    </div>
-    <h1>Votre course<span class="film">en film</span></h1>
-    <div class="sous">Du 5 km au marathon, <i>votre trace GPS</i><br>devient un film et une affiche.</div>
-    <div class="pastilles"><span>Gratuit</span><span>Sans compte</span><span>Sans pub</span></div>
+    <h2>Votre course <span>en film</span></h2>
+    <div class="pastilles"><span>Du 5 km au marathon</span><span>Gratuit</span><span>Sans compte</span><span>Sans pub</span></div>
   </div>
-  ${POSTER ? `<div class="affiche"><img src="${fileUrl(POSTER)}"></div>
-  <div class="etiquette">+ votre <em>affiche</em></div>` : ''}
 </body></html>`
 
-const page_html = join(OUT_DIR, 'miniature.html')
-writeFileSync(page_html, html)
+const pageHtml = join(OUT_DIR, 'miniature.html')
+writeFileSync(pageHtml, html)
 const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: W, height: H } })
-await page.goto(fileUrl(page_html))
+await page.goto(fileUrl(pageHtml))
 await page.evaluate(() => document.fonts.ready)
 await page.screenshot({ path: OUT, type: 'jpeg', quality: 92 })
 await browser.close()
