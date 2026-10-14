@@ -28,8 +28,8 @@ marque ses sauvegardes (`app: 'running'` dans le manifeste) : une sauvegarde d'u
 Rando marque aussi ses sauvegardes (`app: 'rando'`) et refuse celles de Running (APK 3.54).
 
 Reste à faire — **mentions de Rando restées dans l'appli Running** (non visibles depuis l'accueil) : commentaires
-(`AppLogoIcon`, `RibbonIcon`), sillon d'exemple et photos filigranées `sillonphane.fr/rando` (`demoTrip.ts`,
-`scripts/demo-photos.mjs`), gabarit de couverture (`coverTemplates.ts`), `scripts/record.mjs`, prototype `src/proto/`,
+(`AppLogoIcon`, `RibbonIcon`), photos filigranées `sillonphane.fr/rando` (`public/demo/vanoise/`,
+`scripts/demo-photos.mjs` ; le sillon d'exemple est désormais la course `public/demo/course-exemple.gpx`), gabarit de couverture (`coverTemplates.ts`), `scripts/record.mjs`, prototype `src/proto/`,
 photos de rando de l'écran d'ouverture (`SplashScreen`, APK seulement).
 
 ## Mise en ligne (www/running/)
