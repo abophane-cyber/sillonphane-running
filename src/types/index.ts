@@ -323,7 +323,7 @@ export interface Voyage {
   tracks: VoyageTrack[]
   films: VoyageFilm[]
   photos: VoyagePhoto[]
-  demo?: boolean         // sillon « Rando d'exemple » (voir demoTrip.ts) : pas de code de réduction imprimeur
+  demo?: boolean         // sillon « Course d'exemple » (voir demoTrip.ts) : pas de code de réduction imprimeur
   demoVersion?: number   // version des photos de la rando d'exemple (absent = 1) — voir DEMO_VERSION
   coverPage?: ComposedAlbumPage      // couverture de l'album — commune à tous les tracés du voyage
   backCoverPage?: ComposedAlbumPage  // dos du livre — idem

@@ -64,8 +64,8 @@ export default function App() {
   // sur /app.html, vieux favori…), on renvoie vers la landing : l'entrée dans l'outil se fait
   // toujours par le bouton "Ouvrir l'appli" de la landing.
   const cameFromLandingRef = useRef(new URLSearchParams(window.location.search).has('start'))
-  // ?demo : bouton « Essayer avec une rando d'exemple » de la landing — on ouvre directement la
-  // rando d'exemple (trace + photos rangées dans un sillon dédié, voir demoTrip.ts).
+  // ?demo : bouton « Essayer avec une course d'exemple » de la landing — on ouvre directement la
+  // course d'exemple (trace rangée dans un sillon dédié, voir demoTrip.ts).
   const demoRequestedRef = useRef(new URLSearchParams(window.location.search).has('demo'))
   const [view, setView] = useState<AppView>(() => {
     if (hasActiveRecording()) return 'record'
@@ -417,7 +417,7 @@ export default function App() {
       setView('upload')
     }).catch(e => {
       console.error('[demo]', e)
-      alert("La rando d'exemple n'a pas pu être chargée. Vérifiez votre connexion et réessayez.")
+      alert("La course d'exemple n'a pas pu être chargée. Vérifiez votre connexion et réessayez.")
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])

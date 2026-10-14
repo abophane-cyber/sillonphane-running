@@ -2,35 +2,26 @@ import { parseGpx } from './gpx'
 import { getVoyage, saveVoyage, createVoyage, addTrackToVoyage, addPhotoToVoyage, replacePhotoBlob, deleteTrackPdfCache } from './voyageDB'
 import type { ParsedGpx, VoyageTrack } from '../types'
 
-// Rando d'exemple ouverte par les boutons « Essayer avec une rando d'exemple » de la landing
-// (/app.html?start&demo) : la trace (étape GTA J17 en Vanoise, 15 km, descente vers Pralognan, recalée sur l'heure et
-// la position des photos géolocalisées) et les photos de cette même journée, rangées dans un sillon dédié pour pouvoir tester le
-// film ET l'album sans rien importer. Le sillon est créé une seule fois puis réutilisé.
-const DEMO_GPX = `${import.meta.env.BASE_URL}demo/rando-exemple.gpx`
-// Photos réduites et filigranées (sillonphane.fr/rando) : l'encodage efface l'EXIF, l'heure de prise de
-// vue est donc reportée ici.
-const DEMO_PHOTOS: { url: string; takenAt: string }[] = [
-  { url: `${import.meta.env.BASE_URL}demo/vanoise/20250801_073836.jpg`, takenAt: '2025-08-01T05:38:36Z' },
-  { url: `${import.meta.env.BASE_URL}demo/vanoise/20250801_092219.jpg`, takenAt: '2025-08-01T07:22:19Z' },
-  { url: `${import.meta.env.BASE_URL}demo/vanoise/20250801_095935.jpg`, takenAt: '2025-08-01T07:59:35Z' },
-  { url: `${import.meta.env.BASE_URL}demo/vanoise/20250801_105202.jpg`, takenAt: '2025-08-01T08:52:02Z' },
-  { url: `${import.meta.env.BASE_URL}demo/vanoise/20250801_113421.jpg`, takenAt: '2025-08-01T09:34:21Z' },
-  { url: `${import.meta.env.BASE_URL}demo/vanoise/20250801_115907.jpg`, takenAt: '2025-08-01T09:59:07Z' },
-  { url: `${import.meta.env.BASE_URL}demo/vanoise/20250801_124814.jpg`, takenAt: '2025-08-01T10:48:14Z' },
-]
-// À incrémenter à chaque changement des fichiers photo (ex. filigrane) : un sillon d'exemple d'une
-// version antérieure voit ses photos remplacées à la réouverture, et l'URL versionnée contourne le
-// cache HTTP du navigateur. 1 = filigrane en bas à droite, 2 = bande pleine largeur, 3 = bande allégée,
-// 4 = adresse sillonphane.fr/rando (photos régénérées depuis les originaux : scripts/demo-photos.mjs).
-const DEMO_VERSION = 4
+// Course d'exemple ouverte par les boutons « Essayer avec une course d'exemple » de la landing
+// (/app.html?start&demo) : la trace de « Demo Running » (23,8 km à Charnat, 1er octobre 2026, heures de passage
+// comprises), rangée dans un sillon dédié pour pouvoir tester le film ET l'affiche sans rien importer. Le sillon est
+// créé une seule fois puis réutilisé.
+const DEMO_GPX = `${import.meta.env.BASE_URL}demo/course-exemple.gpx`
+// Photos de la course d'exemple, réduites (l'encodage efface l'EXIF, l'heure de prise de vue est donc reportée
+// ici). Aucune pour l'instant : l'affiche se compose sans photo ou avec celles de l'utilisateur.
+const DEMO_PHOTOS: { url: string; takenAt: string }[] = []
+// À incrémenter à chaque changement des fichiers photo : un sillon d'exemple d'une version antérieure voit ses
+// photos remplacées à la réouverture, et l'URL versionnée contourne le cache HTTP du navigateur.
+const DEMO_VERSION = 1
 const demoPhotoUrl = (url: string) => `${url}?v=${DEMO_VERSION}`
 async function fetchDemoPhoto(url: string): Promise<Blob> {
   const r = await fetch(demoPhotoUrl(url))
   if (!r.ok) throw new Error(String(r.status))
   return r.blob()
 }
-const DEMO_SILLON_NAME = "Rando d'exemple"
-const DEMO_VOYAGE_KEY = 'running:sillon-demo-voyage-id'
+const DEMO_SILLON_NAME = "Course d'exemple"
+// Clé changée au passage de la rando à la course d'exemple : un ancien sillon « Rando d'exemple » n'est pas repris.
+const DEMO_VOYAGE_KEY = 'running:sillon-demo-course-id'
 
 export interface DemoTrip {
   voyageId: string
