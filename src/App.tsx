@@ -25,6 +25,7 @@ import { getDefaultSillon, getBackupStatus, saveTrackPanelSettings, addTrackToVo
 import { drawElevOverlay } from './lib/drawElevOverlay'
 import { SaveToSillonModal } from './components/SaveToSillonModal'
 import { FilmProgressDock, type FilmKind } from './components/FilmProgressDock'
+import { FilmReadyPopup } from './components/FilmReadyPopup'
 import { HeaderBackContext, type HeaderBackState } from './hooks/useHeaderBack'
 import { useMapTriggers } from './hooks/useMapTriggers'
 import { useVoyageSaveModal } from './hooks/useVoyageSaveModal'
@@ -184,10 +185,11 @@ export default function App() {
   const {
     filmProgress, filmEtaS, mapCanvasRef,
     updateDrawFrame, handleCreateFilm: filmRecordingCreateFilm,
-    lastFilmUrl, setLastFilmUrl,
+    lastFilmUrl, setLastFilmUrl, readyFilm, setReadyFilm,
   } = useFilmRecording()
   const {
     film3dProgress, film3dPhase, film3dEtaS, lastFilm3dUrl, setLastFilm3dUrl,
+    readyFilm3d, setReadyFilm3d,
     handleCreateFilm3d: film3dCreate,
   } = useFilm3dExport()
 
@@ -197,16 +199,11 @@ export default function App() {
     filmProgress !== null ? { kind: '2d', progress: filmProgress, phase: null, etaS: filmEtaS }
     : film3dProgress !== null ? { kind: '3d', progress: film3dProgress, phase: film3dPhase, etaS: film3dEtaS }
     : null
-  // Film terminé pendant qu'on était sur une autre page : signalé par le même indicateur.
-  const [filmDone, setFilmDone] = useState<{ kind: FilmKind; saved: boolean } | null>(null)
-  const viewRef = useRef(view)
-  viewRef.current = view
-  const notifyFilmDone = (kind: FilmKind, url: string | null) => {
-    if (url && viewRef.current !== 'animate') setFilmDone({ kind, saved: activeSillonId !== null })
-  }
-  useEffect(() => notifyFilmDone('2d', lastFilmUrl), [lastFilmUrl]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => notifyFilmDone('3d', lastFilm3dUrl), [lastFilm3dUrl]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (view === 'animate') setFilmDone(null) }, [view])
+  // Film terminé : fenêtre « Film prêt » (sur n'importe quelle page), d'où part le téléchargement.
+  const [filmPopup, setFilmPopup] = useState<FilmKind | null>(null)
+  useEffect(() => { if (readyFilm) setFilmPopup('2d') }, [readyFilm])
+  useEffect(() => { if (readyFilm3d) setFilmPopup('3d') }, [readyFilm3d])
+  const popupFilm = filmPopup === '2d' ? readyFilm : filmPopup === '3d' ? readyFilm3d : null
   useEffect(() => { diag('vue', { view, tracé: activeTrack?.name ?? null, points: points.length }) }, [view]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Durée (ms) de la séquence d'arrivée des randonneurs 3D (zoom, salut, vue d'ensemble — cf. TrackMap), avant
@@ -347,9 +344,11 @@ export default function App() {
   }) {
     loadTrack(parsed, raw)
     setLastFilmUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    setReadyFilm(null)
     // Idem pour le survol 3D : sans ça, le bouton reste sur "Voir le film 3D" et rejoue
     // le film du tracé précédent au lieu de proposer d'en créer un nouveau.
     setLastFilm3dUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    setReadyFilm3d(null)
     // Réouverture depuis « Mes sillons » d'un tracé DÉJÀ travaillé (film créé, album composé, ou
     // assistant panneaux validé) : on reprend là où on en était — l'aperçu a déjà été joué, on le
     // considère comme fait, sinon chaque nouveau film (ex. 2D après un 3D) redemande de relancer
@@ -556,7 +555,11 @@ export default function App() {
   // « Voir le film » (2D ou 3D) : renvoie vers la fiche du tracé dans « Mes sillons », où la
   // liste des films permet d'en lire un et bientôt d'y ajouter une bande-son. Le tracé est
   // forcément enregistré à ce stade (prérequis du film) -> activeSillonId/TrackId sont posés.
-  function handleViewFilm(_kind: '2d' | '3d') {
+  // Film qui n'a pas pu être rangé dans le sillon (stockage plein…) : il n'existe qu'en mémoire,
+  // on rouvre donc la fenêtre « Film prêt » pour le télécharger.
+  function handleViewFilm(kind: '2d' | '3d') {
+    const ready = kind === '2d' ? readyFilm : readyFilm3d
+    if (ready && !ready.stored) { setFilmPopup(kind); return }
     if (activeSillonId && activeSillonTrackId) {
       setFilmFocus({ sillonId: activeSillonId, trackId: activeSillonTrackId })
     }
@@ -581,7 +584,9 @@ export default function App() {
   // change réellement (`toggleCharacter` renvoie le même tableau si le clic est sans effet).
   function clearCreatedFilms() {
     setLastFilmUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    setReadyFilm(null)
     setLastFilm3dUrl(prev => { if (prev) URL.revokeObjectURL(prev); return null })
+    setReadyFilm3d(null)
   }
 
   function handleToggleRibbon() {
@@ -631,16 +636,16 @@ export default function App() {
       {view !== 'animate' && (
         <FilmProgressDock
           running={runningFilm}
-          done={filmDone}
           onOpen={() => { if (activeTrack) setView('animate') }}
           onCancel={cancelRunningFilm}
-          onViewFilm={() => {
-            const done = filmDone
-            setFilmDone(null)
-            if (done?.saved) handleViewFilm(done.kind)
-            else if (activeTrack) setView('animate')
-          }}
-          onDismissDone={() => setFilmDone(null)}
+        />
+      )}
+      {filmPopup && popupFilm && (
+        <FilmReadyPopup
+          kind={filmPopup}
+          film={popupFilm}
+          onViewInSillon={() => { const kind = filmPopup; setFilmPopup(null); handleViewFilm(kind) }}
+          onClose={() => setFilmPopup(null)}
         />
       )}
       <header className="app-header">

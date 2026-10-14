@@ -10,6 +10,7 @@ import type { LocalityInfo } from './useLocality'
 import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
 import type { CharacterId } from '../lib/characters'
+import type { ReadyFilm } from '../components/FilmReadyPopup'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
 import type { StreetRun } from '../lib/routeStreets'
 import { ESSAI_FILM_S, FIN_FILM_S, isEssaiFilm, isFinFilm, isOuvertureFilm } from '../lib/filmEssai'
@@ -65,6 +66,9 @@ export function useFilmRecording() {
   const [filmProgress, setFilmProgress] = useState<number | null>(null)  // null = pas en cours
   const [filmEtaS, setFilmEtaS] = useState<number | null>(null)  // temps restant estimé (s)
   const [lastFilmUrl, setLastFilmUrl] = useState<string | null>(null)
+  // Dernier film rendu (blob + rangé ou non dans le sillon) : la fenêtre « Film prêt » le propose
+  // au téléchargement depuis un clic.
+  const [readyFilm, setReadyFilm] = useState<ReadyFilm | null>(null)
   const filmAbortRef = useRef<AbortController | null>(null)
   const mapCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const drawFrameRef = useRef<((ctx: CanvasRenderingContext2D, w: number, h: number) => void) | null>(null)
@@ -183,6 +187,7 @@ export function useFilmRecording() {
 
         // Enregistrer le film dans le sillon actif (si tracé déjà enregistré) — pas pour les
         // clips de debug (?filmdebug), qui n'ont pas à polluer "Mes sillons".
+        let stored = false
         try {
           const sillonId = ctx.activeSillonId
           if (sillonId && !filmDebug) {
@@ -205,19 +210,17 @@ export function useFilmRecording() {
             // de nettoyage (contrairement aux photos orphelines). Le téléchargement direct plus
             // bas reste la sauvegarde de secours pour l'utilisateur dans ce cas.
             await addFilmToVoyage(sillonId, meta, blob)
+            stored = true
           }
         } catch (e) {
           console.warn('[film] enregistrement sillon:', e)
         }
 
-        // Téléchargement
+        // Pas de téléchargement automatique ici : lancé plusieurs minutes après le clic, il était
+        // bloqué ou ignoré sans un mot par certains navigateurs (Safari, mobiles) et inerte dans
+        // l'APK. La fenêtre « Film prêt » (FilmReadyPopup) le propose depuis un clic.
+        setReadyFilm({ blob, name: `${filmName}_2D.${ext}`, stored })
         const url = URL.createObjectURL(blob)
-        const a   = document.createElement('a')
-        a.href    = url
-        a.download = `${filmName}_2D.${ext}`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
         // Gardée en vie (pas révoquée) pour le bouton "Voir le film" — remplacée/révoquée au
         // prochain film créé ou au chargement d'un nouveau tracé.
         setLastFilmUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url })
@@ -241,6 +244,6 @@ export function useFilmRecording() {
     filmProgress, filmEtaS, recState, cancelRec,
     filmAbortRef, mapCanvasRef, drawFrameRef, onFrameRef,
     updateDrawFrame, handleRecordToggle, handleCreateFilm,
-    lastFilmUrl, setLastFilmUrl,
+    lastFilmUrl, setLastFilmUrl, readyFilm, setReadyFilm,
   }
 }

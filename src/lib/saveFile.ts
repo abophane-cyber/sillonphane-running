@@ -144,3 +144,11 @@ export async function saveFileWithPicker(blob: Blob, suggestedName: string, kind
   if (result === 'unsupported') downloadDirectly(blob, suggestedName)
   return 'saved'
 }
+
+/** Type d'enregistrement d'un film d'après son nom : le film 2D sort en .webm quand le navigateur
+ * n'a pas l'encodeur H.264 (enregistrement de secours MediaRecorder, ex. Firefox). */
+export function filmFileKind(filename: string): SaveFileKind {
+  return /\.webm$/i.test(filename)
+    ? { mimeType: 'video/webm', extension: '.webm', description: 'Film du parcours' }
+    : { mimeType: 'video/mp4', extension: '.mp4', description: 'Film du parcours' }
+}

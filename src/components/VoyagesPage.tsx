@@ -21,7 +21,7 @@ import { RecordsBanner, PosterThumb } from './SillonRecords'
 import { AppLogoIcon } from './AppLogoIcon'
 import { isRecordedGpx } from '../lib/gpx'
 import { readActivityFile } from '../lib/activityImport'
-import { saveFileWithPicker } from '../lib/saveFile'
+import { filmFileKind, saveFileWithPicker } from '../lib/saveFile'
 import { dateParts } from '../lib/sillonDisplay'
 import { BookAside, BookIcon, DotsIcon, MountainIcon, PencilIcon, PlusIcon, RunnerIcon, TrashIcon } from './SillonDetailParts'
 import './SillonDetail.css'
@@ -341,9 +341,8 @@ function SillonDetail({
     if (!blob) return alert('Vidéo non disponible (espace insuffisant sur cet appareil).')
     // saveFileWithPicker : choix d'emplacement (ordinateur) ou partage natif (Android). Un simple
     // <a download> reste inerte dans le WebView de l'APK.
-    await saveFileWithPicker(blob, film.name, {
-      mimeType: 'video/mp4', extension: '.mp4', description: 'Film du parcours',
-    })
+    // Type déduit du nom : un film 2D peut être en .webm (enregistrement de secours).
+    await saveFileWithPicker(blob, film.name, filmFileKind(film.name))
   }
 
   // Exporte le GPX brut d'un tracé vers un vrai fichier .gpx (choix d'emplacement sur ordinateur,

@@ -4889,3 +4889,11 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   color: #C15C3D; border: 1px solid rgba(193,92,61,0.45);
 }
 .vp-badge--done { color: #2E8A3A; border-color: rgba(61,181,74,0.5); }
+
+/* Fenêtre « Film prêt » (FilmReadyPopup) */
+.film-ready-popup__actions { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.film-ready-popup__secondary {
+  background: none; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
+  color: rgba(255,255,255,0.85); padding: 8px 20px; font-size: 13px; cursor: pointer;
+}
+.film-ready-popup__secondary:hover { border-color: rgba(255,255,255,0.5); }

@@ -6,6 +6,7 @@ import { localitiesToPanels3d, weatherToScenario, formatTrailDate } from '../lib
 import type { LocalityInfo } from './useLocality'
 import type { GpxTrack } from '../types'
 import type { WeatherInfo } from '../lib/meteo'
+import type { ReadyFilm } from '../components/FilmReadyPopup'
 import type { CharacterId } from '../lib/characters'
 import type { StreetRun } from '../lib/routeStreets'
 import type { Borne, EndCard, Ravito } from '../lib/raceSplits'
@@ -69,6 +70,7 @@ export function useFilm3dExport() {
   const [film3dEtaS, setFilm3dEtaS] = useState<number | null>(null)
   const etaSmoothRef = useRef<number | null>(null)
   const [lastFilm3dUrl, setLastFilm3dUrl] = useState<string | null>(null)
+  const [readyFilm3d, setReadyFilm3d] = useState<ReadyFilm | null>(null) // cf. useFilmRecording.ts
   const film3dAbortRef = useRef<AbortController | null>(null)
 
   async function handleCreateFilm3d(ctx: CreateFilm3dContext) {
@@ -180,6 +182,7 @@ export function useFilm3dExport() {
         const filmName = (ctx.trackName || 'sillonphane').replace(/\s+/g, '_')
 
         // Enregistrer dans le sillon actif (si tracé déjà enregistré) — cf. useFilmRecording.ts.
+        let stored = false
         try {
           const sillonId = ctx.activeSillonId
           if (sillonId) {
@@ -195,19 +198,15 @@ export function useFilm3dExport() {
               durationSec: fin ? FIN_FILM_S : durationS,
               sizeBytes: blob.size,
             }, blob)
+            stored = true
           }
         } catch (e) {
           console.warn('[film3d] enregistrement sillon:', e)
         }
 
-        // Téléchargement
+        // Téléchargement proposé depuis un clic par la fenêtre « Film prêt » — cf. useFilmRecording.ts.
+        setReadyFilm3d({ blob, name: `${filmName}_3d.mp4`, stored })
         const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${filmName}_3d.mp4`
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
         setLastFilm3dUrl(prev => { if (prev) URL.revokeObjectURL(prev); return url })
       }
     } catch (e) {
@@ -229,6 +228,7 @@ export function useFilm3dExport() {
 
   return {
     film3dProgress, film3dPhase, film3dEtaS, lastFilm3dUrl, setLastFilm3dUrl,
+    readyFilm3d, setReadyFilm3d,
     film3dAbortRef, handleCreateFilm3d,
   }
 }
