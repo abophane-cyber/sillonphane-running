@@ -83,7 +83,7 @@ const html = `<!doctype html><html><head><meta charset="utf-8"><style>
       <circle cx="138" cy="225" r="11" fill="#F5F3EF"/></svg>
       <span>Sillonphane-<b>Running</b></span><span class="nouveau">Nouveau</span>
     </div>
-    <h1>Votre course<span class="film">en film 3D</span></h1>
+    <h1>Votre course<span class="film">en film</span></h1>
     <div class="sous">Du 5 km au marathon, <i>votre trace GPS</i><br>devient un film et une affiche.</div>
     <div class="pastilles"><span>Gratuit</span><span>Sans compte</span><span>Sans pub</span></div>
   </div>
