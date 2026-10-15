@@ -127,6 +127,12 @@ export function AnimationControls({
   useEffect(() => {
     if (!wizardInProgress) setShowWizardBlockedHint(false)
   }, [wizardInProgress])
+  // La bulle demande de valider les panneaux : l'assistant descend tout seul jusqu'à « Terminer ».
+  useEffect(() => {
+    if (!showWizardBlockedHint) return
+    const card = document.querySelector('.pwiz-card')
+    card?.scrollTo({ top: card.scrollHeight, behavior: 'smooth' })
+  }, [showWizardBlockedHint])
   useEffect(() => {
     if (characters.length > 0 || ribbonOnly) setShowCharacterBlockedHint(false)
   }, [characters.length, ribbonOnly])
