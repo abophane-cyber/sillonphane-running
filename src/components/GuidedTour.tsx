@@ -134,7 +134,13 @@ export function GuidedTour({
 
   function replayAdvance() {
     // Impossible de passer aux personnages sans avoir cliqué sur « Terminer » : la bulle demande de le faire.
-    if (step === 'panels' && !wizardDone) { setTerminerNudge(true); return }
+    // Le panneau descend tout seul jusqu'au bouton, souvent caché sous la liste des lieux.
+    if (step === 'panels' && !wizardDone) {
+      setTerminerNudge(true)
+      const card = document.querySelector('.pwiz-card')
+      card?.scrollTo({ top: card.scrollHeight, behavior: 'smooth' })
+      return
+    }
     const i = STEPS.indexOf(step)
     if (i < STEPS.length - 1) setReplayStep(STEPS[i + 1])
     else { setReplayStep(null); onClose() }
