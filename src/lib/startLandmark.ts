@@ -1,14 +1,17 @@
-// Repère nommé le plus proche du départ (porte de ville, monument, place, hôtel de ville…), lu dans OpenStreetMap via
+// Repère nommé le plus proche du départ (porte de ville, monument, hôtel de ville… ; pas de place), lu dans OpenStreetMap via
 // Photon (géocodage inverse filtré par type, déjà utilisé par l'appli pour nommer les lieux) : ajouté d'office comme
 // point d'intérêt, visible dès l'ouverture (« Porte de Paris » au départ du semi de Lille). Mis en cache par position.
 
 const PHOTON_REVERSE = 'https://photon.komoot.io/reverse'
 const RADIUS_KM = 0.4
-const LS_KEY = 'running:sillon_start_landmark_'
-/** Types interrogés et leur priorité (plus grand = préféré à distance égale). */
+// v2 : sans les places.
+const LS_KEY = 'running:sillon_start_landmark2_'
+/** Types interrogés et leur priorité (plus grand = préféré à distance égale). Pas de place : elle est écrite en cercle
+ * sur le tracé quand elle est cochée dans « Rues empruntées » (sinon elle apparaîtrait deux fois). */
 const KINDS: [string, number][] = [
-  ['historic', 3], ['amenity:townhall', 2], ['tourism:museum', 2], ['tourism:attraction', 2], ['place:square', 1.5],
+  ['historic', 3], ['amenity:townhall', 2], ['tourism:museum', 2], ['tourism:attraction', 2],
 ]
+const SQUARE_NAME_RE = /^(place |parvis |esplanade |grand[- '’]?place)/i
 
 export interface StartLandmark { name: string; lon: number; lat: number }
 
@@ -31,7 +34,7 @@ export async function fetchStartLandmark(lon: number, lat: number): Promise<Star
   let best: StartLandmark | null = null, bestScore = -Infinity
   for (const { f, w } of results.flat()) {
     const name = f.properties?.name, c = f.geometry?.coordinates
-    if (!name || !c) continue
+    if (!name || !c || SQUARE_NAME_RE.test(`${name.trim()} `)) continue
     // Score : proche d'abord ; une porte ou un monument l'emporte sur une place un peu plus proche.
     const score = w - distM(lon, lat, c[0], c[1]) / 150
     if (score > bestScore) { bestScore = score; best = { name, lon: c[0], lat: c[1] } }
