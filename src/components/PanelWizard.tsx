@@ -301,6 +301,12 @@ export function PanelWizard({
             onChange={e => { setTitleDraft(e.target.value); if (e.target.value.trim()) onFilmTitleChange(e.target.value) }}
             onBlur={() => { if (titleDraft !== null && !titleDraft.trim()) onFilmTitleChange(''); setTitleDraft(null) }}
           />
+          {/* Sous-titre : 2e ligne du titre à l'ouverture, au cartouche et au carton de fin. */}
+          <label className="pwiz-field-label" htmlFor="pwiz-film-subtitle">Sous-titre (facultatif)</label>
+          <input
+            id="pwiz-film-subtitle" className="pwiz-input" value={race.subtitle ?? ''} placeholder="Vidéo d'aperçu"
+            onChange={e => onRaceChange({ ...race, subtitle: e.target.value })}
+          />
           {/* Noms d'épreuves : souvent des marques (cf. conditions d'utilisation, public/legal.html#conditions). */}
           {!filmTitle.trim() || /^(mon|ma|mes)\s/i.test(filmTitle.trim()) ? (
             <span className="pwiz-race-hint pwiz-mark-warn">⚠️

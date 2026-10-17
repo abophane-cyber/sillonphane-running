@@ -17,8 +17,11 @@ export interface RaceSettings {
   plannedTimes: boolean
   /** Vitesse attendue (km/h) par tranche de SPEED_SLICE_KM ; 0 = non renseignée. */
   speeds: number[]
-  /** Inscription de l'épreuve (nom, date, distance) ; vide = valeur par défaut (titre du parcours, date, distance). */
+  /** Titre du film saisi dans la rubrique Épreuve, gardé tel quel ; vide = titre tiré du nom du GPX. */
   eventName?: string
+  /** Sous-titre du film (« Vidéo d'aperçu non officielle ») : 2e ligne du titre à l'ouverture, au cartouche et au
+   * carton de fin. */
+  subtitle?: string
   /** Localité de l'épreuve (cartouche du film, au-dessus du titre) ; vide = lieu de départ. */
   eventPlace?: string
   bannerDate?: string

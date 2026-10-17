@@ -126,16 +126,23 @@ export default function App() {
   const bannerDefaults = useMemo<BannerText>(() => ({
     // Titre resté au nom brut du GPX (recopié au chargement, ou enregistré tel quel dans Mes sillons avant) : remplacé
     // par le titre qui en est tiré.
-    title: (customTitle && !isRawGpxName(customTitle, activeTrack?.name) ? customTitle : gpxEvent.title) || activeTrack?.name || '',
+    // Titre saisi dans la rubrique Épreuve (race.eventName) : gardé tel quel, même « Tracé du semi-marathon… ».
+    title: race.eventName?.trim()
+      || (customTitle && !isRawGpxName(customTitle, activeTrack?.name) ? customTitle : gpxEvent.title) || activeTrack?.name || '',
     place: race.eventPlace ?? gpxEvent.place ?? startName,
     date: formatBannerDate(manualDate),
     distance: activeTrack ? formatBannerDistance(activeTrack.distance) : undefined,
-  }), [customTitle, activeTrack, manualDate, gpxEvent, race.eventPlace, startName])
+  }), [customTitle, activeTrack, manualDate, gpxEvent, race.eventPlace, race.eventName, startName])
+  /** Titre choisi par l'utilisateur (rubrique Épreuve, écrans de titre) : mémorisé avec le tracé. */
+  const setFilmTitle = (v: string) => { setCustomTitle(v); setRace(r => ({ ...r, eventName: v.trim() ? v : undefined })) }
+  // Titre du film avec son sous-titre en 2e ligne (ouverture, cartouche, carton de fin ; cf. titleLines).
+  const withSubtitle = (t: string) => [t, race.subtitle?.trim()].filter(Boolean).join(' — ')
   // Cartouche d'épreuve (films et fenêtre d'animation) et chrono de l'encart du haut.
   // Ville en grand, titre en dessous sans la ville (« LILLE / MON SEMI-MARATHON »).
   const eventCartouche = useMemo(() => ({
-    place: bannerDefaults.place?.trim() ?? '', title: titleWithoutPlace(bannerDefaults.title, bannerDefaults.place),
-  }), [bannerDefaults])
+    place: bannerDefaults.place?.trim() ?? '', title: withSubtitle(titleWithoutPlace(bannerDefaults.title, bannerDefaults.place)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [bannerDefaults, race.subtitle])
   const raceTiming = useMemo(() => ({ useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds }), [realTimes, race.plannedTimes, race.speeds])
   const clock = useMemo(() => raceClock(points, distances, raceTiming), [points, distances, raceTiming])
   // Carton de fin du film : intitulé, date, distance, dénivelé, temps mis (réel ou prévu) et allure moyenne.
@@ -143,7 +150,7 @@ export default function App() {
     if (!activeTrack) return undefined
     const dur = raceDurationS(points, activeTrack.distance, { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds })
     return {
-      title: bannerDefaults.title, // titre du film (= nom de l'épreuve, saisi dans le widget)
+      title: withSubtitle(bannerDefaults.title), // titre du film (saisi dans le widget) et sous-titre
       date: race.bannerDate?.trim() || bannerDefaults.date,
       distance: (race.bannerDistance?.trim() || bannerDefaults.distance)?.replace(/ ?KM$/i, ' km'),
       elevGain: activeTrack.elevGain > 0 ? `+${Math.round(activeTrack.elevGain)} m` : undefined,
@@ -438,6 +445,7 @@ export default function App() {
         plannedTimes: race.plannedTimes || undefined,
         raceSpeeds: race.speeds.length > 0 ? race.speeds : undefined,
         eventName: race.eventName?.trim() || undefined,
+        subtitle: race.subtitle?.trim() || undefined,
         bannerDate: race.bannerDate?.trim() || undefined,
         bannerDistance: race.bannerDistance?.trim() || undefined,
         bibNumber: race.bibNumber?.trim() || undefined,
@@ -715,6 +723,7 @@ export default function App() {
                     plannedTimes: !!track.panelPlannedTimes,
                     speeds: track.panelRaceSpeeds ?? [],
                     eventName: track.panelEventName,
+                    subtitle: track.panelSubtitle,
                     bannerDate: track.panelBannerDate,
                     bannerDistance: track.panelBannerDistance,
                     bibNumber: track.panelBibNumber,
@@ -855,7 +864,7 @@ export default function App() {
             onAlbum={() => setView('album')}
             onVoyages={goToVoyages}
             customTitle={bannerDefaults.title}
-            onCustomTitleChange={setCustomTitle}
+            onCustomTitleChange={setFilmTitle}
             manualDate={manualDate}
             onManualDateChange={setManualDate}
             departureTime={departureTime}
@@ -880,7 +889,7 @@ export default function App() {
             departureTime={departureTime || undefined}
             arrivalTime={arrivalTime || undefined}
             customTitle={bannerDefaults.title || undefined}
-            onTitleChange={setCustomTitle}
+            onTitleChange={setFilmTitle}
             startName={startName || undefined}
             endName={endName || undefined}
             onStartNameChange={setStartName}
@@ -932,7 +941,7 @@ export default function App() {
             bannerDefaults={bannerDefaults}
             clock={clock}
             eventCartouche={eventCartouche}
-            onCustomTitleChange={setCustomTitle}
+            onCustomTitleChange={setFilmTitle}
             departureTime={departureTime}
             onDepartureTimeChange={setDepartureTime}
             onMapCanvasReady={canvas => { mapCanvasRef.current = canvas }}

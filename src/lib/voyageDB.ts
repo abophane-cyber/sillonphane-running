@@ -253,6 +253,7 @@ export async function saveTrackPanelSettings(
     plannedTimes?: boolean
     raceSpeeds?: number[]
     eventName?: string
+    subtitle?: string
     bannerDate?: string
     bannerDistance?: string
     bibNumber?: string
@@ -286,6 +287,7 @@ export async function saveTrackPanelSettings(
       panelPlannedTimes: settings.plannedTimes,
       panelRaceSpeeds: settings.raceSpeeds,
       panelEventName: settings.eventName,
+      panelSubtitle: settings.subtitle,
       panelBannerDate: settings.bannerDate,
       panelBannerDistance: settings.bannerDistance,
       panelBibNumber: settings.bibNumber,

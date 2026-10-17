@@ -169,7 +169,8 @@ export function buildPosterData(track: VoyageTrack): PosterData {
     bornes: computeBornes(points, distances, { useRealTimes: false }),
     analysis, gpxDurationS, realTimes: timing.realTimes,
     defaults: {
-      title: parsedName.title ?? track.name,
+      // Titre choisi dans la rubrique Épreuve tel quel ; sinon celui tiré du nom du GPX.
+      title: track.panelEventName?.trim() || parsedName.title || track.name,
       // Distance saisie pour le carton du film (« 21,5 KM »), sinon distance de l'épreuve reconnue
       distance: (track.panelBannerDistance?.trim() || formatBannerDistance(officialM)).toLowerCase(),
       date: track.date ?? '',
