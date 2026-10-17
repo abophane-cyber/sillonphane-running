@@ -4,7 +4,7 @@
 // (lent rapprochement), puis la caméra plonge vers le départ. Ce module ne dessine que les calques 2D (lumière, ruban,
 // lieux, titre) ; chaque film gère sa caméra et appelle drawOpening à chaque image.
 
-import { formatBannerDistance } from './raceSplits'
+import { formatBannerDistance, titleLines } from './raceSplits'
 
 /** Couleurs du ruban (celles du ruban du film 3D) : vert, orange, crème. */
 const GREEN: [number, number, number] = [0x3e, 0x9e, 0x68]
@@ -230,6 +230,8 @@ export interface OpeningText {
   main: string
   /** Année, à la suite de l'élément principal : « 2026 ». */
   year: string
+  /** Deuxième ligne du titre (après « — »), plus petite sous l'élément principal : « VIDÉO D'APERÇU ». */
+  subtitle: string
   /** « 17 SEPTEMBRE 2026 ». */
   date: string
   /** « 21,1 km ». */
@@ -244,7 +246,9 @@ export function openingText(o: {
   title?: string; place?: string; date?: string; distanceM: number; elevGainM: number
 }): OpeningText {
   const yearRe = /\b(19|20)\d{2}\b/
-  let title = (o.title ?? '').trim()
+  // Titre en deux lignes (« … à Lille — Vidéo d'aperçu ») : la 2e ligne devient le sous-titre.
+  const [line1 = '', subtitle = ''] = titleLines(o.title ?? '')
+  let title = line1
   const place = (o.place ?? '').trim()
   const year = title.match(yearRe)?.[0] ?? o.date?.match(yearRe)?.[0] ?? ''
   title = title.replace(yearRe, ' ')
@@ -258,6 +262,7 @@ export function openingText(o: {
     kicker: place ? up(title) : '',
     main: up(place || title || 'Sillonphane'),
     year,
+    subtitle: up(subtitle),
     date: up(o.date ?? ''),
     // « 21,1 km » pour un semi, « 42,195 km » pour un marathon.
     km: formatBannerDistance(o.distanceM).replace(/ KM$/, ' km'),
@@ -390,6 +395,12 @@ export function drawOpeningTitle(ctx: CanvasRenderingContext2D, w: number, h: nu
     return Math.max(ctx.measureText(mainText).width, txt.kicker ? ctx.measureText(txt.kicker).width : 0) <= maxW
   }
   while (!fits() && size > 56 * k) size -= 3 * k
+  // Titre long (« TRACÉ DU SEMI-MARATHON DU 25 OCTOBRE ») : sa ligne seule continue de se réduire.
+  let kickerSize = size
+  if (txt.kicker) {
+    const kFits = () => { ctx.font = `800 ${kickerSize}px ${FONT}`; return ctx.measureText(txt.kicker).width <= maxW }
+    while (!kFits() && kickerSize > 28 * k) kickerSize -= 2 * k
+  }
   ctx.letterSpacing = '0px'
 
   let y = Math.round(h * 0.14)
@@ -408,14 +419,15 @@ export function drawOpeningTitle(ctx: CanvasRenderingContext2D, w: number, h: nu
   // SEMI-MARATHON / LILLE 2026 : très grand, blanc, gras ; l'année orange doré, un peu lumineuse.
   ctx.shadowColor = 'rgba(0,0,0,0.45)'
   ctx.shadowBlur = 22 * k
-  ctx.font = `800 ${size}px ${FONT}`
   ctx.letterSpacing = `${-2 * k}px`
   ctx.fillStyle = '#ffffff'
   if (txt.kicker) {
-    y += size * 0.86
+    ctx.font = `800 ${kickerSize}px ${FONT}`
+    y += kickerSize * 0.86
     ctx.fillText(txt.kicker, x, y)
-    y += size * 0.12
+    y += kickerSize * 0.12
   }
+  ctx.font = `800 ${size}px ${FONT}`
   y += size * 0.86
   const mainW = ctx.measureText(`${txt.main} `).width
   ctx.fillText(`${txt.main} `, x, y)
@@ -428,6 +440,17 @@ export function drawOpeningTitle(ctx: CanvasRenderingContext2D, w: number, h: nu
     ctx.fillText(txt.year, x + mainW, y)
   }
   ctx.letterSpacing = '0px'
+  // Deuxième ligne du titre (« VIDÉO D'APERÇU NON-OFFICIEL ») : capitales espacées, comme la date, mais plus grandes.
+  if (txt.subtitle) {
+    ctx.shadowColor = 'rgba(0,0,0,0.45)'
+    ctx.shadowBlur = 14 * k
+    ctx.fillStyle = 'rgba(235,238,242,0.92)'
+    let ss = 34 * k
+    do { ctx.font = `600 ${ss}px ${FONT}`; ctx.letterSpacing = `${ss * 0.18}px`; ss -= 1 * k } while (ctx.measureText(txt.subtitle).width > maxW && ss > 16 * k)
+    y += 52 * k
+    ctx.fillText(txt.subtitle, x, y)
+    ctx.letterSpacing = '0px'
+  }
   ctx.shadowColor = 'transparent'
   y += 34 * k
   drawSignatureLine(ctx, x, y, Math.min(maxW, 440 * k), 3 * k)

@@ -22,7 +22,7 @@ import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosa
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
 import { drawOpening, loadOpeningFont, openingDiveK, openingHudAlpha, openingText, OPENING, OPENING_S, type OpeningPt } from './filmOpening'
-import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, type Borne, type EndCard, type Ravito } from './raceSplits'
+import { borneNumber, borneReached, borneTimeLine, raceClock, startClock, titleLines, type Borne, type EndCard, type Ravito } from './raceSplits'
 import {
   HIKER3D_CLOSE_ZOOM, HIKER3D_END_ZOOM_MS, HIKER3D_END_HOLD_MS,HIKER3D_START_DEZOOM_MS, HIKER3D_OVERVIEW_MS, HIKER3D_PAIR_PX,
   HIKER3D_FOLLOW_PX, HIKER3D_MERGE_TAU_S, HIKER3D_ENABLED, hiker3dScaleForZoom, smoothEase, metersPerPixel,
@@ -864,15 +864,30 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
 
   // Intitulé (italique, ajusté à la place restante) et date dorée au-dessus.
   const maxTitleW = (stats.length ? sepX - gap * 0.5 : cw - padX) - padX - usageW
+  // Titre en deux lignes (« … — Vidéo d'aperçu ») : la 2e, plus petite et plus discrète, sous la 1re.
+  const [line1 = '', line2] = titleLines(card.title)
   let ts = Math.round(ch * 0.044)
-  do { ctx.font = `italic ${ts}px Georgia, "Times New Roman", serif`; ts -= 2 } while (ctx.measureText(card.title).width > maxTitleW && ts > 14)
+  const sub = () => `italic ${Math.round(ts * 0.72)}px Georgia, "Times New Roman", serif`
+  const tooWide = () => {
+    ctx.font = sub(); const w2 = line2 ? ctx.measureText(line2).width : 0
+    ctx.font = `italic ${ts}px Georgia, "Times New Roman", serif`
+    return Math.max(ctx.measureText(line1).width, w2) > maxTitleW
+  }
+  while (tooWide() && ts > 14) ts -= 2
   ctx.textAlign = 'left'; ctx.fillStyle = '#fff'
-  ctx.fillText(card.title, padX, baseY)
+  let line1Y = baseY
+  if (line2) {
+    ctx.font = sub(); ctx.fillStyle = SOFT
+    ctx.fillText(line2, padX, baseY)
+    line1Y = baseY - ts * 0.72 - ch * 0.012
+    ctx.font = `italic ${ts}px Georgia, "Times New Roman", serif`; ctx.fillStyle = '#fff'
+  }
+  ctx.fillText(line1, padX, line1Y)
   const dateLine = [card.date?.toUpperCase(), 'ARRIVÉE'].filter(Boolean).join('  ·  ')
   ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
   ctx.fillStyle = GOLD
   ctx.letterSpacing = `${ch * 0.004}px`
-  ctx.fillText(dateLine, padX, baseY - ts - ch * 0.012)
+  ctx.fillText(dateLine, padX, line1Y - ts - ch * 0.012)
   ctx.letterSpacing = '0px'
 
   // Adresse du site, discrète, en haut à droite du bandeau.
@@ -926,7 +941,10 @@ export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch
   const k = Math.min(cw / 1920, ch / 1080)
   const x = Math.round(56 * k), base = ch - Math.round(64 * k)
   const placeSize = Math.round(76 * k), titleSize = Math.round(27 * k)
-  const barW = Math.round(13 * k), barH = Math.round(118 * k), slant = Math.round(16 * k)
+  // Titre en deux lignes (« … — Vidéo d'aperçu ») : la ville et le haut de la barre montent d'une ligne.
+  const lines = titleLines(c.title).map(l => l.toUpperCase())
+  const lineH = Math.round(36 * k), extra = Math.max(0, lines.length - 1) * lineH
+  const barW = Math.round(13 * k), barH = Math.round(118 * k) + extra, slant = Math.round(16 * k)
   const tx = x + barW + slant + Math.round(22 * k)
   const maxW = cw * 0.45
   ctx.save()
@@ -942,13 +960,14 @@ export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch
   if (c.place) {
     let s = placeSize
     do { ctx.font = `italic 800 ${s}px "Arial Narrow", Arial, sans-serif`; s -= 2 } while (ctx.measureText(c.place.toUpperCase()).width > maxW && s > 30)
-    ctx.fillText(c.place.toUpperCase(), tx, base - Math.round(50 * k))
+    ctx.fillText(c.place.toUpperCase(), tx, base - Math.round(50 * k) - extra)
   }
-  if (c.title) {
+  if (lines.length) {
+    // Même taille pour les deux lignes, réduite jusqu'à ce que la plus longue tienne.
     let s = titleSize
-    ctx.letterSpacing = `${Math.round(7 * k)}px`
-    do { ctx.font = `500 ${s}px "Segoe UI", system-ui, sans-serif`; ctx.letterSpacing = `${Math.round(s * 0.26)}px`; s -= 1 } while (ctx.measureText(c.title.toUpperCase()).width > maxW && s > 14)
-    ctx.fillText(c.title.toUpperCase(), tx + Math.round(4 * k), base - Math.round(6 * k))
+    const widest = () => Math.max(...lines.map(l => ctx.measureText(l).width))
+    do { ctx.font = `500 ${s}px "Segoe UI", system-ui, sans-serif`; ctx.letterSpacing = `${Math.round(s * 0.26)}px`; s -= 1 } while (widest() > maxW && s > 14)
+    lines.forEach((l, i) => ctx.fillText(l, tx + Math.round(4 * k), base - Math.round(6 * k) - (lines.length - 1 - i) * lineH))
   }
   ctx.restore()
 }

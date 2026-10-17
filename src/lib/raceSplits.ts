@@ -81,6 +81,13 @@ function raceType(t: string): string | undefined {
   return km ? `${km[1].replace('.', ',')} km` : undefined
 }
 
+/** Lignes du titre : le « — » (ou un retour à la ligne) coupe le titre en deux lignes dans le film (ouverture,
+ * cartouche, carton de fin) : « Tracé du semi-marathon à Lille — Vidéo d'aperçu » -> deux lignes. */
+export function titleLines(title: string): string[] {
+  const lines = title.split(/\s*(?:—|\n)\s*/).map(s => s.trim()).filter(Boolean)
+  return lines.length > 2 ? [lines[0], lines.slice(1).join(' — ')] : lines
+}
+
 /** Titre sans la ville quand celle-ci est affichée à part (cartouche, ouverture) : « Mon semi-marathon à Lille » +
  * « Lille » -> « Mon semi-marathon ». */
 export function titleWithoutPlace(title: string, place: string | undefined): string {
