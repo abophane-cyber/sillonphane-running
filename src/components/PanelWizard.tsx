@@ -92,6 +92,10 @@ export function PanelWizard({
 
   const [addType, setAddType] = useState<'localite' | 'lieudit' | 'col' | 'poi'>('localite')
   const [addName, setAddName] = useState('')
+  // Titre en cours de saisie : le champ peut rester vide le temps de retaper (un titre vide reprendrait le titre par
+  // défaut) ; vide en quittant le champ = titre par défaut.
+  const [titleDraft, setTitleDraft] = useState<string | null>(null)
+  const filmTitle = titleDraft ?? bannerDefaults.title
   // Rues empruntées : liste trouvée à la demande (IGN) ; les rues cochées sont dans race.streets.
   const [streetList, setStreetList] = useState<StreetRun[] | null>(null)
   const [streetState, setStreetState] = useState<'idle' | 'loading' | 'error'>('idle')
@@ -293,11 +297,12 @@ export function PanelWizard({
           {/* Nom de l'épreuve = titre du film (écran-titre, carton de fin, Mes sillons). */}
           <label className="pwiz-field-label" htmlFor="pwiz-film-title">Titre du film</label>
           <input
-            id="pwiz-film-title" className="pwiz-input" value={bannerDefaults.title} placeholder="Mon semi-marathon à Lille"
-            onChange={e => onFilmTitleChange(e.target.value)}
+            id="pwiz-film-title" className="pwiz-input" value={filmTitle} placeholder="Mon semi-marathon à Lille"
+            onChange={e => { setTitleDraft(e.target.value); if (e.target.value.trim()) onFilmTitleChange(e.target.value) }}
+            onBlur={() => { if (titleDraft !== null && !titleDraft.trim()) onFilmTitleChange(''); setTitleDraft(null) }}
           />
           {/* Noms d'épreuves : souvent des marques (cf. conditions d'utilisation, public/legal.html#conditions). */}
-          {/^(mon|ma|mes)\s/i.test(bannerDefaults.title.trim()) ? (
+          {!filmTitle.trim() || /^(mon|ma|mes)\s/i.test(filmTitle.trim()) ? (
             <span className="pwiz-race-hint pwiz-mark-warn">⚠️
               Film personnel. Le nom officiel d'une épreuve est une marque de son organisateur : voir
               les <a href={`${import.meta.env.BASE_URL}legal.html#conditions`} target="_blank" rel="noopener">conditions d'utilisation</a>.
