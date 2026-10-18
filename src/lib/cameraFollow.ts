@@ -46,6 +46,8 @@ export function createFreeZoneFollow() {
       else want = k * CHASE_GAIN * err
     }
     a.v += (want - a.v) * Math.min(1, k * SMOOTH)
+    // Fin du ralenti : arrêt franc sous 0,05 px, sinon la carte serait repositionnée à chaque image indéfiniment.
+    if (a.target == null && Math.abs(a.v) < 0.05) a.v = 0
     // Garde-fou : ramène le coureur d'une fraction g vers le bord de sa zone, quelle que soit la vitesse lissée.
     const e = Math.max(0, Math.abs(d) - guardZone)
     if (e && Math.sign(d) * a.v < g * e) a.v = Math.sign(d) * g * e
