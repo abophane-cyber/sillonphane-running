@@ -665,6 +665,7 @@ export function TrackMap({
       }
     } else {
       lastCameraUpdateRef.current = performance.now()
+      cameraFollowRef.current.reset()
     }
   }, [markerPosition, progress, followMarker, animating, points, distances, totalDistance]) // eslint-disable-line react-hooks/exhaustive-deps
 

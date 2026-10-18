@@ -1,8 +1,9 @@
 // Suivi caméra à zone libre (aperçu et film 2D) : la caméra reste immobile et laisse le coureur s'approcher d'un bord.
 // Un peu avant (CHASE_ZONE), elle recadre d'avance : mouvement ample mais lent, qui replace le coureur de l'autre côté
-// du centre (LEAD), puis elle s'arrête jusqu'au prochain déclenchement. Le recadrage démarre en douceur (gain qui
-// monte progressivement) et finit en s'amortissant. Plus près du bord (GUARD_ZONE), un garde-fou proportionnel au
-// dépassement reprend la main si le coureur va plus vite que le recadrage, pour ne jamais perdre le tracé.
+// du centre (LEAD), puis elle s'arrête jusqu'au prochain déclenchement. Plus près du bord (GUARD_ZONE), un garde-fou
+// proportionnel au dépassement reprend la main si le coureur va plus vite que le recadrage, pour ne jamais perdre le
+// tracé. La caméra a sa propre vitesse, lissée : elle accélère et surtout ralentit progressivement (sans elle, la fin
+// d'un recadrage, où la caméra file encore à la vitesse du coureur, se faisait d'une image à l'autre : effet de gel).
 // Carte nord en haut : x ne dépend que de la longitude, y que de la latitude, d'où un réglage indépendant par axe.
 
 /** Déclenchement du recadrage : demi-largeur et demi-hauteur de la zone libre, en fraction de l'image (0,28 = le
@@ -18,49 +19,51 @@ const LEAD = 0.2
 const CHASE_GAIN = 0.6
 /** Recadrage terminé quand le coureur est à moins de cette fraction de l'image de sa position visée. */
 const SETTLE = 0.015
-/** Montée du gain au début d'un recadrage, en multiple du gain d'amorti (plus petit = départ plus progressif). */
-const RAMP = 0.8
+/** Lissage de la vitesse caméra, en multiple du gain d'amorti (plus petit = accélérations et arrêts plus doux). */
+const SMOOTH = 1.2
 
-type Axis = { target: number | null; ramp: number }
+type Axis = { target: number | null; v: number }
 
 /**
  * Crée un suivi (un par film ou par carte : il garde l'état du recadrage en cours).
  * `step` renvoie les fractions de l'écart caméra → coureur (en longitude et en latitude) à parcourir à cette image.
  * `dx`, `dy` : position du coureur par rapport au centre (px) ; `k` : gain d'amorti de base ; `shrink` (0..1) réduit la
  * zone libre (1 = plus de zone : suivi complet, ex. coureur sur le cartel d'altitude du film).
+ * `reset` arrête net la caméra (suivi interrompu : pause, saut dans l'animation).
  */
 export function createFreeZoneFollow() {
-  const ax: Axis = { target: null, ramp: 0 }, ay: Axis = { target: null, ramp: 0 }
+  const ax: Axis = { target: null, v: 0 }, ay: Axis = { target: null, v: 0 }
 
-  // Garde-fou : ramène le coureur d'une fraction g vers le bord de la zone.
-  function guard(d: number, zone: number, g: number) {
-    const e = Math.max(0, Math.abs(d) - zone)
-    return d && e ? (g * e) / Math.abs(d) : 0
-  }
-
-  // Recadrage d'avance sur un axe : déclenché au franchissement de la zone, vise le coureur à LEAD de l'autre côté.
-  function chase(a: Axis, d: number, size: number, zone: number, k: number, shrink: number) {
-    if (a.target == null && Math.abs(d) > zone) { a.target = -Math.sign(d) * size * LEAD * (1 - shrink); a.ramp = 0 }
-    if (a.target == null || !d) return 0
-    const err = d - a.target
-    // Arrivé (ou dépassé : le coureur a fait demi-tour) → caméra de nouveau immobile.
-    if (Math.abs(err) < size * SETTLE || Math.sign(err) !== Math.sign(d)) { a.target = null; return 0 }
-    a.ramp = Math.min(1, a.ramp + k * RAMP)
-    const r = a.ramp * a.ramp * (3 - 2 * a.ramp)
-    return (k * CHASE_GAIN * r * err) / d
+  // Déplacement de la caméra sur un axe à cette image (px, positif = vers le coureur), renvoyé en fraction de l'écart.
+  function axisStep(a: Axis, d: number, size: number, chaseZone: number, guardZone: number, g: number, k: number, shrink: number) {
+    if (a.target == null && Math.abs(d) > chaseZone) a.target = -Math.sign(d) * size * LEAD * (1 - shrink)
+    let want = 0
+    if (a.target != null) {
+      const err = d - a.target
+      // Arrivé (ou dépassé : le coureur a fait demi-tour) → la caméra ralentit jusqu'à l'arrêt.
+      // (Comparé au côté de départ, opposé à la cible, et non au signe de d, qui s'inverse au passage du centre.)
+      if (Math.abs(err) < size * SETTLE || Math.sign(err) !== -Math.sign(a.target)) a.target = null
+      else want = k * CHASE_GAIN * err
+    }
+    a.v += (want - a.v) * Math.min(1, k * SMOOTH)
+    // Garde-fou : ramène le coureur d'une fraction g vers le bord de sa zone, quelle que soit la vitesse lissée.
+    const e = Math.max(0, Math.abs(d) - guardZone)
+    if (e && Math.sign(d) * a.v < g * e) a.v = Math.sign(d) * g * e
+    if (!d) return 0
+    return a.v / d
   }
 
   return {
     step(dx: number, dy: number, w: number, h: number, k: number, shrink = 0): { fx: number; fy: number } {
-      const cx = w * CHASE_ZONE * (1 - shrink), cy = h * CHASE_ZONE * (1 - shrink)
       const zx = w * GUARD_ZONE * (1 - shrink), zy = h * GUARD_ZONE * (1 - shrink)
       const ex = Math.max(0, Math.abs(dx) - zx), ey = Math.max(0, Math.abs(dy) - zy)
       const maxEx = Math.min(w, h) * MAX_EXCESS, excess = Math.hypot(ex, ey)
       const g = excess > maxEx ? Math.min(0.5, k * (excess / maxEx)) : k
       return {
-        fx: Math.max(guard(dx, zx, g), chase(ax, dx, w, cx, k, shrink)),
-        fy: Math.max(guard(dy, zy, g), chase(ay, dy, h, cy, k, shrink)),
+        fx: axisStep(ax, dx, w, w * CHASE_ZONE * (1 - shrink), zx, g, k, shrink),
+        fy: axisStep(ay, dy, h, h * CHASE_ZONE * (1 - shrink), zy, g, k, shrink),
       }
     },
+    reset() { ax.target = ay.target = null; ax.v = ay.v = 0 },
   }
 }
