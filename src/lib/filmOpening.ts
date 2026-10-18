@@ -369,6 +369,12 @@ function drawSignatureLine(ctx: CanvasRenderingContext2D, x: number, y: number, 
   ctx.fillRect(x, y, wd, hgt)
 }
 
+/** Approche du titre : resserrée seulement en très grand (« LILLE 2026 » seul) ; à la taille réduite d'un titre
+ * long (« TRACÉ DU SEMI-MARATHON »), les lettres gardent un espacement un peu ouvert. */
+function titleTracking(size: number, k: number): string {
+  return `${size > 105 * k ? -2 * k : size * 0.012}px`
+}
+
 /**
  * Bloc titre à gauche, façon affiche : date en capitales espacées, filet, SEMI-MARATHON et LILLE 2026 en très grand
  * (l'année orange doré), filet au dégradé signature, badges distance et D+, logo Sillonphane et adresse du site.
@@ -391,14 +397,14 @@ export function drawOpeningTitle(ctx: CanvasRenderingContext2D, w: number, h: nu
   let size = 124 * k
   const fits = () => {
     ctx.font = `800 ${size}px ${FONT}`
-    ctx.letterSpacing = `${-2 * k}px`
+    ctx.letterSpacing = titleTracking(size, k)
     return Math.max(ctx.measureText(mainText).width, txt.kicker ? ctx.measureText(txt.kicker).width : 0) <= maxW
   }
   while (!fits() && size > 56 * k) size -= 3 * k
   // Titre long (« TRACÉ DU SEMI-MARATHON DU 25 OCTOBRE ») : sa ligne seule continue de se réduire.
   let kickerSize = size
   if (txt.kicker) {
-    const kFits = () => { ctx.font = `800 ${kickerSize}px ${FONT}`; return ctx.measureText(txt.kicker).width <= maxW }
+    const kFits = () => { ctx.font = `800 ${kickerSize}px ${FONT}`; ctx.letterSpacing = titleTracking(kickerSize, k); return ctx.measureText(txt.kicker).width <= maxW }
     while (!kFits() && kickerSize > 28 * k) kickerSize -= 2 * k
   }
   ctx.letterSpacing = '0px'
@@ -419,15 +425,17 @@ export function drawOpeningTitle(ctx: CanvasRenderingContext2D, w: number, h: nu
   // SEMI-MARATHON / LILLE 2026 : très grand, blanc, gras ; l'année orange doré, un peu lumineuse.
   ctx.shadowColor = 'rgba(0,0,0,0.45)'
   ctx.shadowBlur = 22 * k
-  ctx.letterSpacing = `${-2 * k}px`
   ctx.fillStyle = '#ffffff'
   if (txt.kicker) {
     ctx.font = `800 ${kickerSize}px ${FONT}`
+    ctx.letterSpacing = titleTracking(kickerSize, k)
     y += kickerSize * 0.86
     ctx.fillText(txt.kicker, x, y)
-    y += kickerSize * 0.12
+    // Interligne aéré : les capitales accentuées (« É ») de la 2e ligne ne touchent pas la 1re.
+    y += kickerSize * 0.26
   }
   ctx.font = `800 ${size}px ${FONT}`
+  ctx.letterSpacing = titleTracking(size, k)
   y += size * 0.86
   const mainW = ctx.measureText(`${txt.main} `).width
   ctx.fillText(`${txt.main} `, x, y)
