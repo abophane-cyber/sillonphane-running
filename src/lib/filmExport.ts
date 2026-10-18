@@ -943,7 +943,8 @@ export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch
   const placeSize = Math.round(76 * k), titleSize = Math.round(27 * k)
   // Titre en deux lignes (« … — Vidéo d'aperçu ») : la ville et le haut de la barre montent d'une ligne.
   const lines = titleLines(c.title).map(l => l.toUpperCase())
-  const lineH = Math.round(36 * k), extra = Math.max(0, lines.length - 1) * lineH
+  // 2e ligne (sous-titre) plus petite : l'écart entre les lignes se resserre d'autant.
+  const lineH = Math.round(30 * k), extra = Math.max(0, lines.length - 1) * lineH
   const barW = Math.round(13 * k), barH = Math.round(118 * k) + extra, slant = Math.round(16 * k)
   const tx = x + barW + slant + Math.round(22 * k)
   const maxW = cw * 0.45
@@ -963,11 +964,21 @@ export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch
     ctx.fillText(c.place.toUpperCase(), tx, base - Math.round(50 * k) - extra)
   }
   if (lines.length) {
-    // Même taille pour les deux lignes, réduite jusqu'à ce que la plus longue tienne.
+    // Titre, puis sous-titre (« VIDÉO D'APERÇU NON-OFFICIEL ») en plus petit et plus discret ; réduits ensemble
+    // jusqu'à ce que la plus longue ligne tienne.
     let s = titleSize
-    const widest = () => Math.max(...lines.map(l => ctx.measureText(l).width))
-    do { ctx.font = `500 ${s}px "Segoe UI", system-ui, sans-serif`; ctx.letterSpacing = `${Math.round(s * 0.26)}px`; s -= 1 } while (widest() > maxW && s > 14)
-    lines.forEach((l, i) => ctx.fillText(l, tx + Math.round(4 * k), base - Math.round(6 * k) - (lines.length - 1 - i) * lineH))
+    const sizeOf = (i: number) => (i === 0 ? s : Math.round(s * 0.72))
+    const setFont = (i: number) => {
+      const z = sizeOf(i)
+      ctx.font = `500 ${z}px "Segoe UI", system-ui, sans-serif`; ctx.letterSpacing = `${Math.round(z * 0.26)}px`
+    }
+    const widest = () => Math.max(...lines.map((l, i) => { setFont(i); return ctx.measureText(l).width }))
+    while (widest() > maxW && s > 14) s -= 1
+    lines.forEach((l, i) => {
+      setFont(i)
+      ctx.fillStyle = i === 0 ? '#fff' : 'rgba(255,255,255,0.82)'
+      ctx.fillText(l, tx + Math.round(4 * k), base - Math.round(6 * k) - (lines.length - 1 - i) * lineH)
+    })
   }
   ctx.restore()
 }
