@@ -13,7 +13,7 @@ import type { CharacterId } from './characters'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './tilePrefetch'
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPointsByDistance } from './gpx'
-import { freeZoneStep } from './cameraFollow'
+import { createFreeZoneFollow } from './cameraFollow'
 import { BASEMAP_BACKGROUND } from './tileSources'
 import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
@@ -1507,9 +1507,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const elevRect = elevOverlayRect(OUT_W, OUT_H)
   const AVOID_PAD = 40
 
-  // Suivi caméra à zone libre (voir freeZoneStep) : immobile tant que le coureur est loin des bords, puis glissement
-  // amorti (lissage exponentiel du dépassement, sans pic de vitesse -> peu de flou de compression sur les travellings).
+  // Suivi caméra à zone libre (voir cameraFollow.ts) : immobile tant que le coureur est loin des bords, puis recadrage
+  // d'avance amorti (départ et arrivée en douceur, sans pic de vitesse -> peu de flou de compression sur les travellings).
   const FOLLOW_K = IS_MOBILE ? 0.075 : 0.038
+  const camFollow = createFreeZoneFollow()
 
   let camLng = points[0].lon
   let camLat = points[0].lat
@@ -1967,7 +1968,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // l'en écarter, plus vite s'il s'en approche trop. Sur le cartel d'altitude, la zone se resserre jusqu'au suivi
     // complet, avec un gain porté à 0,12, pour l'en faire sortir.
     const k = elevFactor > 0 ? FOLLOW_K + (0.12 - FOLLOW_K) * elevFactor : FOLLOW_K
-    const { fx, fy } = freeZoneStep(px.x - OUT_W / 2, px.y - OUT_H / 2, OUT_W, OUT_H, k, elevFactor)
+    const { fx, fy } = camFollow.step(px.x - OUT_W / 2, px.y - OUT_H / 2, OUT_W, OUT_H, k, elevFactor)
     camLng += (lng - camLng) * fx
     camLat += (lat - camLat) * fy
     if (preWalkFrames + f < finFrom) { // fin seule : caméra suivie, image ni dessinée ni encodée

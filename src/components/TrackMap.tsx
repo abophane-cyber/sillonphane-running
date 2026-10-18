@@ -9,7 +9,7 @@ import { ANIM_ZOOM } from '../hooks/useAnimationSettings'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from '../lib/tilePrefetch'
 import { DEFAULT_CHARACTERS, type CharacterId } from '../lib/characters'
 import { smoothTrackCoords } from '../lib/gpx'
-import { freeZoneStep } from '../lib/cameraFollow'
+import { createFreeZoneFollow } from '../lib/cameraFollow'
 import { PANEL_DRAG_MIME, isPanelDrag, snapToTrack } from '../lib/panelDrag'
 import type { Hiker3dSprite } from '../lib/hiker3dSprite'
 import {
@@ -181,6 +181,7 @@ export function TrackMap({
   const bearingRef       = useRef(0)
   const prevLngLatRef    = useRef<[number, number] | null>(null)
   const lastCameraUpdateRef = useRef(0)
+  const cameraFollowRef = useRef(createFreeZoneFollow())
   const hiker3dRef       = useRef<Hiker3dSprite[]>([])
   const hiker3dTokenRef  = useRef(0) // dernier montage demandé (les imports en retard sont ignorés)
   const countdownRef     = useRef(countdown)
@@ -648,8 +649,8 @@ export function TrackMap({
         : [],
     })
 
-    // Suivi caméra à zone libre, comme le film 2D (freeZoneStep) : immobile tant que le coureur est loin des bords,
-    // glissement amorti seulement pour l'en écarter.
+    // Suivi caméra à zone libre, comme le film 2D (cameraFollow.ts) : immobile tant que le coureur est loin des bords,
+    // recadrage d'avance quand il en approche.
     if (followMarker && animating && !flyingRef.current) {
       const now = performance.now()
       const dt = Math.min(0.1, Math.max(0, (now - lastCameraUpdateRef.current) / 1000))
@@ -657,7 +658,7 @@ export function TrackMap({
       const { clientWidth: cw, clientHeight: ch } = map.getContainer()
       const c = map.getCenter()
       const pc = map.project(c), pm = map.project(lngLat)
-      const { fx, fy } = freeZoneStep(pm.x - pc.x, pm.y - pc.y, cw, ch, 1 - Math.exp(-dt / CAMERA_FOLLOW_TAU_S))
+      const { fx, fy } = cameraFollowRef.current.step(pm.x - pc.x, pm.y - pc.y, cw, ch, 1 - Math.exp(-dt / CAMERA_FOLLOW_TAU_S))
       const zoom = targetZoomRef.current != null ? targetZoomRef.current : map.getZoom()
       if (fx || fy || zoom !== map.getZoom()) {
         map.jumpTo({ center: [c.lng + (lngLat[0] - c.lng) * fx, c.lat + (lngLat[1] - c.lat) * fy], zoom })
