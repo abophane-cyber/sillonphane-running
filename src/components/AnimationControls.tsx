@@ -88,7 +88,10 @@ export function AnimationControls({
   showPreviewHint, onDismissPreviewHint, showExportHint, onDismissExportHint,
 }: Props) {
   const [showSaveRequiredPopup, setShowSaveRequiredPopup] = useState(false)
-  const [showWizardBlockedHint, setShowWizardBlockedHint] = useState(false)
+  // Bulle « terminez les panneaux », posée sur le bouton cliqué (Aperçu ou Film).
+  const [wizardHintAt, setWizardHintAt] = useState<'preview' | 'film' | null>(null)
+  const showWizardBlockedHint = wizardHintAt !== null
+  const setShowWizardBlockedHint = (v: boolean) => setWizardHintAt(v ? 'preview' : null)
   const [showCharacterBlockedHint, setShowCharacterBlockedHint] = useState(false)
   const previewGroupRef = useRef<HTMLDivElement>(null)
   const filmGroupRef = useRef<HTMLDivElement>(null)
@@ -224,7 +227,7 @@ export function AnimationControls({
                   Choisissez votre coureur (ou le ruban seul), puis créez votre film : lancer l'aperçu est facultatif.
                 </AnchoredBubble>
               )}
-              {showWizardBlockedHint && (
+              {wizardHintAt === 'preview' && (
                 <AnchoredBubble icon="✏️" onClose={() => setShowWizardBlockedHint(false)} anchorRef={previewGroupRef}>
                   Terminez d'abord la validation des panneaux ci-dessus
                 </AnchoredBubble>
@@ -305,7 +308,12 @@ export function AnimationControls({
                       Mettez-le à jour ou essayez Chrome ou Edge à jour ; l'album-photo, lui, fonctionne normalement.
                     </AnchoredBubble>
                   )}
-                  {showExportHint && !filmBusy && onDismissExportHint && !(encoderBroken && !encoderWarnDismissed) && (
+                  {wizardHintAt === 'film' && (
+                    <AnchoredBubble icon="✏️" onClose={() => setWizardHintAt(null)} anchorRef={filmGroupRef}>
+                      Terminez d'abord la validation des panneaux : cliquez sur Terminer en bas de la liste
+                    </AnchoredBubble>
+                  )}
+                  {showExportHint && !filmBusy && onDismissExportHint && !wizardInProgress && !(encoderBroken && !encoderWarnDismissed) && (
                     <AnchoredBubble icon="🎬" onClose={onDismissExportHint} anchorRef={filmGroupRef}>
                       Vous pouvez maintenant créer votre film ou votre album-photo souvenir.
                     </AnchoredBubble>
@@ -319,10 +327,11 @@ export function AnimationControls({
                     </span>
                     <button
                       className={`ctrl-btn ctrl-btn--film-icon${recState === 'recording' ? ' active' : ''}`}
-                      onClick={recState === 'idle' && lastFilmUrl ? () => onViewFilm?.('2d') : !hasChoice ? () => setShowCharacterBlockedHint(true) : !trackSaved ? () => setShowSaveRequiredPopup(true) : onRecord}
+                      onClick={recState === 'idle' && lastFilmUrl ? () => onViewFilm?.('2d') : recState === 'idle' && wizardInProgress ? () => setWizardHintAt('film') : !hasChoice ? () => setShowCharacterBlockedHint(true) : !trackSaved ? () => setShowSaveRequiredPopup(true) : onRecord}
                       disabled={recState === 'processing'}
                       title={
                         recState === 'idle' && lastFilmUrl ? 'Voir le film 2D créé'
+                        : recState === 'idle' && wizardInProgress ? 'Terminez d\'abord la validation des panneaux'
                         : !hasChoice ? 'Choisissez d\'abord un coureur ou le ruban seul'
                         : !trackSaved ? 'Enregistrez d\'abord ce tracé dans un sillon'
                         : recState === 'idle' ? 'Créer le film 2D'
@@ -349,10 +358,11 @@ export function AnimationControls({
                     </span>
                     <button
                       className={`ctrl-btn ctrl-btn--film-icon ctrl-btn--film3d-icon${rec3dState === 'recording' ? ' active' : ''}`}
-                      onClick={rec3dState === 'idle' && lastFilm3dUrl ? () => onViewFilm?.('3d') : !hasChoice ? () => { onFilm3dIntent?.(); setShowCharacterBlockedHint(true) } : !trackSaved ? () => { onFilm3dIntent?.(); setShowSaveRequiredPopup(true) } : onRecord3d}
+                      onClick={rec3dState === 'idle' && lastFilm3dUrl ? () => onViewFilm?.('3d') : rec3dState === 'idle' && wizardInProgress ? () => { onFilm3dIntent?.(); setWizardHintAt('film') } : !hasChoice ? () => { onFilm3dIntent?.(); setShowCharacterBlockedHint(true) } : !trackSaved ? () => { onFilm3dIntent?.(); setShowSaveRequiredPopup(true) } : onRecord3d}
                       disabled={rec3dState === 'processing'}
                       title={
                         rec3dState === 'idle' && lastFilm3dUrl ? 'Voir le film 3D créé'
+                        : rec3dState === 'idle' && wizardInProgress ? 'Terminez d\'abord la validation des panneaux'
                         : !hasChoice ? 'Choisissez d\'abord un coureur ou le ruban seul'
                         : !trackSaved ? 'Enregistrez d\'abord ce tracé dans un sillon'
                         : rec3dState === 'idle' ? 'Créer le film 3D (survol du relief)'
