@@ -13,7 +13,7 @@ import type { CharacterId } from './characters'
 import { buildRouteTileUrls, buildBoundingBoxTileUrls, prefetchTiles } from './tilePrefetch'
 import { buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio, MUXER_AUDIO_CONFIG, type FilmAudioSpec } from './filmAudio'
 import { smoothTrackPointsByDistance } from './gpx'
-import { createFreeZoneFollow } from './cameraFollow'
+import { LOOK, aheadOnScreen, createFreeZoneFollow } from './cameraFollow'
 import { BASEMAP_BACKGROUND } from './tileSources'
 import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
@@ -1964,11 +1964,16 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const padX = Math.max(elevRect.x - px.x, px.x - (elevRect.x + elevRect.w), 0)
     const padY = Math.max(elevRect.y - MARKER_H - px.y, px.y - (elevRect.y + elevRect.h), 0)
     const elevFactor = Math.max(0, Math.min(1, 1 - Math.max(padX, padY) / AVOID_PAD))
-    // Zone libre (cameraFollow.ts) : caméra immobile tant que le coureur reste loin des bords ; elle ne glisse que pour
-    // l'en écarter, plus vite s'il s'en approche trop. Sur le cartel d'altitude, la zone se resserre jusqu'au suivi
+    // Zone libre (cameraFollow.ts) : caméra immobile pendant que le coureur traverse l'image ; recadrage d'avance dans le
+    // sens où va le tracé, garde-fou s'il s'approche trop du bord. Sur le cartel d'altitude, la zone se resserre jusqu'au suivi
     // complet, avec un gain porté à 0,12, pour l'en faire sortir.
     const k = elevFactor > 0 ? FOLLOW_K + (0.12 - FOLLOW_K) * elevFactor : FOLLOW_K
-    const { fx, fy } = camFollow.step(px.x - OUT_W / 2, px.y - OUT_H / 2, OUT_W, OUT_H, k, elevFactor)
+    // Point d'anticipation : où sera le tracé un peu plus loin (cf. aheadOnScreen).
+    const pa = aheadOnScreen(cameraPoints, distances, progress * totalDistance, px, LOOK * Math.min(OUT_W, OUT_H), mapMosaic
+      ? (lo, la) => projectToScreen(lo, la, camLng, camLat, MOSAIC_Z, OUT_W, OUT_H)
+      : (lo, la) => exportMap.project([lo, la]))
+    const { fx, fy } = camFollow.step(px.x - OUT_W / 2, px.y - OUT_H / 2, OUT_W, OUT_H, k, elevFactor,
+      { x: pa.x - OUT_W / 2, y: pa.y - OUT_H / 2 })
     camLng += (lng - camLng) * fx
     camLat += (lat - camLat) * fy
     if (preWalkFrames + f < finFrom) { // fin seule : caméra suivie, image ni dessinée ni encodée
