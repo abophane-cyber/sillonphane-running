@@ -804,8 +804,10 @@ function getSillonLogoPath(): { path: Path2D; length: number } {
 
 /** Carton de fin, bandeau bas (style générique TV) sur la vue d'ensemble : date dorée et intitulé en italique à
  * gauche ; à droite, après un filet doré, distance, dénivelé, temps et allure ; adresse du site en petit au-dessus.
- * Bleu nuit et or des médailles km. Fondu d'apparition (`opacity`) avec une légère montée. */
-export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: number, card: EndCard, opacity: number) {
+ * Bleu nuit et or des médailles km. Fondu d'apparition (`opacity`) avec une légère montée.
+ * `cartoucheTop` : haut du cartouche d'épreuve, gardé jusqu'à la fin ; il tient lieu d'intitulé (le titre ne change
+ * pas à l'arrivée) et la date se place au-dessus. */
+export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: number, card: EndCard, opacity: number, cartoucheTop?: number) {
   if (opacity <= 0) return
   const GOLD = '#ffd166', SOFT = '#c9cfdc'
   const padX = cw * 0.04, baseY = ch - ch * 0.06 + (1 - opacity) * ch * 0.02
@@ -862,7 +864,19 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
     ctx.fillText(usage, (stats.length ? sepX - gap * 0.5 : cw - padX), (valY + labY) / 2 - ch * 0.006)
   }
 
-  // Intitulé (italique, ajusté à la place restante) et date dorée au-dessus.
+  // Date dorée (sans « ARRIVÉE », évident à la fin du film).
+  const drawDate = (y: number) => {
+    if (!card.date) return
+    ctx.textAlign = 'left'
+    ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
+    ctx.fillStyle = GOLD
+    ctx.letterSpacing = `${ch * 0.004}px`
+    ctx.fillText(card.date.toUpperCase(), padX, y)
+    ctx.letterSpacing = '0px'
+  }
+  if (cartoucheTop !== undefined) drawDate(cartoucheTop - ch * 0.018 + (1 - opacity) * ch * 0.02)
+  // Sans cartouche : intitulé (italique, ajusté à la place restante) et date au-dessus.
+  else {
   const maxTitleW = (stats.length ? sepX - gap * 0.5 : cw - padX) - padX - usageW
   // Titre en deux lignes (« … — Vidéo d'aperçu ») : la 2e, plus petite et plus discrète, sous la 1re.
   const [line1 = '', line2] = titleLines(card.title)
@@ -883,12 +897,8 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
     ctx.font = `italic ${ts}px Georgia, "Times New Roman", serif`; ctx.fillStyle = '#fff'
   }
   ctx.fillText(line1, padX, line1Y)
-  const dateLine = [card.date?.toUpperCase(), 'ARRIVÉE'].filter(Boolean).join('  ·  ')
-  ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
-  ctx.fillStyle = GOLD
-  ctx.letterSpacing = `${ch * 0.004}px`
-  ctx.fillText(dateLine, padX, line1Y - ts - ch * 0.012)
-  ctx.letterSpacing = '0px'
+  drawDate(line1Y - ts - ch * 0.012)
+  }
 
   // Adresse du site, discrète, en haut à droite du bandeau.
   ctx.textAlign = 'right'
@@ -936,6 +946,13 @@ export function drawEndAddress(ctx: CanvasRenderingContext2D, cw: number, ch: nu
 /** Cartouche d'épreuve (bas gauche) : barre jaune penchée, localité en grandes capitales italiques, titre de
  * l'épreuve en capitales espacées dessous (« LILLE / SEMI-MARATHON 2026 »). */
 export interface EventCartouche { place: string; title: string }
+/** Haut du cartouche d'épreuve (haut de la barre jaune), en px de l'image ; undefined sans cartouche. */
+export function eventCartoucheTop(cw: number, ch: number, c: EventCartouche | undefined): number | undefined {
+  if (!c || (!c.place && !c.title)) return undefined
+  const k = Math.min(cw / 1920, ch / 1080)
+  const extra = Math.max(0, titleLines(c.title).length - 1) * Math.round(27 * k)
+  return ch - Math.round(64 * k) - (Math.round(118 * k) + extra)
+}
 export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch: number, c: EventCartouche, alpha: number) {
   if (alpha <= 0 || (!c.place && !c.title)) return
   const k = Math.min(cw / 1920, ch / 1080)
@@ -2114,8 +2131,13 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // Randonneurs 3D : ils vont jusqu'au bout du tracé ; caméra qui se resserre sur eux pendant END_ZOOM_FRAMES.
   const [endLng, endLat] = lngLatAtProgress(visualPoints, distances, totalDistance, 1)
   const endCamLng = camLng, endCamLat = camLat
+  // Ruban seul : la caméra guidée laissait l'arrivée près du bord ; elle glisse en douceur pour la centrer.
+  const END_CENTER_FRAMES = Math.round(1.2 * fps)
   const endCam = (f: number) => {
-    if (!hikers3d) return { lng: endCamLng, lat: endCamLat, z: zoom }
+    if (!hikers3d) {
+      const t = smoothEase(Math.min(1, (f + 1) / END_CENTER_FRAMES))
+      return { lng: endCamLng + (endLng - endCamLng) * t, lat: endCamLat + (endLat - endCamLat) * t, z: zoom }
+    }
     const t = smoothEase(Math.min(1, (f + 1) / Math.max(1, END_ZOOM_FRAMES)))
     return { lng: endCamLng + (endLng - endCamLng) * t, lat: endCamLat + (endLat - endCamLat) * t, z: zoom + HIKER3D_CLOSE_ZOOM * t }
   }
@@ -2131,7 +2153,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       const fi = preWalkFrames + renderFrames + f
       const cam = endCam(f)
       exportMap.jumpTo({ center: [cam.lng, cam.lat], zoom: cam.z })
-      if (hikers3d && f <= END_ZOOM_FRAMES) { await waitForMapIdle(exportMap, signal); if (signal?.aborted) break }
+      if (f <= (hikers3d ? END_ZOOM_FRAMES : END_CENTER_FRAMES)) { await waitForMapIdle(exportMap, signal); if (signal?.aborted) break }
       // Geste d'arrivée à HIKER3D_OUTRO_AT du zoom (comme l'aperçu) : dès la ligne franchie en course.
       if (hikers3d && f === Math.round(END_ZOOM_FRAMES * HIKER3D_OUTRO_AT)) hikers.forEach(h => h.startOutro())
       if (fi < finFrom) continue // fin seule
@@ -2142,6 +2164,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
       drawTrack(ctx, (lon, lat) => exportMap.project([lon, lat]), visualPoints, distances, totalDistance, 1)
       drawBornes((lon, lat) => exportMap.project([lon, lat]), signScale())
+      // Cartouche d'épreuve : tenu jusqu'à la dernière image (le titre ne change pas à l'arrivée).
+      if (opts.eventCartouche) drawEventCartouche(ctx, OUT_W, OUT_H, opts.eventCartouche, 1)
 
       // Ville d'arrivée (et de départ) : écartée des repères et des bornes comme pendant la course (même décalage
       // lissé, sans saut à la ligne d'arrivée).
@@ -2224,8 +2248,8 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     exportMap.jumpTo({ center: [overviewLng, overviewLat], zoom: overviewZoom })
     await waitForMapIdle(exportMap, signal)
 
-    // Randonneurs 3D : la vue d'ensemble part du plan serré sur l'arrivée (fin du salut).
-    const startLng = hikers3d ? endLng : camLng, startLat = hikers3d ? endLat : camLat
+    // La vue d'ensemble part du plan sur l'arrivée, centrée (serré sur les randonneurs 3D à la fin du salut).
+    const startLng = endLng, startLat = endLat
     const startZoom = hikers3d ? zoom + HIKER3D_CLOSE_ZOOM : zoom
 
     // Watermark de fin : apparaît en fondu sur la dernière partie du plan d'ensemble, avec le
@@ -2325,9 +2349,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       if (framesFromEnd <= WATERMARK_FRAMES) {
         const intoWatermark = WATERMARK_FRAMES - framesFromEnd
         const a = Math.min(1, intoWatermark / WATERMARK_FADE_FRAMES)
-        if (opts.endCard) drawEndCard(ctx, OUT_W, OUT_H, opts.endCard, a)
+        if (opts.endCard) drawEndCard(ctx, OUT_W, OUT_H, opts.endCard, a, eventCartoucheTop(OUT_W, OUT_H, opts.eventCartouche))
         else drawEndAddress(ctx, OUT_W, OUT_H, a)
       }
+      // Cartouche d'épreuve par-dessus le voile du carton : il garde le titre jusqu'à la dernière image.
+      if (opts.eventCartouche) drawEventCartouche(ctx, OUT_W, OUT_H, opts.eventCartouche, 1)
 
       drawMapCredit(ctx, OUT_W, OUT_H) // « © IGN » sur chaque image, par-dessus tout l'habillage
       if (useWC && encoder) {

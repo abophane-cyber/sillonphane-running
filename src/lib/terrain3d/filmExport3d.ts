@@ -46,7 +46,7 @@ import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, startPresentAt, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import type { StreetSpan } from '../streetCaption'
-import { borneBoxes, drawBorneLayer, drawEndCard, drawPoiStem, drawEventCartouche, drawNorthArrow, drawWeatherCard, OVERVIEW_BAND, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
+import { borneBoxes, drawBorneLayer, drawEndCard, drawPoiStem, drawEventCartouche, eventCartoucheTop, drawNorthArrow, drawWeatherCard, OVERVIEW_BAND, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
 import { ESSAI_FILM_S, FIN_FILM_S } from '../filmEssai'
@@ -2399,11 +2399,9 @@ async function exportFilm3dImpl(
     const intoEndCard = simElapsed - (TOTAL_CYCLE - END_CARD_LEAD)
     // Habillage (encart du haut, météo, flèche du nord, départ) : absent de l'ouverture, arrive en fin de plongée.
     const hudAlpha = openingHudAlpha(simElapsed)
-    // Cartouche d'épreuve (bas gauche) pendant le survol et la pause d'arrivée, comme le film 2D.
-    if (opts.eventCartouche) {
-      const a = Math.min((simElapsed - PHASE1_END) / 0.8, (PHASE3_END - simElapsed) / 0.5)
-      if (a > 0) drawEventCartouche(ctx2d, OUT_W, OUT_H, opts.eventCartouche, Math.min(1, a))
-    }
+    // Cartouche d'épreuve (bas gauche) du survol jusqu'à la dernière image, comme le film 2D (le titre ne change pas
+    // à l'arrivée) ; dessiné après le carton de fin, par-dessus son voile.
+    const cartoucheA = opts.eventCartouche ? Math.min(1, (simElapsed - PHASE1_END) / 0.8) : 0
     drawOverlays(ctx2d, {
       distanceM: lastOverlay.distanceM,
       profileT: lastOverlay.profileT,
@@ -2429,7 +2427,8 @@ async function exportFilm3dImpl(
     if (startA > 0) drawStartHeader(ctx2d, departurePanel ? opts.departureName : null, opts.departureLieudit, startTimeText, startA, clockA)
     // Carton final (comme le film 2D) : END_CARD_LEAD avant la fin, en fondu sur 0,5 s ; la flèche du nord (bas droite)
     // s'efface en même temps.
-    if (opts.endCard && intoEndCard > 0) drawEndCard(ctx2d, OUT_W, OUT_H, opts.endCard, Math.min(1, intoEndCard / 0.5))
+    if (opts.endCard && intoEndCard > 0) drawEndCard(ctx2d, OUT_W, OUT_H, opts.endCard, Math.min(1, intoEndCard / 0.5), eventCartoucheTop(OUT_W, OUT_H, opts.eventCartouche))
+    if (opts.eventCartouche && cartoucheA > 0) drawEventCartouche(ctx2d, OUT_W, OUT_H, opts.eventCartouche, cartoucheA)
 
     // Ouverture (filmOpening.ts) : lumière du matin, ruban d'ouverture projeté depuis le ruban 3D, titre à gauche.
     if (simElapsed < PHASE0_END) {
