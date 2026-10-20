@@ -944,7 +944,7 @@ export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch
   // Titre en deux lignes (« … — Vidéo d'aperçu ») : la ville et le haut de la barre montent d'une ligne.
   const lines = titleLines(c.title).map(l => l.toUpperCase())
   // 2e ligne (sous-titre) plus petite : l'écart entre les lignes se resserre d'autant.
-  const lineH = Math.round(30 * k), extra = Math.max(0, lines.length - 1) * lineH
+  const lineH = Math.round(27 * k), extra = Math.max(0, lines.length - 1) * lineH
   const barW = Math.round(13 * k), barH = Math.round(118 * k) + extra, slant = Math.round(16 * k)
   const tx = x + barW + slant + Math.round(22 * k)
   const maxW = cw * 0.45
@@ -967,7 +967,7 @@ export function drawEventCartouche(ctx: CanvasRenderingContext2D, cw: number, ch
     // Titre, puis sous-titre (« VIDÉO D'APERÇU NON-OFFICIEL ») en plus petit et plus discret ; réduits ensemble
     // jusqu'à ce que la plus longue ligne tienne.
     let s = titleSize
-    const sizeOf = (i: number) => (i === 0 ? s : Math.round(s * 0.72))
+    const sizeOf = (i: number) => (i === 0 ? s : Math.round(s * 0.6))
     const setFont = (i: number) => {
       const z = sizeOf(i)
       ctx.font = `500 ${z}px "Segoe UI", system-ui, sans-serif`; ctx.letterSpacing = `${Math.round(z * 0.26)}px`
