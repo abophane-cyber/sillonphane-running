@@ -3,5 +3,5 @@
 // à chaque nouvelle release de l'APK.
 // NATIVE_VERSION_CODE sert à détecter une mise à jour disponible (voir useAppUpdateCheck) ;
 // NATIVE_VERSION_NAME est affiché en bas de l'écran d'accueil (SplashScreen).
-export const NATIVE_VERSION_CODE = 11
-export const NATIVE_VERSION_NAME = '1.10'
+export const NATIVE_VERSION_CODE = 12
+export const NATIVE_VERSION_NAME = '1.11'
