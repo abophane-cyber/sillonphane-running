@@ -1531,6 +1531,11 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
 
   let camLng = points[0].lon
   let camLat = points[0].lat
+  // Caméra guidée (zone libre), distincte de la caméra affichée : sur la fin de la course, celle-ci glisse peu à peu de
+  // la caméra guidée vers l'arrivée, qui finit au centre de l'image (au lieu d'un recadrage tardif une fois arrivé).
+  let followLng = camLng, followLat = camLat
+  const END_APPROACH_S = 4
+  const [arrLng, arrLat] = lngLatAtProgress(visualPoints, distances, totalDistance, 1)
   let walkStarted = false // marche des randonneurs 3D lancée (première image de marche dessinée)
 
   // Cache des sprites de panneaux localité (voir buildLocSignSprite) : une entrée par nom+style,
@@ -1969,9 +1974,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // Suivi continu : lissage exponentiel de la caméra vers le randonneur. Avec la mosaïque, la
     // projection est une fonction pure du centre caméra : pas besoin de jumpTo pour "interroger"
     // une position avant d'avoir mis à jour camLng/camLat (contrairement à MapLibre).
-    if (!mapMosaic) exportMap.jumpTo({ center: [camLng, camLat], zoom })
+    if (!mapMosaic) exportMap.jumpTo({ center: [followLng, followLat], zoom })
     const px = mapMosaic
-      ? projectToScreen(lng, lat, camLng, camLat, MOSAIC_Z, OUT_W, OUT_H)
+      ? projectToScreen(lng, lat, followLng, followLat, MOSAIC_Z, OUT_W, OUT_H)
       : exportMap.project([lng, lat])
     // Proximité continue à la zone du cartel d'altitude (1 = dedans, 0 = à AVOID_PAD ou plus,
     // rampe linéaire entre les deux). Un seuil net ici (marqueur qui oscille pile à la frontière
@@ -1987,12 +1992,17 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const k = elevFactor > 0 ? FOLLOW_K + (0.12 - FOLLOW_K) * elevFactor : FOLLOW_K
     // Point d'anticipation : où sera le tracé un peu plus loin (cf. aheadOnScreen).
     const pa = aheadOnScreen(cameraPoints, distances, progress * totalDistance, px, LOOK * Math.min(OUT_W, OUT_H), mapMosaic
-      ? (lo, la) => projectToScreen(lo, la, camLng, camLat, MOSAIC_Z, OUT_W, OUT_H)
+      ? (lo, la) => projectToScreen(lo, la, followLng, followLat, MOSAIC_Z, OUT_W, OUT_H)
       : (lo, la) => exportMap.project([lo, la]))
     const { fx, fy } = camFollow.step(px.x - OUT_W / 2, px.y - OUT_H / 2, OUT_W, OUT_H, k, elevFactor,
       { x: pa.x - OUT_W / 2, y: pa.y - OUT_H / 2 })
-    camLng += (lng - camLng) * fx
-    camLat += (lat - camLat) * fy
+    followLng += (lng - followLng) * fx
+    followLat += (lat - followLat) * fy
+    // Approche de l'arrivée : sur les END_APPROACH_S dernières secondes, la caméra glisse en douceur vers l'arrivée.
+    const approach = renderFrames === totalFrames
+      ? smoothEase(Math.max(0, Math.min(1, 1 - (renderFrames - f) / Math.max(1, END_APPROACH_S * fps)))) : 0
+    camLng = followLng + (arrLng - followLng) * approach
+    camLat = followLat + (arrLat - followLat) * approach
     if (preWalkFrames + f < finFrom) { // fin seule : caméra suivie, image ni dessinée ni encodée
       if (f % 60 === 0) { onProgress?.(frameProgress(preWalkFrames + f * WALK_FRAME_WEIGHT)); await new Promise(r => setTimeout(r, 0)) }
       continue
