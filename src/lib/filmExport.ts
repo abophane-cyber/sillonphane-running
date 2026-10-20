@@ -864,14 +864,15 @@ export function drawEndCard(ctx: CanvasRenderingContext2D, cw: number, ch: numbe
     ctx.fillText(usage, (stats.length ? sepX - gap * 0.5 : cw - padX), (valY + labY) / 2 - ch * 0.006)
   }
 
-  // Date dorée (sans « ARRIVÉE », évident à la fin du film).
+  // Date dorée et heure de départ si elle est notée (sans « ARRIVÉE », évident à la fin du film).
+  const dateLine = [card.date?.toUpperCase(), card.start].filter(Boolean).join('  ·  ')
   const drawDate = (y: number) => {
-    if (!card.date) return
+    if (!dateLine) return
     ctx.textAlign = 'left'
     ctx.font = `700 ${Math.round(ch * 0.015)}px Arial, Helvetica, sans-serif`
     ctx.fillStyle = GOLD
     ctx.letterSpacing = `${ch * 0.004}px`
-    ctx.fillText(card.date.toUpperCase(), padX, y)
+    ctx.fillText(dateLine, padX, y)
     ctx.letterSpacing = '0px'
   }
   if (cartoucheTop !== undefined) drawDate(cartoucheTop - ch * 0.018 + (1 - opacity) * ch * 0.02)

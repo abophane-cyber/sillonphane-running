@@ -33,7 +33,7 @@ import { useUploadForm, normalizeTime } from './hooks/useUploadForm'
 import { useTrackNaming, type EndpointKind } from './hooks/useTrackNaming'
 import { useWeather } from './hooks/useWeather'
 import {
-  computeBornes, computeRavitos, departurePassed, isRawGpxName, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, raceDurationS, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
+  computeBornes, computeRavitos, departurePassed, isRawGpxName, parseEventName, raceClock, parseRavitoKms, hasRealTimes, formatBannerDate, formatBannerDistance, formatElapsed, formatPace, raceDurationS, startClock, titleWithoutPlace, DEFAULT_RACE_SETTINGS,
   type BannerText, type EndCard, type RaceSettings,
 } from './lib/raceSplits'
 import { useAnimationSettings, ANIM_ZOOM, animSpeed } from './hooks/useAnimationSettings'
@@ -149,16 +149,20 @@ export default function App() {
   const endCard = useMemo<EndCard | undefined>(() => {
     if (!activeTrack) return undefined
     const dur = raceDurationS(points, activeTrack.distance, { useRealTimes: realTimes && !race.plannedTimes, speedsKmh: race.speeds })
+    // Heure de départ notée : rappelée après la date (même mention « prévu » que l'heure affichée au départ du film).
+    const start = startClock(departureTime || undefined,
+      !(realTimes && !race.plannedTimes) && !departurePassed(manualDate, departureTime), points[0]?.time)
     return {
       title: withSubtitle(bannerDefaults.title), // titre du film (saisi dans le widget) et sous-titre
       date: race.bannerDate?.trim() || bannerDefaults.date,
+      start: start ? `${start.label === 'DÉPART PRÉVU' ? 'DÉPART PRÉVU' : 'DÉPART'} ${start.clock}` : undefined,
       distance: (race.bannerDistance?.trim() || bannerDefaults.distance)?.replace(/ ?KM$/i, ' km'),
       elevGain: activeTrack.elevGain > 0 ? `+${Math.round(activeTrack.elevGain)} m` : undefined,
       time: dur ? formatElapsed(dur.s) : undefined,
       timeLabel: dur ? (dur.planned ? 'TEMPS PRÉVU' : 'TEMPS') : undefined,
       avgPace: dur && dur.s > 0 && activeTrack.distance > 0 ? formatPace(dur.s / (activeTrack.distance / 1000)) : undefined,
     }
-  }, [activeTrack, points, realTimes, race, bannerDefaults])
+  }, [activeTrack, points, realTimes, race, bannerDefaults, departureTime, manualDate])
   const { fitBoundsCount, seekCount, zoomToStartCount, bumpFitBounds, bumpSeek, bumpZoomToStart } = useMapTriggers()
   const [hasPlayedPreview, setHasPlayedPreview] = useState(false)
   const [previewFinished, setPreviewFinished] = useState(false)

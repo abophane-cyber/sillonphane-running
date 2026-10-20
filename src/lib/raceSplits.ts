@@ -281,6 +281,8 @@ export function computeBornes(points: GpxPoint[], distances: number[], opts: Bor
 export interface EndCard {
   title: string
   date?: string
+  /** Heure de départ, rappelée après la date : « DÉPART 09:00 » (« DÉPART PRÉVU 09:00 » pour une course à venir). */
+  start?: string
   distance?: string
   /** « +52 m ». */
   elevGain?: string
