@@ -246,6 +246,22 @@ export function projectToScreen(
   }
 }
 
+/** Centre caméra ramené au pixel entier le plus proche de l'image du film (grille de projectToScreen au zoom `zoom`) :
+ *  d'une image à l'autre, la carte se décale alors de pixels entiers et reste identique à elle-même, au lieu d'être
+ *  rééchantillonnée à une phase différente à chaque image (carte adoucie qui « scintille » pendant un travelling lent,
+ *  texture plus coûteuse à encoder -> flou de compression). */
+export function snapCenterToPixel(
+  centerLng: number, centerLat: number, zoom: number, outW: number, outH: number,
+): { lng: number; lat: number } {
+  const world = TILE_SIZE * 2 ** zoom
+  const x = Math.round(lngToWorldPx(centerLng, zoom) - outW / 2) + outW / 2
+  const y = Math.round(latToWorldPx(centerLat, zoom) - outH / 2) + outH / 2
+  return {
+    lng: (x / world) * 360 - 180,
+    lat: (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / world))) * 180) / Math.PI,
+  }
+}
+
 /** Coin haut-gauche à recadrer dans la mosaïque pour centrer la caméra sur (centerLng, centerLat). */
 export function mosaicCropOrigin(
   mosaic: MapMosaic, centerLng: number, centerLat: number, outW: number, outH: number,

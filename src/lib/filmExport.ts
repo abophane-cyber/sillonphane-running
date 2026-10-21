@@ -18,7 +18,7 @@ import { BASEMAP_BACKGROUND } from './tileSources'
 import { RIBBON_HEAD_COLOR, RIBBON_HEAD_FADE, RIBBON_LAG_PX, RIBBON_OUTLINE, RIBBON_OUTLINE_FULL, ribbonAgeColor, ribbonColorAt, ribbonHeadM } from './ribbon'
 import { createQpRateControl } from './qpRateControl'
 import { encoderFailMessage, noteEncoderFrame, noteEncoderSetup, waitEncoderQueue } from './encoderWait'
-import { buildMapMosaic, projectToScreen, mosaicCropOrigin } from './filmMapMosaic'
+import { buildMapMosaic, projectToScreen, mosaicCropOrigin, snapCenterToPixel } from './filmMapMosaic'
 import type { Hiker3dSprite } from './hiker3dSprite'
 import { drawStartTimePill } from './startTimePill'
 import { drawOpening, loadOpeningFont, openingDiveK, openingHudAlpha, openingText, OPENING, OPENING_S, type OpeningPt } from './filmOpening'
@@ -2004,6 +2004,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       ? smoothEase(Math.max(0, Math.min(1, 1 - (renderFrames - f) / Math.max(1, END_APPROACH_S * fps)))) : 0
     camLng = followLng + (arrLng - followLng) * approach
     camLat = followLat + (arrLat - followLat) * approach
+    // Avec la mosaïque : centre affiché calé au pixel entier de l'image (snapCenterToPixel), pour une carte nette pendant
+    // les travellings ; le suivi (followLng/followLat) garde la position continue.
+    if (mapMosaic) ({ lng: camLng, lat: camLat } = snapCenterToPixel(camLng, camLat, MOSAIC_Z, OUT_W, OUT_H))
     if (preWalkFrames + f < finFrom) { // fin seule : caméra suivie, image ni dessinée ni encodée
       if (f % 60 === 0) { onProgress?.(frameProgress(preWalkFrames + f * WALK_FRAME_WEIGHT)); await new Promise(r => setTimeout(r, 0)) }
       continue
