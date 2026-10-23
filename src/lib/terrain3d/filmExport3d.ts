@@ -332,9 +332,13 @@ function groundLabelTexture(name: string, style: 'standard' | 'lieudit' | 'poi')
   return { tex, ax: l.ax, ay: l.ay, w: l.w, h: l.h }
 }
 
-/** Nom de rue peint au sol : centre `c` et axes `u` (sens de lecture) et `v` (bas des lettres), horizontaux, dans le
- *  monde ; `mPerPx` : mètres par px de lettre ; `size`, `widths`, `sp`, `textW` : mesures du nom en px de lettre. */
-type GroundStreet = { c: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3; mPerPx: number; size: number; widths: number[]; sp: number; textW: number }
+/** Nom de rue peint au sol : point de la rue `p`, côté du nom `n` et écart dû à la courbe `bulge` (m), axes `u` (sens
+ *  de lecture) et `v` (bas des lettres), horizontaux, dans le monde ; `mPerPx` : mètres par px de lettre au départ ;
+ *  `size`, `widths`, `sp`, `textW` : mesures du nom en px de lettre. */
+type GroundStreet = {
+  p: THREE.Vector3; n: THREE.Vector3; bulge: number; u: THREE.Vector3; v: THREE.Vector3
+  mPerPx: number; size: number; widths: number[]; sp: number; textW: number
+}
 
 // ─── Courbes du tracé (port de main.ts) ─────────────────────────────────────────────────────
 
@@ -2197,11 +2201,9 @@ async function exportFilm3dImpl(
     const sp = 0.03 * size
     const widths = [...st.label.text].map(ch => ctx2d.measureText(ch).width + sp)
     const textW = widths.reduce((a, b) => a + b, 0) - sp
-    // Hauteur des lettres à l'écran au moins 70 % de `size` (perspective du sol comprise) : une rue vue de loin ou de
-    // biais (allée filant vers l'horizon) donnait des lettres aplaties, illisibles. Nom agrandi au sol pour ça (×2,5 au
-    // plus), une fois pour toutes : il ne change pas de taille ensuite.
-    const pvPerM = Math.hypot(pv.x - p0.x, pv.y - p0.y)
-    const mPerPx = Math.min(2.5 / pxPerM, Math.max(1 / pxPerM, pvPerM > 1e-4 ? 0.7 / pvPerM : 0))
+    // Taille au sol de départ : celle voulue à l'écran au point choisi (agrandie ensuite si la rue est vue trop de loin
+    // ou de biais, cf. drawGroundStreet).
+    const mPerPx = 1 / pxPerM
     const halfM = textW * mPerPx / 2, hM = size * mPerPx
     // Axe du nom : direction de la rue au point choisi (corde sur ±30 m au plus). Une corde sur toute la longueur du nom
     // passait par-dessus le virage voisin : nom en diagonale, loin de la voie (« Avenue Hubert Curien »).
@@ -2224,16 +2226,27 @@ async function exportFilm3dImpl(
       if (Math.abs(along) <= halfM) bulge = Math.max(bulge, (q.x - P.x) * n.x + (q.z - P.z) * n.z)
     }
     bulge = Math.min(bulge, hM)
-    const c = P.clone().addScaledVector(n, bulge + hM * 0.4 + hM / 2)
-    return { c, u, v, mPerPx, size, widths, sp, textW }
+    return { p: P, n, bulge, u, v, mPerPx, size, widths, sp, textW }
   }
   /** Dessine le nom peint au sol (lettre par lettre, chacune avec la perspective du sol à sa place) ; renvoie le
-   *  rectangle qu'il occupe à l'écran (null : derrière la caméra). */
+   *  rectangle qu'il occupe à l'écran (null : derrière la caméra). Lettres jamais plus basses à l'écran que 80 % de
+   *  `size` : vue de loin ou de biais (allée qui file vers l'horizon), la perspective les aplatissait jusqu'à les rendre
+   *  illisibles ; le nom est alors agrandi au sol (×3 au plus), sans jamais redescendre sous sa taille de départ. */
   function drawGroundStreet(g: GroundStreet, text: string, alpha: number): Box | null {
     const chars = [...text]
     const half = g.textW / 2
+    let m = g.mPerPx
+    const centerAt = (mm: number) => g.p.clone().addScaledVector(g.n, g.bulge + g.size * mm * 0.9)
+    {
+      const c0 = centerAt(m)
+      const t = toScreen(c0.clone().addScaledVector(g.v, -g.size / 2 * m)), b = toScreen(c0.clone().addScaledVector(g.v, g.size / 2 * m))
+      if (t.z >= 1 || b.z >= 1) return null
+      const hPx = Math.hypot(b.x - t.x, b.y - t.y)
+      if (hPx > 1e-3 && hPx < 0.8 * g.size) m = Math.min(3 * g.mPerPx, m * 0.8 * g.size / hPx)
+    }
+    const c = centerAt(m)
     const corners = [[-half, -g.size / 2], [half, -g.size / 2], [half, g.size / 2], [-half, g.size / 2]].map(([x, y]) =>
-      toScreen(g.c.clone().addScaledVector(g.u, x * g.mPerPx).addScaledVector(g.v, y * g.mPerPx)))
+      toScreen(c.clone().addScaledVector(g.u, x * m).addScaledVector(g.v, y * m)))
     if (corners.some(p => p.z >= 1)) return null
     ctx2d.save()
     ctx2d.globalAlpha = alpha * 0.95
@@ -2244,10 +2257,10 @@ async function exportFilm3dImpl(
     for (let i = 0; i < chars.length; i++) {
       const mid = s + g.widths[i] / 2 - g.sp / 2
       s += g.widths[i]
-      const q = g.c.clone().addScaledVector(g.u, mid * g.mPerPx)
+      const q = c.clone().addScaledVector(g.u, mid * m)
       const o = toScreen(q)
-      const ux0 = toScreen(q.clone().addScaledVector(g.u, -d * g.mPerPx)), ux1 = toScreen(q.clone().addScaledVector(g.u, d * g.mPerPx))
-      const vy0 = toScreen(q.clone().addScaledVector(g.v, -d * g.mPerPx)), vy1 = toScreen(q.clone().addScaledVector(g.v, d * g.mPerPx))
+      const ux0 = toScreen(q.clone().addScaledVector(g.u, -d * m)), ux1 = toScreen(q.clone().addScaledVector(g.u, d * m))
+      const vy0 = toScreen(q.clone().addScaledVector(g.v, -d * m)), vy1 = toScreen(q.clone().addScaledVector(g.v, d * m))
       ctx2d.setTransform((ux1.x - ux0.x) / (2 * d), (ux1.y - ux0.y) / (2 * d), (vy1.x - vy0.x) / (2 * d), (vy1.y - vy0.y) / (2 * d), o.x, o.y)
       ctx2d.shadowColor = 'rgba(0,0,0,0.65)'; ctx2d.shadowBlur = 3
       ctx2d.strokeStyle = 'rgba(0,0,0,0.6)'; ctx2d.lineWidth = g.size * 0.17
@@ -2526,9 +2539,9 @@ async function exportFilm3dImpl(
           (opts.ravitos ?? []).filter(r => borneReached(r, m + mps)), place)
         // Rues : place choisie à l'écran (cf. mapLabels.ts), puis nom peint au sol le long du ruban (groundStreet) ; ils
         // évitent aussi les noms de rue déjà écrits. Places : nom en cercle à l'écran.
-        // Lettres 0,85 × celles du 2D (1,6 puis 1,1 : trop grandes une fois peintes au sol). Virage toléré sous le nom : 65° (la
+        // Lettres 1 × celles du 2D (1,6 puis 1,1 : trop grandes une fois peintes au sol). Virage toléré sous le nom : 65° (la
         // perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
-        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, (st.label.place ? 1.6 : 0.85) * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
+        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, (st.label.place ? 1.6 : 1) * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
           undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc, ...streetOcc], 65,
           // Rue d'au moins CAPTION_MIN_M (critère des noms affichés) : à 1 s de l'entrée du ruban, nom écrit d'office même
           // sans place libre ni partie droite.
