@@ -2197,7 +2197,12 @@ async function exportFilm3dImpl(
     const sp = 0.03 * size
     const widths = [...st.label.text].map(ch => ctx2d.measureText(ch).width + sp)
     const textW = widths.reduce((a, b) => a + b, 0) - sp
-    const mPerPx = 1 / pxPerM, halfM = textW * mPerPx / 2, hM = size * mPerPx
+    // Hauteur des lettres à l'écran au moins 70 % de `size` (perspective du sol comprise) : une rue vue de loin ou de
+    // biais (allée filant vers l'horizon) donnait des lettres aplaties, illisibles. Nom agrandi au sol pour ça (×2,5 au
+    // plus), une fois pour toutes : il ne change pas de taille ensuite.
+    const pvPerM = Math.hypot(pv.x - p0.x, pv.y - p0.y)
+    const mPerPx = Math.min(2.5 / pxPerM, Math.max(1 / pxPerM, pvPerM > 1e-4 ? 0.7 / pvPerM : 0))
+    const halfM = textW * mPerPx / 2, hM = size * mPerPx
     // Axe du nom : direction de la rue au point choisi (corde sur ±30 m au plus). Une corde sur toute la longueur du nom
     // passait par-dessus le virage voisin : nom en diagonale, loin de la voie (« Avenue Hubert Curien »).
     const reach = Math.min(halfM / 2, 30)
@@ -2521,9 +2526,9 @@ async function exportFilm3dImpl(
           (opts.ravitos ?? []).filter(r => borneReached(r, m + mps)), place)
         // Rues : place choisie à l'écran (cf. mapLabels.ts), puis nom peint au sol le long du ruban (groundStreet) ; ils
         // évitent aussi les noms de rue déjà écrits. Places : nom en cercle à l'écran.
-        // Lettres 1 × celles du 2D (1,6 puis 1,1 : trop grandes une fois peintes au sol ; 0,85 : un peu petites). Virage toléré sous le nom : 65° (la
+        // Lettres 0,85 × celles du 2D (1,6 puis 1,1 : trop grandes une fois peintes au sol). Virage toléré sous le nom : 65° (la
         // perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
-        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, (st.label.place ? 1.6 : 1) * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
+        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, (st.label.place ? 1.6 : 0.85) * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
           undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc, ...streetOcc], 65,
           // Rue d'au moins CAPTION_MIN_M (critère des noms affichés) : à 1 s de l'entrée du ruban, nom écrit d'office même
           // sans place libre ni partie droite.
