@@ -318,8 +318,8 @@ export function drawStreetAlongPath(
   }
   ctx.save()
   if (!label.fix) {
-    // Placement : milieu de la plus longue partie de la rue visible à l'écran ; le nom doit y tenir (taille réduite
-    // jusqu'à 70 %), sinon on réessaie à l'image suivante.
+    // Placement : milieu de la plus longue partie de la rue visible à l'écran ; le nom doit y tenir, sinon on réessaie à
+    // l'image suivante.
     const M = 30 * k
     const inView = (p: Pt | null): p is Pt => !!p && (!view || (p.x > M && p.x < view.w - M && p.y > M && p.y < view.h - M))
     let best: [number, number] = [0, -1], cur = -1
@@ -334,10 +334,12 @@ export function drawStreetAlongPath(
     for (let i = i0 + 1; i <= i1; i++) cum.push(cum[cum.length - 1] + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y))
     const total = cum[cum.length - 1]
     const base = 15.5 * k
+    // Taille réduite jusqu'à 60 %, nom sur 95 % de la partie visible au plus (70 % et 85 % : une rue vue de loin, entière
+    // à l'écran mais courte, attendait d'être plus proche — « BD DU MARECHAL JUIN », 2 s de retard).
     let size = base
-    for (; size >= base * 0.7; size -= 0.5 * k) if (measure(size).textW <= total * 0.85) break
+    for (; size >= base * 0.6; size -= 0.5 * k) if (measure(size).textW <= total * 0.95) break
     const textW = measure(size).textW
-    if (textW > total * 0.85) {
+    if (textW > total * 0.95) {
       label.why = `trop courte à l'écran (nom ${Math.round(textW)} px, partie visible ${Math.round(total)} px, points ${i0}-${i1})`
       ctx.restore(); return null
     }

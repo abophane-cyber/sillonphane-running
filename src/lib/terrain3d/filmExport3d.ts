@@ -39,7 +39,7 @@ import {
   lon2tileX, lat2tileY, tileX2lon, tileY2lat,
 } from './terrainSources'
 import { cancel3dPrefetch } from './prefetch3d'
-import { raceClock, startClock } from '../raceSplits'
+import { borneReached, raceClock, startClock } from '../raceSplits'
 import type { GpxPoint } from '../../types'
 import { drawStartTimePill } from '../startTimePill'
 import type { Hiker3dSprite } from '../hiker3dSprite'
@@ -2154,6 +2154,8 @@ async function exportFilm3dImpl(
   // Rues empruntées : nom inscrit le long du ruban (cf. mapLabels.ts), à l'approche de la rue, tenu au moins CAPTION_HOLD_S.
   const streetLabels3d = (opts.streets ?? []).map(s => ({
     ...s, label: streetLabel(s.name, s.importance), logIn: false, logOut: false, lastWhy: undefined as string | undefined,
+    /** Effacement (0..1) quand une borne apparue recouvre le nom ; dernier rectangle dessiné. */
+    hide: 0, lastBox: undefined as Box | undefined, lastT: undefined as number | undefined, logCovered: false,
   }))
   console.log(`[rues] ${streetLabels3d.length} rues à afficher (parcours ${Math.round(TRACK_M)} m, survol ${DURATION.toFixed(1)} s, `
     + `${Math.round(TRACK_M / DURATION)} m/s, avance ${STREET_LEAD_S} s) :`
@@ -2421,13 +2423,23 @@ async function exportFilm3dImpl(
         // Bornes et ravitos évités : ceux qui seront affichés tant que le nom l'est (jusqu'à la fin de la rue et une
         // marge). Toutes les bornes bloquaient : au départ d'une boucle, les bornes 15 et 20 (pas encore affichées, toutes
         // proches) empêchaient d'écrire « BD LASCROSSES ».
-        const untilM = st.to * trackM + (CAPTION_HOLD_S + 1) * mps
-        const stBorneOcc = borneBoxes(borneSignCache, (opts.bornes ?? []).filter(b => b.km * 1000 <= untilM),
-          (opts.ravitos ?? []).filter(r => r.km * 1000 <= untilM), place)
+        // Réserver aussi les bornes à venir dans la rue retardait le nom jusqu'à leur passage (« BD DU MARECHAL JUIN »
+        // bloqué par la borne 5 et son ravito jusqu'au km 5,0) : seules celles affichées dans la seconde comptent ; une
+        // borne qui apparaît ensuite sur le nom le fait s'effacer (streetHide ci-dessous).
+        const soonOcc = borneBoxes(borneSignCache, (opts.bornes ?? []).filter(b => borneReached(b, m + mps)),
+          (opts.ravitos ?? []).filter(r => borneReached(r, m + mps)), place)
+        const nowOcc = borneBoxes(borneSignCache, (opts.bornes ?? []).filter(b => borneReached(b, m)),
+          (opts.ravitos ?? []).filter(r => borneReached(r, m)), place)
+        const dt = Math.max(0, simElapsed - (st.lastT ?? simElapsed)); st.lastT = simElapsed
+        const covered = !!st.lastBox && boxesHit(st.lastBox, nowOcc)
+        st.hide = Math.max(0, Math.min(1, (st.hide ?? 0) + (covered ? dt : -dt) / 0.3))
+        const aShown = a * (1 - st.hide)
         // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran. Virage toléré sous le
         // nom : 65° (la perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
-        const box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H }, undefined,
-          st.label.place ? stBorneOcc : [...stBorneOcc, ...poiOcc, ...placeOcc], 65)
+        const box = aShown > 0 ? drawStreetAlongPath(ctx2d, st.label, pts, aShown, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
+          undefined, st.label.place ? soonOcc : [...soonOcc, ...poiOcc, ...placeOcc], 65) : null
+        if (box) st.lastBox = box
+        if (covered !== !!st.logCovered) { st.logCovered = covered; logSt(covered ? 'recouvert par une borne : effacé' : 'dégagé') }
         if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)
       }
