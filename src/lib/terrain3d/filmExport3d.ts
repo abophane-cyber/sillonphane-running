@@ -2418,9 +2418,16 @@ async function exportFilm3dImpl(
           const p = ribbonScreenAt((st.from + (st.to - st.from) * i / 40) * RIBBON_SEGMENTS)
           pts.push(p.z < 1 ? { x: p.x, y: p.y } : null)
         }
-        // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran.
+        // Bornes et ravitos évités : ceux qui seront affichés tant que le nom l'est (jusqu'à la fin de la rue et une
+        // marge). Toutes les bornes bloquaient : au départ d'une boucle, les bornes 15 et 20 (pas encore affichées, toutes
+        // proches) empêchaient d'écrire « BD LASCROSSES ».
+        const untilM = st.to * trackM + (CAPTION_HOLD_S + 1) * mps
+        const stBorneOcc = borneBoxes(borneSignCache, (opts.bornes ?? []).filter(b => b.km * 1000 <= untilM),
+          (opts.ravitos ?? []).filter(r => r.km * 1000 <= untilM), place)
+        // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran. Virage toléré sous le
+        // nom : 65° (la perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
         const box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H }, undefined,
-          st.label.place ? borneOcc : [...borneOcc, ...poiOcc, ...placeOcc])
+          st.label.place ? stBorneOcc : [...stBorneOcc, ...poiOcc, ...placeOcc], 65)
         if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)
       }

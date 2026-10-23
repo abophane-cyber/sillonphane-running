@@ -303,7 +303,7 @@ const boxOf = (ps: Pt[], pad: number): Box => {
 export function drawStreetAlongPath(
   ctx: CanvasRenderingContext2D, label: StreetLabel, pts: (Pt | null)[],
   alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
-  bg?: { src: CanvasImageSource; scale: number } | null, avoid: readonly Box[] = [],
+  bg?: { src: CanvasImageSource; scale: number } | null, avoid: readonly Box[] = [], maxTurnDeg = 35,
 ): Box | null {
   if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return null
   if (label.place) return drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg, avoid)
@@ -387,8 +387,8 @@ export function drawStreetAlongPath(
       return (sum * 180) / Math.PI
     }
     // Candidats du milieu vers les bords : le premier libre et presque droit (≤ 15°) ; à défaut le plus droit des
-    // libres s'il reste lisible (≤ 35°) ; sinon réessai à l'image suivante.
-    let sAt = -1, bestTurn = 35, sideAt: 1 | -1 = 1
+    // libres s'il reste lisible (≤ `maxTurnDeg`, 35° par défaut) ; sinon réessai à l'image suivante.
+    let sAt = -1, bestTurn = maxTurnDeg, sideAt: 1 | -1 = 1
     let nTried = 0, nTaken = 0, minTurn = Infinity
     for (const side of [1, -1] as const) {
       for (let n = 0; n <= 12; n++) {
@@ -408,7 +408,7 @@ export function drawStreetAlongPath(
     }
     if (sAt < 0) {
       label.why = `pas de place (${nTried} positions : ${nTaken} sur une borne/un lieu (${avoid.length} rectangles), `
-        + `virage mini ${Number.isFinite(minTurn) ? Math.round(minTurn) + '°' : '-'} > 35° ; nom ${Math.round(textW)} px / ${Math.round(total)} px)`
+        + `virage mini ${Number.isFinite(minTurn) ? Math.round(minTurn) + '°' : '-'} > ${maxTurnDeg}° ; nom ${Math.round(textW)} px / ${Math.round(total)} px)`
       ctx.restore(); return null
     }
     label.fix = { at: idxAt(sAt), size, flip, side: sideAt }
