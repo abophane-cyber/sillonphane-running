@@ -196,24 +196,26 @@ function renderPoiLabel(name: string, res: number): { canvas: HTMLCanvasElement;
 const ABBREV_FULL: Record<string, string> = {
   R: 'Rue', CHE: 'Chemin', ALL: 'Allée', IMP: 'Impasse', SQ: 'Square', PROM: 'Promenade', PAS: 'Passage',
   RLE: 'Ruelle', SEN: 'Sentier', CAR: 'Carrefour', CHS: 'Chaussée', ESP: 'Esplanade',
+  BD: 'Boulevard', AV: 'Avenue', RTE: 'Route', QU: 'Quai', QUAI: 'Quai', CRS: 'Cours', PONT: 'Pont', FG: 'Faubourg',
+  RPT: 'Rond-point', PARV: 'Parvis', VC: 'Voie communale',
 }
 const PARTICLES = new Set(['DE', 'DES', 'DU', 'LA', 'LE', 'LES', 'ET', 'SUR', 'EN', 'AUX', 'AU', 'SOUS'])
-/** Voies majeures, écrites en capitales : boulevards, avenues, routes, places, quais, cours. */
-const MAJOR = /^(BD|AV|RTE|PL|QU|CRS|PONT)\s/
+/** Voies majeures, écrites un peu plus grasses : boulevards, avenues, routes, places, quais, cours. */
+const MAJOR = /^(BD|AV|RTE|PL|QU|QUAI|CRS|PONT)\s/
 
-/** Nom affiché et rang d'une rue au format IGN (« BD VICTOR HUGO », « R DES POSTES ») : voies majeures (ou d'importance
- * IGN 1 à 3) en capitales ; rues en casse normale, type de voie écrit en entier (« Rue des Postes »). */
+/** Nom affiché et rang d'une rue au format IGN (« BD VICTOR HUGO », « R DES POSTES ») : toutes les rues dans la même
+ * casse, normale, type de voie écrit en entier (« Boulevard Victor Hugo », « Rue des Postes ») ; voies majeures (ou
+ * d'importance IGN 1 à 3) seulement plus grasses. Les places restent en capitales (nom en cercle). */
 export function streetLabel(name: string, importance?: number): StreetLabel {
   const place = placeLines(name)
   if (place) return { text: name, major: true, place }
   const major = MAJOR.test(name) || (importance ?? 6) <= 3
-  if (major) return { text: name, major }
   const words = name.split(' ')
   const out = words.map((w, i) => {
     if (i === 0 && ABBREV_FULL[w]) return ABBREV_FULL[w]
     if (i > 0 && PARTICLES.has(w)) return w.toLowerCase()
-    if (/^[DL]'/.test(w)) return w[0].toLowerCase() + "'" + cap(w.slice(2))
-    return w.split('-').map(cap).join('-')
+    if (/^[DL]'/.test(w)) return w[0].toLowerCase() + "'" + cap(ACCENTS[w.slice(2)] ?? w.slice(2))
+    return w.split('-').map(p => cap(ACCENTS[p] ?? p)).join('-')
   })
   return { text: out.join(' '), major }
 }
@@ -292,7 +294,8 @@ const boxOf = (ps: Pt[], pad: number): Box => {
 }
 
 /** Écrit le nom le long de la rue `pts` (px écran ; `null` = point hors champ ou derrière la caméra), décalé de `offset`
- * px sur le côté gauche du sens de lecture, lettre par lettre en suivant la courbe. Le nom est FIXE sur la carte : à la
+ * px sur le côté gauche du sens de lecture, en ligne droite dans l'axe de la rue (il ne se déforme pas avec ses courbes,
+ * cf. plus bas). Le nom est FIXE sur la carte : à la
  * première image où il tient sur la partie visible de la rue (`view`, taille de l'image), son centre, sa taille et son
  * sens de lecture sont figés (`label.fix`) ; ensuite il suit ce point de la rue, sans glisser avec la caméra. `pts` doit
  * donc décrire la même rue, dans le même ordre, à chaque image. `k` : échelle. Blanc sur fond sombre, noir sur fond
@@ -309,7 +312,7 @@ export function drawStreetAlongPath(
   if (label.place) return drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg, avoid)
   const chars = [...label.text]
   const fontAt = (size: number) => `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
-  const spacingAt = (size: number) => (label.major ? 0.1 : 0.03) * size
+  const spacingAt = (size: number) => 0.03 * size
   const measure = (size: number) => {
     ctx.font = fontAt(size)
     const sp = spacingAt(size)
@@ -383,8 +386,8 @@ export function drawStreetAlongPath(
       return out
     }
     const hitsAvoid = (s: number, side: 1 | -1) => footprint(s, side).some(b => boxesHit(b, avoid))
-    // Virage sous le nom : somme des changements de cap (degrés) entre s ± (textW / 2 + size). Dans un virage, les
-    // lettres se tassent et se tordent à l'intérieur de la courbe (« BD VAUBAN » illisible) : on cherche une partie droite.
+    // Virage sous le nom : somme des changements de cap (degrés) entre s ± (textW / 2 + size). Dans un virage, le
+    // nom (écrit droit) s'écarte de la rue pour ne pas chevaucher la courbe : on cherche une partie droite.
     const turnAt = (s: number) => {
       const lo = s - textW / 2 - size, hi = s + textW / 2 + size
       let sum = 0
@@ -493,15 +496,26 @@ export function drawStreetAlongPath(
     return { x: sm[i].x + (sm[i + 1].x - sm[i].x) * u, y: sm[i].y + (sm[i + 1].y - sm[i].y) * u }
   }
   const { widths, textW, sp } = measure(size)
+  // Nom écrit en ligne droite (il ne se tord pas avec la rue), dans l'axe de la corde de la rue sous le nom, et posé à
+  // côté : écarté de `offset` du point de la rue le plus avancé de son côté (une courbe ne passe pas sous les lettres).
+  const pA = at2(s0 - textW / 2), pB = at2(s0 + textW / 2)
+  let ang = Math.atan2(pB.y - pA.y, pB.x - pA.x)
+  if (Math.hypot(pB.x - pA.x, pB.y - pA.y) < 1) { const q0 = at2(s0 - 2), q1 = at2(s0 + 2); ang = Math.atan2(q1.y - q0.y, q1.x - q0.x) }
+  const side = label.fix.side ?? 1
+  const nx = Math.sin(ang) * side, ny = -Math.cos(ang) * side // normale du côté du nom (gauche du sens de lecture si side 1)
+  let bulge = 0
+  for (let i = 0; i < sm.length; i++) {
+    if (cs[i] < s0 - textW / 2 - size || cs[i] > s0 + textW / 2 + size) continue
+    bulge = Math.max(bulge, (sm[i].x - pA.x) * nx + (sm[i].y - pA.y) * ny)
+  }
+  const off = offset * k + bulge
+  const ux = Math.cos(ang), uy = Math.sin(ang)
+  const ox = (pA.x + pB.x) / 2 + nx * off - ux * textW / 2, oy = (pA.y + pB.y) / 2 + ny * off - uy * textW / 2
   const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
-  let s = s0 - textW / 2
+  let s = 0
   for (let i = 0; i < chars.length; i++) {
     const mid = s + widths[i] / 2 - sp / 2
-    const p0 = at2(mid - widths[i] / 2), p1 = at2(mid + widths[i] / 2), p = at2(mid)
-    const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x)
-    const nx = Math.sin(ang), ny = -Math.cos(ang) // normale à gauche du sens de lecture (vers le haut)
-    const off = offset * k * (label.fix.side ?? 1)
-    glyphs.push({ ch: chars[i], x: p.x + nx * off, y: p.y + ny * off, ang })
+    glyphs.push({ ch: chars[i], x: ox + ux * mid, y: oy + uy * mid, ang })
     s += widths[i]
   }
   // Teinte selon le fond sous le nom, mesurée une fois (le nom est fixe sur la carte, son fond ne change pas) : blanc
