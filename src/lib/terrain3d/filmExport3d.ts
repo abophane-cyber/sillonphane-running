@@ -22,7 +22,7 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js'
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
-import { CAPTION_HOLD_S } from '../routeStreets'
+import { CAPTION_HOLD_S, CAPTION_MIN_M } from '../routeStreets'
 import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
@@ -2439,7 +2439,10 @@ async function exportFilm3dImpl(
         // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran. Virage toléré sous le
         // nom : 65° (la perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
         const box = aShown > 0 ? drawStreetAlongPath(ctx2d, st.label, pts, aShown, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
-          undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc], 65) : null
+          undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc], 65,
+          // Rue d'au moins CAPTION_MIN_M (critère des noms affichés) : à 1 s de l'entrée du ruban, nom écrit d'office même
+          // sans place libre ni partie droite.
+          !st.label.place && (st.to - st.from) * trackM >= CAPTION_MIN_M && m >= st.from * trackM - mps) : null
         if (box) st.lastBox = box
         if (box && !st.label.place) streetOcc.push(box)
         if (covered !== !!st.logCovered) { st.logCovered = covered; logSt(covered ? 'recouvert par une borne : effacé' : 'dégagé') }

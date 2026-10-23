@@ -303,7 +303,7 @@ const boxOf = (ps: Pt[], pad: number): Box => {
 export function drawStreetAlongPath(
   ctx: CanvasRenderingContext2D, label: StreetLabel, pts: (Pt | null)[],
   alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
-  bg?: { src: CanvasImageSource; scale: number } | null, avoid: readonly Box[] = [], maxTurnDeg = 35,
+  bg?: { src: CanvasImageSource; scale: number } | null, avoid: readonly Box[] = [], maxTurnDeg = 35, force = false,
 ): Box | null {
   if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return null
   if (label.place) return drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg, avoid)
@@ -339,7 +339,7 @@ export function drawStreetAlongPath(
     let size = base
     for (; size >= base * 0.6; size -= 0.5 * k) if (measure(size).textW <= total * 0.95) break
     const textW = measure(size).textW
-    if (textW > total * 0.95) {
+    if (textW > total * 0.95 && !force) {
       label.why = `trop courte à l'écran (nom ${Math.round(textW)} px, partie visible ${Math.round(total)} px, points ${i0}-${i1})`
       ctx.restore(); return null
     }
@@ -402,12 +402,15 @@ export function drawStreetAlongPath(
     // libres s'il reste lisible (≤ `maxTurnDeg`, 35° par défaut) ; sinon réessai à l'image suivante.
     let sAt = -1, bestTurn = maxTurnDeg, sideAt: 1 | -1 = 1
     let nTried = 0, nTaken = 0, minTurn = Infinity
+    /** Repli (`force`) : la place la plus droite, même prise ou courbe. */
+    let fbS = total / 2, fbTurn = Infinity
     for (const side of [1, -1] as const) {
       for (let n = 0; n <= 12; n++) {
         for (const sgn of n ? [1, -1] : [1]) {
           const s = total / 2 + sgn * n * 0.08 * total
           if (s - textW / 2 < -OVER || s + textW / 2 > total + OVER) continue
           nTried++
+          if (force && side === 1) { const t = turnAt(s); if (t < fbTurn) { fbTurn = t; fbS = s } }
           if (avoid.length && hitsAvoid(s, side)) { nTaken++; continue }
           const turn = turnAt(s)
           minTurn = Math.min(minTurn, turn)
@@ -418,13 +421,18 @@ export function drawStreetAlongPath(
       }
       if (sAt >= 0) break
     }
-    if (sAt < 0) {
+    if (sAt < 0 && force) {
+      // Rue atteinte dans moins d'une seconde : le nom est écrit à la place la plus droite, quitte à toucher une borne.
+      label.fix = { at: idxAt(Math.max(0, Math.min(total, fbS))), size, flip, side: 1 }
+      label.why = `placé d'office (aucune place libre ; nom ${Math.round(textW)} px / ${Math.round(total)} px)`
+    } else if (sAt < 0) {
       label.why = `pas de place (${nTried} positions : ${nTaken} sur une borne/un lieu (${avoid.length} rectangles), `
         + `virage mini ${Number.isFinite(minTurn) ? Math.round(minTurn) + '°' : '-'} > ${maxTurnDeg}° ; nom ${Math.round(textW)} px / ${Math.round(total)} px)`
       ctx.restore(); return null
+    } else {
+      label.fix = { at: idxAt(sAt), size, flip, side: sideAt }
+      label.why = `placé (côté ${sideAt > 0 ? 'gauche' : 'droit'}, taille ${size.toFixed(1)} px, point ${idxAt(sAt).toFixed(1)}/${pts.length - 1})`
     }
-    label.fix = { at: idxAt(sAt), size, flip, side: sideAt }
-    label.why = `placé (côté ${sideAt > 0 ? 'gauche' : 'droit'}, taille ${size.toFixed(1)} px, point ${idxAt(sAt).toFixed(1)}/${pts.length - 1})`
   }
   const { at, size } = label.fix
   // Partie continue (sans point manquant) de la rue autour du centre du nom.
