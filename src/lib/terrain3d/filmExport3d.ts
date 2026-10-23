@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S, CAPTION_MIN_M } from '../routeStreets'
-import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
+import { LABEL_FONT, PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -331,6 +331,10 @@ function groundLabelTexture(name: string, style: 'standard' | 'lieudit' | 'poi')
   tex.colorSpace = THREE.SRGBColorSpace
   return { tex, ax: l.ax, ay: l.ay, w: l.w, h: l.h }
 }
+
+/** Nom de rue peint au sol : centre `c` et axes `u` (sens de lecture) et `v` (bas des lettres), horizontaux, dans le
+ *  monde ; `mPerPx` : mètres par px de lettre ; `size`, `widths`, `sp`, `textW` : mesures du nom en px de lettre. */
+type GroundStreet = { c: THREE.Vector3; u: THREE.Vector3; v: THREE.Vector3; mPerPx: number; size: number; widths: number[]; sp: number; textW: number }
 
 // ─── Courbes du tracé (port de main.ts) ─────────────────────────────────────────────────────
 
@@ -2154,7 +2158,99 @@ async function exportFilm3dImpl(
   // Rues empruntées : nom inscrit le long du ruban (cf. mapLabels.ts), à l'approche de la rue, tenu au moins CAPTION_HOLD_S.
   const streetLabels3d = (opts.streets ?? []).map(s => ({
     ...s, label: streetLabel(s.name, s.importance), logIn: false, logOut: false, lastWhy: undefined as string | undefined,
+    ground: undefined as GroundStreet | undefined,
   }))
+  const _gq = new THREE.Vector3(), _gA = new THREE.Vector3(), _gB = new THREE.Vector3()
+  /** Milieu du ruban au segment fractionnaire `seg`, en coordonnées du monde. */
+  function ribbonWorldAt(seg: number, out: THREE.Vector3): THREE.Vector3 {
+    const sf = Math.max(0, Math.min(RIBBON_SEGMENTS, seg))
+    const s0 = Math.min(RIBBON_SEGMENTS - 1, Math.floor(sf)), fr = sf - s0
+    ribbonSeg(s0, _rL, _rR); ribbonSeg(s0 + 1, _rL2, _rR2)
+    _rL.lerp(_rL2, fr); _rR.lerp(_rR2, fr)
+    return out.addVectors(_rL, _rR).multiplyScalar(0.5)
+  }
+  function toScreen(p: THREE.Vector3): { x: number; y: number; z: number } {
+    _gq.copy(p).project(camera)
+    return { x: (_gq.x + 1) / 2 * OUT_W, y: (1 - _gq.y) / 2 * OUT_H, z: _gq.z }
+  }
+  /** Nom de rue peint au sol, à la place choisie à l'écran (`label.fix`) : rectangle plat du monde, posé à côté du
+   *  ruban, dans l'axe de la corde de la rue sous le nom (il ne se tord pas avec les courbes), à la taille voulue à
+   *  l'écran au moment du placement, puis fixe sur la carte (la perspective le rapetisse ou l'agrandit comme le sol).
+   *  undefined : point derrière la caméra, réessai à l'image suivante. */
+  function groundStreet(st: (typeof streetLabels3d)[number]): GroundStreet | undefined {
+    const fix = st.label.fix!
+    const segPerM = RIBBON_SEGMENTS / trackM
+    const seg = (st.from + (st.to - st.from) * fix.at / 40) * RIBBON_SEGMENTS
+    const P = ribbonWorldAt(seg, new THREE.Vector3())
+    const horiz = (a: THREE.Vector3, b: THREE.Vector3) => new THREE.Vector3(b.x - a.x, 0, b.z - a.z)
+    let u = horiz(ribbonWorldAt(seg - 5 * segPerM, _gA), ribbonWorldAt(seg + 5 * segPerM, _gB))
+    if (u.lengthSq() < 1e-6) return undefined
+    u.normalize()
+    const v0 = new THREE.Vector3(-u.z, 0, u.x)
+    const p0 = toScreen(P), pu = toScreen(P.clone().add(u)), pv = toScreen(P.clone().add(v0))
+    if (p0.z >= 1 || pu.z >= 1 || pv.z >= 1) return undefined
+    // px d'écran par mètre au sol : moyenne géométrique des deux directions (surface projetée).
+    const pxPerM = Math.sqrt(Math.abs((pu.x - p0.x) * (pv.y - p0.y) - (pu.y - p0.y) * (pv.x - p0.x)))
+    if (!(pxPerM > 1e-4)) return undefined
+    const size = fix.size
+    ctx2d.font = `700 ${size}px ${LABEL_FONT}`
+    const sp = 0.03 * size
+    const widths = [...st.label.text].map(ch => ctx2d.measureText(ch).width + sp)
+    const textW = widths.reduce((a, b) => a + b, 0) - sp
+    const mPerPx = 1 / pxPerM, halfM = textW * mPerPx / 2, hM = size * mPerPx
+    // Axe du nom : corde de la rue sur la longueur du nom.
+    const chord = horiz(ribbonWorldAt(seg - halfM * segPerM, _gA), ribbonWorldAt(seg + halfM * segPerM, _gB))
+    if (chord.lengthSq() > 1e-6) u = chord.normalize()
+    // Lu de gauche à droite à l'écran ; v (bas des lettres) choisi pour que le nom ne soit pas en miroir.
+    if (toScreen(P.clone().addScaledVector(u, halfM)).x < toScreen(P.clone().addScaledVector(u, -halfM)).x) u.negate()
+    const v = new THREE.Vector3(-u.z, 0, u.x)
+    const a = toScreen(P.clone().add(u)), b = toScreen(P.clone().add(v))
+    if ((a.x - p0.x) * (b.y - p0.y) - (a.y - p0.y) * (b.x - p0.x) < 0) v.negate()
+    // Côté du nom : 1 = au-dessus de la rue à l'écran (contre v), -1 = en dessous. Écarté de ce que la rue avance de ce
+    // côté sous le nom (une courbe ne passe pas sous les lettres).
+    const n = v.clone().multiplyScalar(-(fix.side ?? 1))
+    let bulge = 0
+    for (let i = 0; i <= 24; i++) {
+      const q = ribbonWorldAt(seg + (-1 + i / 12) * (halfM + hM) * segPerM, _gA)
+      bulge = Math.max(bulge, (q.x - P.x) * n.x + (q.z - P.z) * n.z)
+    }
+    const c = P.clone().addScaledVector(n, bulge + hM * 0.5 + hM / 2)
+    return { c, u, v, mPerPx, size, widths, sp, textW }
+  }
+  /** Dessine le nom peint au sol (lettre par lettre, chacune avec la perspective du sol à sa place) ; renvoie le
+   *  rectangle qu'il occupe à l'écran (null : derrière la caméra). */
+  function drawGroundStreet(g: GroundStreet, text: string, alpha: number): Box | null {
+    const chars = [...text]
+    const half = g.textW / 2
+    const corners = [[-half, -g.size / 2], [half, -g.size / 2], [half, g.size / 2], [-half, g.size / 2]].map(([x, y]) =>
+      toScreen(g.c.clone().addScaledVector(g.u, x * g.mPerPx).addScaledVector(g.v, y * g.mPerPx)))
+    if (corners.some(p => p.z >= 1)) return null
+    ctx2d.save()
+    ctx2d.globalAlpha = alpha * 0.95
+    ctx2d.font = `700 ${g.size}px ${LABEL_FONT}`
+    ctx2d.textAlign = 'center'; ctx2d.textBaseline = 'middle'; ctx2d.lineJoin = 'round'
+    const d = g.size / 2
+    let s = -half
+    for (let i = 0; i < chars.length; i++) {
+      const mid = s + g.widths[i] / 2 - g.sp / 2
+      s += g.widths[i]
+      const q = g.c.clone().addScaledVector(g.u, mid * g.mPerPx)
+      const o = toScreen(q)
+      const ux0 = toScreen(q.clone().addScaledVector(g.u, -d * g.mPerPx)), ux1 = toScreen(q.clone().addScaledVector(g.u, d * g.mPerPx))
+      const vy0 = toScreen(q.clone().addScaledVector(g.v, -d * g.mPerPx)), vy1 = toScreen(q.clone().addScaledVector(g.v, d * g.mPerPx))
+      ctx2d.setTransform((ux1.x - ux0.x) / (2 * d), (ux1.y - ux0.y) / (2 * d), (vy1.x - vy0.x) / (2 * d), (vy1.y - vy0.y) / (2 * d), o.x, o.y)
+      ctx2d.shadowColor = 'rgba(0,0,0,0.65)'; ctx2d.shadowBlur = 3
+      ctx2d.strokeStyle = 'rgba(0,0,0,0.6)'; ctx2d.lineWidth = g.size * 0.17
+      ctx2d.strokeText(chars[i], 0, 0)
+      ctx2d.shadowColor = 'transparent'
+      ctx2d.fillStyle = '#ffffff'
+      ctx2d.fillText(chars[i], 0, 0)
+    }
+    ctx2d.restore()
+    const xs = corners.map(p => p.x), ys = corners.map(p => p.y)
+    const x0 = Math.min(...xs), y0 = Math.min(...ys)
+    return { x: x0, y: y0, w: Math.max(...xs) - x0, h: Math.max(...ys) - y0 }
+  }
   console.log(`[rues] ${streetLabels3d.length} rues à afficher (parcours ${Math.round(TRACK_M)} m, survol ${DURATION.toFixed(1)} s, `
     + `${Math.round(TRACK_M / DURATION)} m/s, avance ${STREET_LEAD_S} s) :`
     + streetLabels3d.map(s => `\n  ${s.name} ${Math.round(s.from * TRACK_M)}-${Math.round(s.to * TRACK_M)} m`).join(''))
@@ -2429,13 +2525,17 @@ async function exportFilm3dImpl(
           (opts.ravitos ?? []).filter(r => borneReached(r, m + mps)), place)
         // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran. Virage toléré sous le
         // nom : 65° (la perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
-        // Noms écrits à l'horizontale à côté de la rue (perspective : un nom couché le long d'une rue qui file vers
-        // l'horizon était presque vertical) ; ils évitent aussi les noms de rue déjà écrits.
-        const box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.3 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
+        // Rues : place choisie à l'écran (cf. mapLabels.ts), puis nom peint au sol le long du ruban (groundStreet) ; ils
+        // évitent aussi les noms de rue déjà écrits. Places : nom en cercle à l'écran.
+        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
           undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc, ...streetOcc], 65,
           // Rue d'au moins CAPTION_MIN_M (critère des noms affichés) : à 1 s de l'entrée du ruban, nom écrit d'office même
           // sans place libre ni partie droite.
-          !st.label.place && (st.to - st.from) * trackM >= CAPTION_MIN_M && m >= st.from * trackM - mps, true)
+          !st.label.place && (st.to - st.from) * trackM >= CAPTION_MIN_M && m >= st.from * trackM - mps, !st.label.place)
+        if (!st.label.place && st.label.fix) {
+          st.ground ??= groundStreet(st)
+          box = st.ground ? drawGroundStreet(st.ground, st.label.text, a) : null
+        }
         if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)
         else if (box) streetOcc.push(box)

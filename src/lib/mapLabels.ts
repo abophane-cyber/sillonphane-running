@@ -287,20 +287,6 @@ export function clearOffset(a: Box, list: readonly Box[], max = 220): [number, n
       if (!boxesHit({ ...a, x: a.x + dx * d, y: a.y + dy * d }, list)) return [dx * d, dy * d]
   return [0, 0]
 }
-/** Nom horizontal (largeur `w`, hauteur de lettre `h`) posé à côté de la rue au point `c` (sens de lecture `dx, dy`) :
- * écarté de la rue, du côté `side` (1 : à gauche du sens de lecture), de `gap` + `bulge` px entre la rue et le bord du
- * nom. Renvoie son centre. */
-function uprightCenter(c: Pt, dx: number, dy: number, side: 1 | -1, w: number, h: number, gap: number, bulge = 0): Pt {
-  const l = Math.hypot(dx, dy) || 1
-  const nx = (dy / l) * side, ny = (-dx / l) * side
-  const half = Math.abs(nx) * w / 2 + Math.abs(ny) * h / 2 // demi-étendue du nom dans la direction de la normale
-  const d = gap + bulge + half
-  return { x: c.x + nx * d, y: c.y + ny * d }
-}
-function uprightBox(c: Pt, dx: number, dy: number, side: 1 | -1, w: number, h: number, gap: number): Box {
-  const m = uprightCenter(c, dx, dy, side, w, h, gap)
-  return { x: m.x - w / 2 - h * 0.3, y: m.y - h * 0.8, w: w + h * 0.6, h: h * 1.6 }
-}
 const boxOf = (ps: Pt[], pad: number): Box => {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
   for (const p of ps) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y) }
@@ -316,14 +302,14 @@ const boxOf = (ps: Pt[], pad: number): Box => {
  * clair : fond lu dans `bg` (défaut : le canvas de `ctx`, carte déjà dessinée ; `scale` = px du fond par px de dessin ;
  * null : fond pas encore prêt, mesure remise à une image suivante). `avoid` : rectangles déjà pris (bornes, lieux) que
  * le nom évite au moment d'être placé (glissé le long de la rue ; pas de place libre : réessai à l'image suivante).
- * `upright` : nom écrit à l'horizontale, posé à côté de la rue (film 3D : vue en perspective, une rue qui file vers
- * l'horizon donnait un nom presque vertical, à lire en penchant la tête).
+ * `placeOnly` : choisit seulement la place du nom (`label.fix`), sans le dessiner (film 3D : nom peint au sol, cf.
+ * filmExport3d.ts).
  * Renvoie le rectangle occupé par le nom dessiné (null : rien dessiné). */
 export function drawStreetAlongPath(
   ctx: CanvasRenderingContext2D, label: StreetLabel, pts: (Pt | null)[],
   alpha: number, k = 1, offset = 16, view?: { w: number; h: number },
   bg?: { src: CanvasImageSource; scale: number } | null, avoid: readonly Box[] = [], maxTurnDeg = 35, force = false,
-  upright = false,
+  placeOnly = false,
 ): Box | null {
   if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return null
   if (label.place) return drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg, avoid)
@@ -358,10 +344,7 @@ export function drawStreetAlongPath(
     // Taille fixe ; nom sur 95 % de la partie visible au plus (70 % et 85 % : une rue vue de loin, entière à l'écran
     // mais courte, attendait d'être plus proche — « BD DU MARECHAL JUIN », 2 s de retard).
     const size = 15.5 * k
-    // `textW` : longueur de rue prise par le nom. Écrit à l'horizontale (`upright`), le nom ne longe pas la rue : il
-    // lui faut seulement un bout de rue visible et droit.
-    const fullW = measure(size).textW
-    const textW = upright ? Math.min(fullW, 80 * k) : fullW
+    const textW = measure(size).textW
     if (textW > total * 0.95 && !force) {
       label.why = `trop courte à l'écran (nom ${Math.round(textW)} px, partie visible ${Math.round(total)} px, points ${i0}-${i1})`
       ctx.restore(); return null
@@ -395,10 +378,6 @@ export function drawStreetAlongPath(
     // JUIN », borne 5 km, jamais placé).
     const PIECES = 6
     const footprint = (s: number, side: 1 | -1): Box[] => {
-      if (upright) {
-        const a = ptAt(s - 4 * k), b = ptAt(s + 4 * k)
-        return [uprightBox(ptAt(s), (b.x - a.x) * (flip ? -1 : 1), (b.y - a.y) * (flip ? -1 : 1), side, fullW, size, offset * k * 0.6)]
-      }
       const out: Box[] = []
       for (let n = 0; n < PIECES; n++) {
         const sa = s - textW / 2 + (n * textW) / PIECES, sb = sa + textW / PIECES
@@ -461,6 +440,7 @@ export function drawStreetAlongPath(
       label.why = `placé (côté ${sideAt > 0 ? 'gauche' : 'droit'}, taille ${size.toFixed(1)} px, point ${idxAt(sAt).toFixed(1)}/${pts.length - 1})`
     }
   }
+  if (placeOnly) { ctx.restore(); return null }
   const { at, size } = label.fix
   // Partie continue (sans point manquant) de la rue autour du centre du nom.
   const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
@@ -537,24 +517,7 @@ export function drawStreetAlongPath(
   const ox = (pA.x + pB.x) / 2 + nx * off - ux * textW / 2, oy = (pA.y + pB.y) / 2 + ny * off - uy * textW / 2
   const glyphs: { ch: string; x: number; y: number; ang: number }[] = []
   let s = 0
-  if (upright) {
-    // À l'horizontale, à côté de la rue au centre du nom ; écarté de ce que la rue avance de ce côté sous le nom.
-    const c0 = at2(s0), q0 = at2(s0 - 4 * k), q1 = at2(s0 + 4 * k)
-    const dx = q1.x - q0.x, dy = q1.y - q0.y, l = Math.hypot(dx, dy) || 1
-    const tx = dx / l, ty = dy / l, sx = (dy / l) * side, sy = (-dx / l) * side
-    const halfT = Math.abs(tx) * textW / 2 + Math.abs(ty) * size / 2
-    let bulgeU = 0
-    for (const p of sm) {
-      const along = (p.x - c0.x) * tx + (p.y - c0.y) * ty
-      if (Math.abs(along) <= halfT + size) bulgeU = Math.max(bulgeU, (p.x - c0.x) * sx + (p.y - c0.y) * sy)
-    }
-    const m = uprightCenter(c0, dx, dy, side, textW, size, offset * k * 0.6, bulgeU)
-    for (let i = 0; i < chars.length; i++) {
-      const mid = s + widths[i] / 2 - sp / 2
-      glyphs.push({ ch: chars[i], x: m.x - textW / 2 + mid, y: m.y, ang: 0 })
-      s += widths[i]
-    }
-  } else for (let i = 0; i < chars.length; i++) {
+  for (let i = 0; i < chars.length; i++) {
     const mid = s + widths[i] / 2 - sp / 2
     glyphs.push({ ch: chars[i], x: ox + ux * mid, y: oy + uy * mid, ang })
     s += widths[i]
