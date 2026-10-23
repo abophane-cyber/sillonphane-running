@@ -200,12 +200,12 @@ const ABBREV_FULL: Record<string, string> = {
   RPT: 'Rond-point', PARV: 'Parvis', VC: 'Voie communale',
 }
 const PARTICLES = new Set(['DE', 'DES', 'DU', 'LA', 'LE', 'LES', 'ET', 'SUR', 'EN', 'AUX', 'AU', 'SOUS'])
-/** Voies majeures, écrites un peu plus grasses : boulevards, avenues, routes, places, quais, cours. */
+/** Voies majeures (rang, cf. StreetLabel.major) : boulevards, avenues, routes, places, quais, cours. */
 const MAJOR = /^(BD|AV|RTE|PL|QU|QUAI|CRS|PONT)\s/
 
 /** Nom affiché et rang d'une rue au format IGN (« BD VICTOR HUGO », « R DES POSTES ») : toutes les rues dans la même
- * casse, normale, type de voie écrit en entier (« Boulevard Victor Hugo », « Rue des Postes ») ; voies majeures (ou
- * d'importance IGN 1 à 3) seulement plus grasses. Les places restent en capitales (nom en cercle). */
+ * casse, normale, et la même taille, type de voie écrit en entier (« Boulevard Victor Hugo », « Rue des Postes »). Les
+ * places restent en capitales (nom en cercle). */
 export function streetLabel(name: string, importance?: number): StreetLabel {
   const place = placeLines(name)
   if (place) return { text: name, major: true, place }
@@ -311,7 +311,9 @@ export function drawStreetAlongPath(
   if (alpha <= 0 || pts.length < (label.place ? 1 : 2)) return null
   if (label.place) return drawPlaceCircle(ctx, label, label.place, pts, alpha, k, view, bg, avoid)
   const chars = [...label.text]
-  const fontAt = (size: number) => `${label.major ? 700 : 600} ${size}px ${LABEL_FONT}`
+  // Même graisse et même taille pour toutes les rues : une taille réduite pour tenir sur une rue courte donnait des noms
+  // de tailles différentes, comme un dézoom d'un nom à l'autre.
+  const fontAt = (size: number) => `700 ${size}px ${LABEL_FONT}`
   const spacingAt = (size: number) => 0.03 * size
   const measure = (size: number) => {
     ctx.font = fontAt(size)
@@ -336,11 +338,9 @@ export function drawStreetAlongPath(
     const cum = [0]
     for (let i = i0 + 1; i <= i1; i++) cum.push(cum[cum.length - 1] + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y))
     const total = cum[cum.length - 1]
-    const base = 15.5 * k
-    // Taille réduite jusqu'à 60 %, nom sur 95 % de la partie visible au plus (70 % et 85 % : une rue vue de loin, entière
-    // à l'écran mais courte, attendait d'être plus proche — « BD DU MARECHAL JUIN », 2 s de retard).
-    let size = base
-    for (; size >= base * 0.6; size -= 0.5 * k) if (measure(size).textW <= total * 0.95) break
+    // Taille fixe ; nom sur 95 % de la partie visible au plus (70 % et 85 % : une rue vue de loin, entière à l'écran
+    // mais courte, attendait d'être plus proche — « BD DU MARECHAL JUIN », 2 s de retard).
+    const size = 15.5 * k
     const textW = measure(size).textW
     if (textW > total * 0.95 && !force) {
       label.why = `trop courte à l'écran (nom ${Math.round(textW)} px, partie visible ${Math.round(total)} px, points ${i0}-${i1})`
@@ -525,7 +525,7 @@ export function drawStreetAlongPath(
     if (l != null) label.fix.dark = l > LIGHT_BG_LUMA
   }
   const dark = label.fix.dark === true
-  ctx.globalAlpha = alpha * (label.major ? 0.97 : 0.9)
+  ctx.globalAlpha = alpha * 0.95
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
   for (const g of glyphs) {
     ctx.save()
