@@ -2530,9 +2530,9 @@ async function exportFilm3dImpl(
           (opts.ravitos ?? []).filter(r => borneReached(r, m + mps)), place)
         // Rues : place choisie à l'écran (cf. mapLabels.ts), puis nom peint au sol le long du ruban (groundStreet) ; ils
         // évitent aussi les noms de rue déjà écrits. Places : nom en cercle à l'écran.
-        // Lettres 1,1 × celles du 2D (1,6 : trop grandes une fois peintes au sol). Virage toléré sous le nom : 65° (la
+        // Lettres 0,85 × celles du 2D (1,6 puis 1,1 : trop grandes une fois peintes au sol). Virage toléré sous le nom : 65° (la
         // perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
-        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, (st.label.place ? 1.6 : 1.1) * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
+        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, (st.label.place ? 1.6 : 0.85) * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
           undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc, ...streetOcc], 65,
           // Rue d'au moins CAPTION_MIN_M (critère des noms affichés) : à 1 s de l'entrée du ruban, nom écrit d'office même
           // sans place libre ni partie droite.
