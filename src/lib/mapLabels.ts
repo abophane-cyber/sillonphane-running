@@ -237,11 +237,15 @@ export function placeLines(name: string): { top: string; bottom: string } | null
 /** Durée minimale d'affichage d'un nom de place (s), plus longue que celle des rues : le cercle se lit moins vite. */
 export const PLACE_HOLD_S = 4
 
-/** Opacité d'un nom de rue selon la distance parcourue `m` : apparaît à l'approche (LEAD_M), reste affiché la rue
- * durant puis au moins `holdM` après son début, s'efface sur `fadeM`. */
-export function streetLabelAlpha(m: number, startM: number, endM: number, holdM: number, fadeM: number): number {
-  const LEAD_M = 150
-  const inA = Math.min(1, Math.max(0, (m - (startM - LEAD_M)) / LEAD_M))
+/** Avance (s de film) avec laquelle un nom de rue apparaît avant que la tête du ruban n'y entre. */
+export const STREET_LEAD_S = 2
+
+/** Opacité d'un nom de rue selon la distance parcourue `m` : apparaît à l'approche (`leadM`, au moins 150 m), pleine à
+ * mi-approche, reste affiché la rue durant puis au moins `holdM` après son début, s'efface sur `fadeM`. À 150 m fixes,
+ * un semi-marathon en 2 min (≈ 190 m de parcours par seconde de film) n'annonçait la rue que 0,8 s avant d'y entrer. */
+export function streetLabelAlpha(m: number, startM: number, endM: number, holdM: number, fadeM: number, leadM = 150): number {
+  const lead = Math.max(150, leadM)
+  const inA = Math.min(1, Math.max(0, (m - (startM - lead)) / (lead / 2)))
   const until = Math.max(endM, startM + holdM)
   const outA = Math.min(1, Math.max(0, (until + fadeM - m) / Math.max(1, fadeM)))
   return Math.min(inA, outA)

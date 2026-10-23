@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S } from '../routeStreets'
-import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
+import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -355,6 +355,22 @@ function smoothTrail(points: [number, number][], iterations = 5, radius = 4): [n
     lons = newLons; lats = newLats
   }
   return lons.map((lon, i) => [lon, lats[i]] as [number, number])
+}
+
+/** Ajoute des points tous les `stepM` mètres au plus sur les longs segments. Un tracé planifié (Openrunner…) a des
+ *  points espacés de 100 à 700 m : lissé par indice tel quel, le ruban coupait les boucles et traversait la Garonne
+ *  (semi de Toulouse). Un tracé enregistré (point toutes les secondes) n'est pas modifié. */
+function densifyTrail(points: [number, number][], stepM = 10): [number, number][] {
+  if (points.length < 2) return points.slice()
+  const out: [number, number][] = [points[0]]
+  for (let i = 1; i < points.length; i++) {
+    const [lo0, la0] = points[i - 1], [lo1, la1] = points[i]
+    const d = 6371000 * Math.hypot((la1 - la0) * Math.PI / 180, (lo1 - lo0) * Math.PI / 180 * Math.cos(la0 * Math.PI / 180))
+    const n = Math.ceil(d / stepM)
+    for (let k = 1; k < n; k++) out.push([lo0 + (lo1 - lo0) * k / n, la0 + (la1 - la0) * k / n])
+    out.push(points[i])
+  }
+  return out
 }
 
 function clampToPolyline(x: number, z: number, poly: THREE.Vector3[], maxDev: number): [number, number] {
@@ -948,21 +964,30 @@ async function exportFilm3dImpl(
   }
 
   // --- Tracé GPX (ruban émissif) ---
-  const rawPts: THREE.Vector3[] = smoothTrail(trail, 2, 2).map(([lon, lat]) => {
+  // Lissage sur le tracé densifié (pas de 10 m) : il ne gomme que le bruit GPS et arrondit les angles de quelques
+  // mètres, puis la courbe est retenue à 12 m au plus du tracé BRUT (et non du tracé lissé).
+  const rawPts: THREE.Vector3[] = smoothTrail(densifyTrail(trail), 2, 2).map(([lon, lat]) => {
     const [x, z] = cov.project(lon, lat)
     return new THREE.Vector3(x, elevAtLonLat(lon, lat) - minElev, z)
   })
+  const exactPts: THREE.Vector3[] = trail.map(([lon, lat]) => {
+    const [x, z] = cov.project(lon, lat)
+    return new THREE.Vector3(x, 0, z)
+  })
   const shapeCurve = new THREE.CatmullRomCurve3(rawPts)
+  shapeCurve.arcLengthDivisions = Math.max(200, rawPts.length)
 
-  const RESAMPLE_COUNT = 500
+  // Un échantillon tous les ~15 m (500 à 3000) : à 500 fixes, un marathon n'avait qu'un point tous les 84 m.
+  const RESAMPLE_COUNT = Math.max(500, Math.min(3000, Math.round(shapeCurve.getLength() / 15)))
   const trailPts: THREE.Vector3[] = []
   for (let i = 0; i <= RESAMPLE_COUNT; i++) {
     const s = shapeCurve.getPointAt(i / RESAMPLE_COUNT)
-    const [x, z] = clampToPolyline(s.x, s.z, rawPts, 20)
+    const [x, z] = clampToPolyline(s.x, s.z, exactPts, 12)
     const [lon, lat] = cov.unproject(x, z)
     trailPts.push(new THREE.Vector3(x, elevAtLonLat(lon, lat) - minElev + 3.5, z))
   }
   const curve = new THREE.CatmullRomCurve3(trailPts)
+  curve.arcLengthDivisions = Math.max(200, trailPts.length) // getPointAt : abscisse juste même à 3000 points
 
   const cameraRawPts: THREE.Vector3[] = smoothTrail(trail, 10, 14).map(([lon, lat]) => {
     const [x, z] = cov.project(lon, lat)
@@ -2340,7 +2365,7 @@ async function exportFilm3dImpl(
       const poiOcc = poiScreen.map(p => p.box(p.sprite.userData.lift ?? 0))
       for (const st of streetLabels3dOrdered) {
         // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
-        const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * mps, 0.6 * mps)
+        const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * mps, 0.6 * mps, STREET_LEAD_S * mps)
         if (a <= 0) continue
         // 41 points fixes de la rue (null derrière la caméra) : le nom y reste accroché (cf. drawStreetAlongPath).
         const pts: ({ x: number; y: number } | null)[] = []

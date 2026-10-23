@@ -30,7 +30,7 @@ import {
 } from './hiker3dStaging'
 import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
-import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, streetLabel, streetLabelAlpha, type Box } from './mapLabels'
+import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from './mapLabels'
 import { FIN_FILM_S, isPromoFilm } from './filmEssai'
 
 export interface FilmExportOptions {
@@ -1466,7 +1466,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     const placeBoxes: Box[] = []
     for (const st of placeOrder) {
       // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
-      const a = streetLabelAlpha(m, st.startM, st.endM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * filmMps, 0.6 * filmMps)
+      const a = streetLabelAlpha(m, st.startM, st.endM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * filmMps, 0.6 * filmMps, STREET_LEAD_S * filmMps)
       if (a <= 0) continue
       const pts: { x: number; y: number }[] = []
       for (let i = 0; i < distances.length && distances[i] <= st.endM; i++)
