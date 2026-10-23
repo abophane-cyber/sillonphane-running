@@ -2155,9 +2155,9 @@ async function exportFilm3dImpl(
   const streetLabels3d = (opts.streets ?? []).map(s => ({
     ...s, label: streetLabel(s.name, s.importance), logIn: false, logOut: false, lastWhy: undefined as string | undefined,
   }))
-  console.log(`[rues] ${streetLabels3d.length} rues à afficher (parcours ${Math.round(trackM)} m, survol ${DURATION.toFixed(1)} s, `
-    + `${Math.round(trackM / DURATION)} m/s, avance ${STREET_LEAD_S} s) :`
-    + streetLabels3d.map(s => `\n  ${s.name} ${Math.round(s.from * trackM)}-${Math.round(s.to * trackM)} m`).join(''))
+  console.log(`[rues] ${streetLabels3d.length} rues à afficher (parcours ${Math.round(TRACK_M)} m, survol ${DURATION.toFixed(1)} s, `
+    + `${Math.round(TRACK_M / DURATION)} m/s, avance ${STREET_LEAD_S} s) :`
+    + streetLabels3d.map(s => `\n  ${s.name} ${Math.round(s.from * TRACK_M)}-${Math.round(s.to * TRACK_M)} m`).join(''))
   /** Places d'abord (les rues évitent leurs cercles). */
   const streetLabels3dOrdered = [...streetLabels3d].sort((a, b) => Number(!!b.label.place) - Number(!!a.label.place))
   const borneSignCache: LocSignCache = new Map()
