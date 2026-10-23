@@ -2152,7 +2152,12 @@ async function exportFilm3dImpl(
   }
 
   // Rues empruntées : nom inscrit le long du ruban (cf. mapLabels.ts), à l'approche de la rue, tenu au moins CAPTION_HOLD_S.
-  const streetLabels3d = (opts.streets ?? []).map(s => ({ ...s, label: streetLabel(s.name, s.importance) }))
+  const streetLabels3d = (opts.streets ?? []).map(s => ({
+    ...s, label: streetLabel(s.name, s.importance), logIn: false, logOut: false, lastWhy: undefined as string | undefined,
+  }))
+  console.log(`[rues] ${streetLabels3d.length} rues à afficher (parcours ${Math.round(trackM)} m, survol ${DURATION.toFixed(1)} s, `
+    + `${Math.round(trackM / DURATION)} m/s, avance ${STREET_LEAD_S} s) :`
+    + streetLabels3d.map(s => `\n  ${s.name} ${Math.round(s.from * trackM)}-${Math.round(s.to * trackM)} m`).join(''))
   /** Places d'abord (les rues évitent leurs cercles). */
   const streetLabels3dOrdered = [...streetLabels3d].sort((a, b) => Number(!!b.label.place) - Number(!!a.label.place))
   const borneSignCache: LocSignCache = new Map()
@@ -2401,6 +2406,11 @@ async function exportFilm3dImpl(
       for (const st of streetLabels3dOrdered) {
         // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
         const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * mps, 0.6 * mps, STREET_LEAD_S * mps)
+        // Journal « [rues] » : entrée en jeu, chaque changement de motif (refus ou placement), sortie.
+        const logSt = (what: string) => console.log(`[rues] ${simElapsed.toFixed(2)} s · tête ${Math.round(m)} m · ${st.name} `
+          + `(${Math.round(st.from * trackM)}-${Math.round(st.to * trackM)} m) · opacité ${a.toFixed(2)} : ${what}`)
+        if (a > 0 && !st.logIn) { st.logIn = true; logSt('entre en jeu') }
+        if (a <= 0 && st.logIn && !st.logOut) { st.logOut = true; logSt(`sort du jeu (dernier état : ${st.label.why ?? '-'})`) }
         if (a <= 0) continue
         // 41 points fixes de la rue (null derrière la caméra) : le nom y reste accroché (cf. drawStreetAlongPath).
         const pts: ({ x: number; y: number } | null)[] = []
@@ -2411,6 +2421,7 @@ async function exportFilm3dImpl(
         // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran.
         const box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H }, undefined,
           st.label.place ? borneOcc : [...borneOcc, ...poiOcc, ...placeOcc])
+        if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)
       }
     }

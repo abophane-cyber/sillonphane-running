@@ -263,6 +263,8 @@ export interface StreetLabel {
    *  lettres noires sur fond clair ; mesurée à la première image où le fond est lisible), côté de la rue (`side` -1 :
    *  à droite du sens de lecture, quand la gauche est prise). */
   fix?: { at: number; size: number; flip: boolean; dark?: boolean; side?: 1 | -1 }
+  /** Diagnostic : dernier état du placement (refus et motif, ou placé), journalisé par le film 3D (« [rues] »). */
+  why?: string
 }
 
 type Pt = { x: number; y: number }
@@ -326,7 +328,8 @@ export function drawStreetAlongPath(
       else if (cur >= 0) { if (i - 1 - cur > best[1] - best[0]) best = [cur, i - 1]; cur = -1 }
     }
     const [i0, i1] = best
-    if (i1 - i0 < 1) { ctx.restore(); return null }
+    const nNull = pts.filter(p => !p).length
+    if (i1 - i0 < 1) { label.why = `hors champ (${nNull}/${pts.length} points derrière la caméra)`; ctx.restore(); return null }
     const cum = [0]
     for (let i = i0 + 1; i <= i1; i++) cum.push(cum[cum.length - 1] + Math.hypot(pts[i]!.x - pts[i - 1]!.x, pts[i]!.y - pts[i - 1]!.y))
     const total = cum[cum.length - 1]
@@ -334,7 +337,10 @@ export function drawStreetAlongPath(
     let size = base
     for (; size >= base * 0.7; size -= 0.5 * k) if (measure(size).textW <= total * 0.85) break
     const textW = measure(size).textW
-    if (textW > total * 0.85) { ctx.restore(); return null }
+    if (textW > total * 0.85) {
+      label.why = `trop courte à l'écran (nom ${Math.round(textW)} px, partie visible ${Math.round(total)} px, points ${i0}-${i1})`
+      ctx.restore(); return null
+    }
     /** Indice fractionnaire du point à l'abscisse s de la partie visible. */
     const idxAt = (s: number) => {
       let j = 1
@@ -383,13 +389,16 @@ export function drawStreetAlongPath(
     // Candidats du milieu vers les bords : le premier libre et presque droit (≤ 15°) ; à défaut le plus droit des
     // libres s'il reste lisible (≤ 35°) ; sinon réessai à l'image suivante.
     let sAt = -1, bestTurn = 35, sideAt: 1 | -1 = 1
+    let nTried = 0, nTaken = 0, minTurn = Infinity
     for (const side of [1, -1] as const) {
       for (let n = 0; n <= 12; n++) {
         for (const sgn of n ? [1, -1] : [1]) {
           const s = total / 2 + sgn * n * 0.08 * total
           if (s - textW / 2 < 0 || s + textW / 2 > total) continue
-          if (avoid.length && hitsAvoid(s, side)) continue
+          nTried++
+          if (avoid.length && hitsAvoid(s, side)) { nTaken++; continue }
           const turn = turnAt(s)
+          minTurn = Math.min(minTurn, turn)
           if (turn <= 15) { sAt = s; sideAt = side; bestTurn = -1; break }
           if (turn <= bestTurn) { sAt = s; sideAt = side; bestTurn = turn }
         }
@@ -397,13 +406,19 @@ export function drawStreetAlongPath(
       }
       if (sAt >= 0) break
     }
-    if (sAt < 0) { ctx.restore(); return null }
+    if (sAt < 0) {
+      label.why = `pas de place (${nTried} positions : ${nTaken} sur une borne/un lieu (${avoid.length} rectangles), `
+        + `virage mini ${Number.isFinite(minTurn) ? Math.round(minTurn) + '°' : '-'} > 35° ; nom ${Math.round(textW)} px / ${Math.round(total)} px)`
+      ctx.restore(); return null
+    }
     label.fix = { at: idxAt(sAt), size, flip, side: sideAt }
+    label.why = `placé (côté ${sideAt > 0 ? 'gauche' : 'droit'}, taille ${size.toFixed(1)} px, point ${idxAt(sAt).toFixed(1)}/${pts.length - 1})`
   }
   const { at, size } = label.fix
   // Partie continue (sans point manquant) de la rue autour du centre du nom.
   const ia = Math.floor(at), ib = Math.min(pts.length - 1, ia + 1)
-  if (!pts[ia] || !pts[ib]) { ctx.restore(); return null }
+  if (!pts[ia] || !pts[ib]) { label.why = 'placé, mais son point est hors champ'; ctx.restore(); return null }
+  if (label.why?.startsWith('placé, mais')) label.why = 'placé, de retour à l\'écran'
   let lo = ia, hi = ib
   while (lo > 0 && pts[lo - 1]) lo--
   while (hi < pts.length - 1 && pts[hi + 1]) hi++
