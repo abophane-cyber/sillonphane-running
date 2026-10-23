@@ -2198,8 +2198,10 @@ async function exportFilm3dImpl(
     const widths = [...st.label.text].map(ch => ctx2d.measureText(ch).width + sp)
     const textW = widths.reduce((a, b) => a + b, 0) - sp
     const mPerPx = 1 / pxPerM, halfM = textW * mPerPx / 2, hM = size * mPerPx
-    // Axe du nom : corde de la rue sur la longueur du nom.
-    const chord = horiz(ribbonWorldAt(seg - halfM * segPerM, _gA), ribbonWorldAt(seg + halfM * segPerM, _gB))
+    // Axe du nom : direction de la rue au point choisi (corde sur ±30 m au plus). Une corde sur toute la longueur du nom
+    // passait par-dessus le virage voisin : nom en diagonale, loin de la voie (« Avenue Hubert Curien »).
+    const reach = Math.min(halfM / 2, 30)
+    const chord = horiz(ribbonWorldAt(seg - reach * segPerM, _gA), ribbonWorldAt(seg + reach * segPerM, _gB))
     if (chord.lengthSq() > 1e-6) u = chord.normalize()
     // Lu de gauche à droite à l'écran ; v (bas des lettres) choisi pour que le nom ne soit pas en miroir.
     if (toScreen(P.clone().addScaledVector(u, halfM)).x < toScreen(P.clone().addScaledVector(u, -halfM)).x) u.negate()
@@ -2207,14 +2209,17 @@ async function exportFilm3dImpl(
     const a = toScreen(P.clone().add(u)), b = toScreen(P.clone().add(v))
     if ((a.x - p0.x) * (b.y - p0.y) - (a.y - p0.y) * (b.x - p0.x) < 0) v.negate()
     // Côté du nom : 1 = au-dessus de la rue à l'écran (contre v), -1 = en dessous. Écarté de ce que la rue avance de ce
-    // côté sous le nom (une courbe ne passe pas sous les lettres).
+    // côté sous le nom (une courbe douce ne passe pas sous les lettres), d'une hauteur de lettre au plus : au-delà (rue
+    // qui tourne franchement sous le nom), le nom reste collé à la voie plutôt que de s'en éloigner.
     const n = v.clone().multiplyScalar(-(fix.side ?? 1))
     let bulge = 0
     for (let i = 0; i <= 24; i++) {
       const q = ribbonWorldAt(seg + (-1 + i / 12) * (halfM + hM) * segPerM, _gA)
-      bulge = Math.max(bulge, (q.x - P.x) * n.x + (q.z - P.z) * n.z)
+      const along = (q.x - P.x) * u.x + (q.z - P.z) * u.z
+      if (Math.abs(along) <= halfM) bulge = Math.max(bulge, (q.x - P.x) * n.x + (q.z - P.z) * n.z)
     }
-    const c = P.clone().addScaledVector(n, bulge + hM * 0.5 + hM / 2)
+    bulge = Math.min(bulge, hM)
+    const c = P.clone().addScaledVector(n, bulge + hM * 0.4 + hM / 2)
     return { c, u, v, mPerPx, size, widths, sp, textW }
   }
   /** Dessine le nom peint au sol (lettre par lettre, chacune avec la perspective du sol à sa place) ; renvoie le
@@ -2523,11 +2528,11 @@ async function exportFilm3dImpl(
         // nom placé d'office disparaissait aussitôt).
         const soonOcc = borneBoxes(borneSignCache, (opts.bornes ?? []).filter(b => borneReached(b, m + mps)),
           (opts.ravitos ?? []).filter(r => borneReached(r, m + mps)), place)
-        // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran. Virage toléré sous le
-        // nom : 65° (la perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
         // Rues : place choisie à l'écran (cf. mapLabels.ts), puis nom peint au sol le long du ruban (groundStreet) ; ils
         // évitent aussi les noms de rue déjà écrits. Places : nom en cercle à l'écran.
-        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
+        // Lettres 1,1 × celles du 2D (1,6 : trop grandes une fois peintes au sol). Virage toléré sous le nom : 65° (la
+        // perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
+        let box = drawStreetAlongPath(ctx2d, st.label, pts, a, (st.label.place ? 1.6 : 1.1) * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
           undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc, ...streetOcc], 65,
           // Rue d'au moins CAPTION_MIN_M (critère des noms affichés) : à 1 s de l'entrée du ruban, nom écrit d'office même
           // sans place libre ni partie droite.
