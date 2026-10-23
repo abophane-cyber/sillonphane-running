@@ -352,11 +352,21 @@ export function drawStreetAlongPath(
     // Centre : au milieu si la place est libre, sinon glissé le long de la rue (de part et d'autre, par pas de 8 %)
     // jusqu'à ne plus toucher les rectangles pris (bornes, lieux, places) ; puis même recherche de l'autre côté de la rue.
     const flip = pts[i1]!.x < pts[i0]!.x
+    /** Point à l'abscisse s ; au-delà des bouts de la partie visible, prolongé en ligne droite (comme au dessin). */
     const ptAt = (s: number): Pt => {
-      const t = idxAt(Math.max(0, Math.min(total, s)))
+      if (s < 0 || s > total) {
+        const [ia, ib] = s < 0 ? [i0, i0 + 1] : [i1 - 1, i1]
+        const a = pts[ia]!, b = pts[ib]!, l = Math.hypot(b.x - a.x, b.y - a.y) || 1
+        const from = s < 0 ? a : b, d = s < 0 ? s : s - total
+        return { x: from.x + ((b.x - a.x) / l) * d, y: from.y + ((b.y - a.y) / l) * d }
+      }
+      const t = idxAt(s)
       const ia = Math.floor(t), ib = Math.min(i1, ia + 1), u = t - ia
       return { x: pts[ia]!.x + (pts[ib]!.x - pts[ia]!.x) * u, y: pts[ia]!.y + (pts[ib]!.y - pts[ia]!.y) * u }
     }
+    // Le nom peut déborder des bouts de la rue de 30 % de sa longueur (le ruban continue) : sur une rue courte à
+    // l'écran, il trouve ainsi de la place à côté d'une borne (« BD DU MARECHAL JUIN » et la borne 5 km).
+    const OVER = 0.3 * textW
     // Emprise : 6 petits rectangles le long du nom, décalés du côté où il est écrit. Un seul rectangle englobant un nom
     // en diagonale couvrait un grand carré : il touchait toujours la borne ou le ravito voisins (« BD DU MARECHAL
     // JUIN », borne 5 km, jamais placé).
@@ -396,7 +406,7 @@ export function drawStreetAlongPath(
       for (let n = 0; n <= 12; n++) {
         for (const sgn of n ? [1, -1] : [1]) {
           const s = total / 2 + sgn * n * 0.08 * total
-          if (s - textW / 2 < 0 || s + textW / 2 > total) continue
+          if (s - textW / 2 < -OVER || s + textW / 2 > total + OVER) continue
           nTried++
           if (avoid.length && hitsAvoid(s, side)) { nTaken++; continue }
           const turn = turnAt(s)

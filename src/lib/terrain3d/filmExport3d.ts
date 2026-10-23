@@ -2391,7 +2391,7 @@ async function exportFilm3dImpl(
     // Rue empruntée, en haut de l'écran : après l'effacement du nom de départ, jusqu'à la fin du survol.
     const inFlight = simElapsed >= PHASE1_END && simElapsed < PHASE3_END
     // Rectangles pris pendant le survol (comme le film 2D) : bornes fixes ; places : évitent les bornes ; rues : glissent
-    // pour éviter bornes, lieux et places ; lieux connus (sprites) : remontés au-dessus des bornes et des places.
+    // pour éviter bornes et places ; lieux connus (sprites) : remontés au-dessus des bornes, des places et des rues.
     const borneOcc: Box[] = inFlight ? borneBoxes(borneSignCache, opts.bornes ?? [], opts.ravitos ?? [], place) : []
     const poiScreen = inFlight ? panelSprites.filter(p => p.sprite.visible && p.sprite.userData.poi).map(({ sprite }) => {
       _poiV.copy(sprite.position).project(camera)
@@ -2402,9 +2402,11 @@ async function exportFilm3dImpl(
       return { sprite, sx, sy, box }
     }).filter(p => p != null) : []
     const placeOcc: Box[] = []
+    // Noms de rue dessinés : les lieux connus se soulèvent au-dessus (« BD LASCROSSES », bloqué au départ par « Maison
+    // natale de Carlos Gardel » posé sur le boulevard, n'arrivait qu'en fin de rue).
+    const streetOcc: Box[] = []
     if (inFlight) {
       const m = headFrac * trackM, mps = trackM / DURATION
-      const poiOcc = poiScreen.map(p => p.box(p.sprite.userData.lift ?? 0))
       for (const st of streetLabels3dOrdered) {
         // Rues et places (nom en cercle) : à l'approche, la place reste plus longtemps (PLACE_HOLD_S).
         const a = streetLabelAlpha(m, st.from * trackM, st.to * trackM, (st.label.place ? PLACE_HOLD_S : CAPTION_HOLD_S) * mps, 0.6 * mps, STREET_LEAD_S * mps)
@@ -2437,8 +2439,9 @@ async function exportFilm3dImpl(
         // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran. Virage toléré sous le
         // nom : 65° (la perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
         const box = aShown > 0 ? drawStreetAlongPath(ctx2d, st.label, pts, aShown, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
-          undefined, st.label.place ? soonOcc : [...soonOcc, ...poiOcc, ...placeOcc], 65) : null
+          undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc], 65) : null
         if (box) st.lastBox = box
+        if (box && !st.label.place) streetOcc.push(box)
         if (covered !== !!st.logCovered) { st.logCovered = covered; logSt(covered ? 'recouvert par une borne : effacé' : 'dégagé') }
         if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)
@@ -2448,7 +2451,7 @@ async function exportFilm3dImpl(
     // prolongée jusqu'au repère. Hors survol : retour à leur place.
     for (const { sprite } of panelSprites) if (sprite.userData.poi && !inFlight) sprite.userData.lift = 0
     for (const p of poiScreen) {
-      const obst = [...borneOcc, ...placeOcc]
+      const obst = [...borneOcc, ...placeOcc, ...streetOcc]
       let target = 0
       while (target < 220 && boxesHit(p.box(target), obst)) target += 8
       const cur = p.sprite.userData.lift ?? 0
