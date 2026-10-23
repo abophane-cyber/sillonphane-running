@@ -2401,7 +2401,7 @@ async function exportFilm3dImpl(
       const box = (lift: number): Box => ({ x: sx - (sprite as THREE.Sprite).center.x * wpx, y: sy - (1 - sprite.userData.cy0) * POI_PX_H - lift, w: wpx, h: POI_PX_H })
       return { sprite, sx, sy, box }
     }).filter(p => p != null) : []
-    const placeOcc: Box[] = []
+    const placeOcc: Box[] = [], streetOcc: Box[] = []
     if (inFlight) {
       const m = headFrac * trackM, mps = trackM / DURATION
       for (const st of streetLabels3dOrdered) {
@@ -2429,13 +2429,16 @@ async function exportFilm3dImpl(
           (opts.ravitos ?? []).filter(r => borneReached(r, m + mps)), place)
         // Lettres 1,6 × celles du 2D : vue plongeante de haut, les rues sont plus petites à l'écran. Virage toléré sous le
         // nom : 65° (la perspective resserre les courbes ; à 35°, « R DU LANGUEDOC » et « CHE DE LA LOGE » attendaient).
-        const box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.6 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
-          undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc], 65,
+        // Noms écrits à l'horizontale à côté de la rue (perspective : un nom couché le long d'une rue qui file vers
+        // l'horizon était presque vertical) ; ils évitent aussi les noms de rue déjà écrits.
+        const box = drawStreetAlongPath(ctx2d, st.label, pts, a, 1.3 * OUT_H / 1080, 20, { w: OUT_W, h: OUT_H },
+          undefined, st.label.place ? soonOcc : [...soonOcc, ...placeOcc, ...streetOcc], 65,
           // Rue d'au moins CAPTION_MIN_M (critère des noms affichés) : à 1 s de l'entrée du ruban, nom écrit d'office même
           // sans place libre ni partie droite.
-          !st.label.place && (st.to - st.from) * trackM >= CAPTION_MIN_M && m >= st.from * trackM - mps)
+          !st.label.place && (st.to - st.from) * trackM >= CAPTION_MIN_M && m >= st.from * trackM - mps, true)
         if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)
+        else if (box) streetOcc.push(box)
       }
     }
     // Lieux connus : remontée cible par pas de 8 px (220 px au plus) jusqu'à dégager bornes et places, lissée ; tige
