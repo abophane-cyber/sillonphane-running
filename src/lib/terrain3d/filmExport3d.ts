@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S, CAPTION_MIN_M } from '../routeStreets'
-import { LABEL_FONT, PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
+import { LABEL_FONT, PLACE_HOLD_S, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -46,7 +46,7 @@ import type { Hiker3dSprite } from '../hiker3dSprite'
 import { HIKER3D_BODY_SCALE, HIKER3D_ENABLED, startPresentAt, smoothEase } from '../hiker3dStaging'
 import type { CharacterId } from '../characters'
 import type { StreetSpan } from '../streetCaption'
-import { borneBoxes, drawBorneLayer, drawEndCard, drawPoiStem, drawEventCartouche, eventCartoucheTop, drawNorthArrow, drawWeatherCard, OVERVIEW_BAND, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
+import { borneBoxes, drawBorneLayer, drawEndCard, drawEventCartouche, eventCartoucheTop, drawNorthArrow, drawWeatherCard, OVERVIEW_BAND, OVERVIEW_BORNE_SCALE, type EventCartouche, type LocSignCache } from '../filmExport'
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
 import { ESSAI_FILM_S, FIN_FILM_S } from '../filmEssai'
@@ -2491,17 +2491,8 @@ async function exportFilm3dImpl(
     const inFlight = simElapsed >= PHASE1_END && simElapsed < PHASE3_END
     // Rectangles pris pendant le survol (comme le film 2D) : bornes fixes ; places : évitent les bornes ; rues : glissent
     // pour éviter bornes et places, pas les lieux connus (dressés à la verticale, ils ne masquent pas un nom couché au
-    // sol : « BD LASCROSSES » attendait « Maison natale de Carlos Gardel ») ; lieux connus (sprites) : remontés au-dessus
-    // des bornes et des places.
+    // sol : « BD LASCROSSES » attendait « Maison natale de Carlos Gardel ») ; lieux connus (sprites) : à hauteur fixe.
     const borneOcc: Box[] = inFlight ? borneBoxes(borneSignCache, opts.bornes ?? [], opts.ravitos ?? [], place) : []
-    const poiScreen = inFlight ? panelSprites.filter(p => p.sprite.visible && p.sprite.userData.poi).map(({ sprite }) => {
-      _poiV.copy(sprite.position).project(camera)
-      if (_poiV.z >= 1) return null
-      const sx = (_poiV.x + 1) / 2 * OUT_W, sy = (1 - _poiV.y) / 2 * OUT_H
-      const wpx = POI_PX_H * (sprite.scale.x / sprite.scale.y)
-      const box = (lift: number): Box => ({ x: sx - (sprite as THREE.Sprite).center.x * wpx, y: sy - (1 - sprite.userData.cy0) * POI_PX_H - lift, w: wpx, h: POI_PX_H })
-      return { sprite, sx, sy, box }
-    }).filter(p => p != null) : []
     const placeOcc: Box[] = [], streetOcc: Box[] = []
     if (inFlight) {
       const m = headFrac * trackM, mps = trackM / DURATION
@@ -2546,17 +2537,8 @@ async function exportFilm3dImpl(
         else if (box) streetOcc.push(box)
       }
     }
-    // Lieux connus : remontée cible par pas de 8 px (220 px au plus) jusqu'à dégager bornes et places, lissée ; tige
-    // prolongée jusqu'au repère. Hors survol : retour à leur place.
-    for (const { sprite } of panelSprites) if (sprite.userData.poi && !inFlight) sprite.userData.lift = 0
-    for (const p of poiScreen) {
-      const obst = [...borneOcc, ...placeOcc]
-      let target = 0
-      while (target < 220 && boxesHit(p.box(target), obst)) target += 8
-      const cur = p.sprite.userData.lift ?? 0
-      p.sprite.userData.lift = cur + (target - cur) * 0.2
-      drawPoiStem(ctx2d, p.sx, p.sy, p.sprite.userData.lift, 1)
-    }
+    // Lieux connus : toujours à la même hauteur au-dessus de leur repère (remontés jusqu'à 220 px pour dégager bornes et
+    // places, ils montaient et descendaient pendant le survol).
     // Noms de commune et de lieu-dit couchés au sol sur une borne (« LILLE » sous la médaille du 10 km) : écartés à
     // l'écran du plus petit pas qui la dégage (vers le bas d'abord), en douceur, puis reposés au sol sous ce point
     // (effet à l'image suivante). Hors survol : retour à leur place.
