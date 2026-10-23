@@ -260,8 +260,9 @@ export interface StreetLabel {
   place?: { top: string; bottom: string }
   /** Place figée à la première image où le nom tient : centre du nom (indice fractionnaire dans `pts`, donc un point
    *  fixe de la rue), taille des lettres, sens de lecture (vers les indices décroissants si `flip`), teinte (`dark` :
-   *  lettres noires sur fond clair ; mesurée à la première image où le fond est lisible). */
-  fix?: { at: number; size: number; flip: boolean; dark?: boolean }
+   *  lettres noires sur fond clair ; mesurée à la première image où le fond est lisible), côté de la rue (`side` -1 :
+   *  à droite du sens de lecture, quand la gauche est prise). */
+  fix?: { at: number; size: number; flip: boolean; dark?: boolean; side?: 1 | -1 }
 }
 
 type Pt = { x: number; y: number }
@@ -341,18 +342,29 @@ export function drawStreetAlongPath(
       return i0 + j - 1 + (s - cum[j - 1]) / Math.max(1e-6, cum[j] - cum[j - 1])
     }
     // Centre : au milieu si la place est libre, sinon glissé le long de la rue (de part et d'autre, par pas de 8 %)
-    // jusqu'à ne plus toucher les rectangles pris (bornes, lieux, places).
-    const pad = offset * k + size
-    const footprint = (s: number): Box => {
-      const ps: Pt[] = []
-      for (let i = i0; i <= i1; i++) if (Math.abs(cum[i - i0] - s) <= textW / 2) ps.push(pts[i]!)
-      const a = idxAt(Math.max(0, s - textW / 2)), b = idxAt(Math.min(total, s + textW / 2))
-      for (const t of [a, b]) {
-        const ia = Math.floor(t), ib = Math.min(i1, ia + 1), u = t - ia
-        ps.push({ x: pts[ia]!.x + (pts[ib]!.x - pts[ia]!.x) * u, y: pts[ia]!.y + (pts[ib]!.y - pts[ia]!.y) * u })
-      }
-      return boxOf(ps, pad)
+    // jusqu'à ne plus toucher les rectangles pris (bornes, lieux, places) ; puis même recherche de l'autre côté de la rue.
+    const flip = pts[i1]!.x < pts[i0]!.x
+    const ptAt = (s: number): Pt => {
+      const t = idxAt(Math.max(0, Math.min(total, s)))
+      const ia = Math.floor(t), ib = Math.min(i1, ia + 1), u = t - ia
+      return { x: pts[ia]!.x + (pts[ib]!.x - pts[ia]!.x) * u, y: pts[ia]!.y + (pts[ib]!.y - pts[ia]!.y) * u }
     }
+    // Emprise : 6 petits rectangles le long du nom, décalés du côté où il est écrit. Un seul rectangle englobant un nom
+    // en diagonale couvrait un grand carré : il touchait toujours la borne ou le ravito voisins (« BD DU MARECHAL
+    // JUIN », borne 5 km, jamais placé).
+    const PIECES = 6
+    const footprint = (s: number, side: 1 | -1): Box[] => {
+      const out: Box[] = []
+      for (let n = 0; n < PIECES; n++) {
+        const sa = s - textW / 2 + (n * textW) / PIECES, sb = sa + textW / PIECES
+        const a = ptAt(sa), b = ptAt(sb)
+        const dx = (b.x - a.x) * (flip ? -1 : 1), dy = (b.y - a.y) * (flip ? -1 : 1), l = Math.hypot(dx, dy) || 1
+        const sh = side * (offset * k), nx = (dy / l) * sh, ny = (-dx / l) * sh // normale à gauche du sens de lecture
+        out.push(boxOf([{ x: a.x + nx, y: a.y + ny }, { x: b.x + nx, y: b.y + ny }], size * 0.7))
+      }
+      return out
+    }
+    const hitsAvoid = (s: number, side: 1 | -1) => footprint(s, side).some(b => boxesHit(b, avoid))
     // Virage sous le nom : somme des changements de cap (degrés) entre s ± (textW / 2 + size). Dans un virage, les
     // lettres se tassent et se tordent à l'intérieur de la courbe (« BD VAUBAN » illisible) : on cherche une partie droite.
     const turnAt = (s: number) => {
@@ -370,20 +382,23 @@ export function drawStreetAlongPath(
     }
     // Candidats du milieu vers les bords : le premier libre et presque droit (≤ 15°) ; à défaut le plus droit des
     // libres s'il reste lisible (≤ 35°) ; sinon réessai à l'image suivante.
-    let sAt = -1, bestTurn = 35
-    for (let n = 0; n <= 12; n++) {
-      for (const sgn of n ? [1, -1] : [1]) {
-        const s = total / 2 + sgn * n * 0.08 * total
-        if (s - textW / 2 < 0 || s + textW / 2 > total) continue
-        if (avoid.length && boxesHit(footprint(s), avoid)) continue
-        const turn = turnAt(s)
-        if (turn <= 15) { sAt = s; bestTurn = -1; break }
-        if (turn <= bestTurn) { sAt = s; bestTurn = turn }
+    let sAt = -1, bestTurn = 35, sideAt: 1 | -1 = 1
+    for (const side of [1, -1] as const) {
+      for (let n = 0; n <= 12; n++) {
+        for (const sgn of n ? [1, -1] : [1]) {
+          const s = total / 2 + sgn * n * 0.08 * total
+          if (s - textW / 2 < 0 || s + textW / 2 > total) continue
+          if (avoid.length && hitsAvoid(s, side)) continue
+          const turn = turnAt(s)
+          if (turn <= 15) { sAt = s; sideAt = side; bestTurn = -1; break }
+          if (turn <= bestTurn) { sAt = s; sideAt = side; bestTurn = turn }
+        }
+        if (bestTurn < 0) break
       }
-      if (bestTurn < 0) break
+      if (sAt >= 0) break
     }
     if (sAt < 0) { ctx.restore(); return null }
-    label.fix = { at: idxAt(sAt), size, flip: pts[i1]!.x < pts[i0]!.x }
+    label.fix = { at: idxAt(sAt), size, flip, side: sideAt }
   }
   const { at, size } = label.fix
   // Partie continue (sans point manquant) de la rue autour du centre du nom.
@@ -450,7 +465,8 @@ export function drawStreetAlongPath(
     const p0 = at2(mid - widths[i] / 2), p1 = at2(mid + widths[i] / 2), p = at2(mid)
     const ang = Math.atan2(p1.y - p0.y, p1.x - p0.x)
     const nx = Math.sin(ang), ny = -Math.cos(ang) // normale à gauche du sens de lecture (vers le haut)
-    glyphs.push({ ch: chars[i], x: p.x + nx * offset * k, y: p.y + ny * offset * k, ang })
+    const off = offset * k * (label.fix.side ?? 1)
+    glyphs.push({ ch: chars[i], x: p.x + nx * off, y: p.y + ny * off, ang })
     s += widths[i]
   }
   // Teinte selon le fond sous le nom, mesurée une fois (le nom est fixe sur la carte, son fond ne change pas) : blanc
