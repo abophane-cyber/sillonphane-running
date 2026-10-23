@@ -2391,7 +2391,9 @@ async function exportFilm3dImpl(
     // Rue empruntée, en haut de l'écran : après l'effacement du nom de départ, jusqu'à la fin du survol.
     const inFlight = simElapsed >= PHASE1_END && simElapsed < PHASE3_END
     // Rectangles pris pendant le survol (comme le film 2D) : bornes fixes ; places : évitent les bornes ; rues : glissent
-    // pour éviter bornes et places ; lieux connus (sprites) : remontés au-dessus des bornes, des places et des rues.
+    // pour éviter bornes et places, pas les lieux connus (dressés à la verticale, ils ne masquent pas un nom couché au
+    // sol : « BD LASCROSSES » attendait « Maison natale de Carlos Gardel ») ; lieux connus (sprites) : remontés au-dessus
+    // des bornes et des places.
     const borneOcc: Box[] = inFlight ? borneBoxes(borneSignCache, opts.bornes ?? [], opts.ravitos ?? [], place) : []
     const poiScreen = inFlight ? panelSprites.filter(p => p.sprite.visible && p.sprite.userData.poi).map(({ sprite }) => {
       _poiV.copy(sprite.position).project(camera)
@@ -2402,9 +2404,6 @@ async function exportFilm3dImpl(
       return { sprite, sx, sy, box }
     }).filter(p => p != null) : []
     const placeOcc: Box[] = []
-    // Noms de rue dessinés : les lieux connus se soulèvent au-dessus (« BD LASCROSSES », bloqué au départ par « Maison
-    // natale de Carlos Gardel » posé sur le boulevard, n'arrivait qu'en fin de rue).
-    const streetOcc: Box[] = []
     if (inFlight) {
       const m = headFrac * trackM, mps = trackM / DURATION
       for (const st of streetLabels3dOrdered) {
@@ -2444,7 +2443,6 @@ async function exportFilm3dImpl(
           // sans place libre ni partie droite.
           !st.label.place && (st.to - st.from) * trackM >= CAPTION_MIN_M && m >= st.from * trackM - mps) : null
         if (box) st.lastBox = box
-        if (box && !st.label.place) streetOcc.push(box)
         if (covered !== !!st.logCovered) { st.logCovered = covered; logSt(covered ? 'recouvert par une borne : effacé' : 'dégagé') }
         if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)
@@ -2454,7 +2452,7 @@ async function exportFilm3dImpl(
     // prolongée jusqu'au repère. Hors survol : retour à leur place.
     for (const { sprite } of panelSprites) if (sprite.userData.poi && !inFlight) sprite.userData.lift = 0
     for (const p of poiScreen) {
-      const obst = [...borneOcc, ...placeOcc, ...streetOcc]
+      const obst = [...borneOcc, ...placeOcc]
       let target = 0
       while (target < 220 && boxesHit(p.box(target), obst)) target += 8
       const cur = p.sprite.userData.lift ?? 0
