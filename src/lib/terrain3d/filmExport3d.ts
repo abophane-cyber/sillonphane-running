@@ -373,6 +373,27 @@ function densifyTrail(points: [number, number][], stepM = 10): [number, number][
   return out
 }
 
+/** Tracé rééchantillonné à pas constant (`stepM` m) : un lissage par indice y a la même portée partout, que les points
+ *  d'origine soient espacés de 3 m (enregistrement) ou de 700 m (tracé planifié). */
+function resampleTrail(points: [number, number][], stepM: number): [number, number][] {
+  if (points.length < 2) return points.slice()
+  const out: [number, number][] = [points[0]]
+  let carry = 0 // distance déjà parcourue depuis le dernier point posé
+  for (let i = 1; i < points.length; i++) {
+    const [lo0, la0] = points[i - 1], [lo1, la1] = points[i]
+    const d = 6371000 * Math.hypot((la1 - la0) * Math.PI / 180, (lo1 - lo0) * Math.PI / 180 * Math.cos(la0 * Math.PI / 180))
+    let s = stepM - carry
+    while (s <= d) {
+      const u = s / d
+      out.push([lo0 + (lo1 - lo0) * u, la0 + (la1 - la0) * u])
+      s += stepM
+    }
+    carry = d - (s - stepM)
+  }
+  out.push(points[points.length - 1])
+  return out
+}
+
 function clampToPolyline(x: number, z: number, poly: THREE.Vector3[], maxDev: number): [number, number] {
   let bx = poly[0].x, bz = poly[0].z, bd = Infinity
   for (let i = 1; i < poly.length; i++) {
@@ -989,7 +1010,11 @@ async function exportFilm3dImpl(
   const curve = new THREE.CatmullRomCurve3(trailPts)
   curve.arcLengthDivisions = Math.max(200, trailPts.length) // getPointAt : abscisse juste même à 3000 points
 
-  const cameraRawPts: THREE.Vector3[] = smoothTrail(trail, 10, 14).map(([lon, lat]) => {
+  // Courbe caméra : lissage forcé sur le tracé rééchantillonné (un point tous les longueur/2000 m, de 5 à 100 m :
+  // portée ≈ 190 m sur un semi, ≈ 1,7 km sur 190 km). Lissé par indice sur les points bruts, un tracé planifié (points
+  // à 100-700 m) donnait une caméra qui coupait les boucles sur des kilomètres, ruban hors de l'image.
+  const camStepM = Math.max(5, Math.min(100, trailKm * 1000 / 2000))
+  const cameraRawPts: THREE.Vector3[] = smoothTrail(resampleTrail(trail, camStepM), 10, 14).map(([lon, lat]) => {
     const [x, z] = cov.project(lon, lat)
     return new THREE.Vector3(x, elevAtLonLat(lon, lat) - minElev, z)
   })
@@ -1862,6 +1887,7 @@ async function exportFilm3dImpl(
   _introDir.sub(ovCenter)
   const introD = Math.max(1, _introDir.length()); _introDir.normalize()
   const _diveLook = new THREE.Vector3()
+  const _headPos = new THREE.Vector3()
   const _startDir = new THREE.Vector3()
 
   interface Overlay { distanceM: number; profileT: number }
@@ -1919,7 +1945,16 @@ async function exportFilm3dImpl(
       const lookAheadCam = Math.max(camTFor(lookT) - camTFor(t), LOOK_AHEAD * laK * 0.5)
       cameraCurve.getPointAt(Math.min(1, camTcur + lookAheadCam), _lookPos)
       cameraWorldOffset(camTcur, _camOff)
-      const zk = introRiseK(t) * Math.min(arrivalZoomK(elapsed), panelZoomK(t))
+      // Tête du ruban gardée dans l'image : la visée (courbe caméra lissée) peut s'en écarter de quelques centaines de
+      // mètres, surtout dans un demi-tour où la tête revient vers la caméra, qui tourne lentement (semi de Toulouse :
+      // ruban sorti par le bas). Visée ramenée à mi-chemin de la tête, et recul en proportion de l'écart.
+      curve.getPointAt(lookT, _headPos)
+      const hx = _headPos.x - _lookPos.x, hz = _headPos.z - _lookPos.z
+      const headBack = Math.max(0, -(hx * _smoothHeading.x + hz * _smoothHeading.z)) // tête revenue vers la caméra
+      const headSide = Math.abs(hx * _smoothHeading.z - hz * _smoothHeading.x)
+      _lookPos.x += hx * 0.5; _lookPos.z += hz * 0.5; _lookPos.y += (_headPos.y - _lookPos.y) * 0.5
+      const headZoom = 1 + Math.max(headBack, headSide * 0.5) / (CAM_OFFSET_DIST * camK)
+      const zk = introRiseK(t) * Math.min(arrivalZoomK(elapsed), panelZoomK(t)) * headZoom
       targetCamPos.set(_pos.x + _camOff.x * zk, _pos.y + _camOff.y * zk, _pos.z + _camOff.z * zk)
       targetLookAt.set(_lookPos.x, _lookPos.y + LOOK_RAISE, _lookPos.z)
       enforceMinStandoff(targetCamPos, targetLookAt)
