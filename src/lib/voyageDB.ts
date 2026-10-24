@@ -1,3 +1,4 @@
+import { videoHeight } from './filmQuality'
 import type { Voyage, VoyageTrack, VoyageFilm, VoyagePhoto, ComposedAlbumPage, PanelLocality, PosterSettings } from '../types'
 import { migrateLegacyCover } from './albumPages'
 import { saveFileWithPicker } from './saveFile'
@@ -424,6 +425,7 @@ export async function addFilmToVoyage(
     const voyage = await getVoyage(voyageId)
     if (!voyage) throw new Error('Voyage introuvable')
     const film: VoyageFilm = { unseen: true, ...meta, id: uuid(), createdAt: new Date().toISOString() }
+    if (blob && film.height == null) film.height = await videoHeight(blob)
     if (blob) {
       const db = await openDB()
       await wrap(tx(db, STORE_BLOBS, 'readwrite').put(blob, film.id))

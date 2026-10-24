@@ -22,6 +22,7 @@ import { AppLogoIcon } from './AppLogoIcon'
 import { isRecordedGpx } from '../lib/gpx'
 import { readActivityFile } from '../lib/activityImport'
 import { filmFileKind, saveFileWithPicker } from '../lib/saveFile'
+import { filmResolutionLabel, videoHeight } from '../lib/filmQuality'
 import { dateParts } from '../lib/sillonDisplay'
 import { BookAside, BookIcon, DotsIcon, MountainIcon, PencilIcon, PlusIcon, RunnerIcon, TrashIcon } from './SillonDetailParts'
 import './SillonDetail.css'
@@ -52,6 +53,30 @@ function formatSize(bytes?: number) {
   if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} Mo`
   return `${Math.round(bytes / 1e3)} Ko`
 }
+/** Hauteurs lues dans les films enregistrés avant que la définition soit notée (VoyageFilm.height). */
+const probedHeights = new Map<string, Promise<number | undefined>>()
+
+/** Définition du film (« · 1080p », « · 1440p · YouTube ») à la suite de sa date et de sa taille. */
+function FilmResolution({ film }: { film: VoyageFilm }) {
+  const [height, setHeight] = useState(film.height)
+  useEffect(() => {
+    if (film.height != null) { setHeight(film.height); return }
+    let cancelled = false
+    let p = probedHeights.get(film.id)
+    if (!p) {
+      p = getFilmBlob(film.id).then(b => (b ? videoHeight(b) : undefined))
+      probedHeights.set(film.id, p)
+    }
+    void p.then(h => { if (!cancelled) setHeight(h) })
+    return () => { cancelled = true }
+  }, [film.id, film.height])
+  if (!height) return null
+  const label = filmResolutionLabel(height)
+  return label === '1440p' || label === '4K'
+    ? <> · <span className="sd-film__hd" title="Qualité YouTube : plus net une fois envoyé sur YouTube">{label} · YouTube</span></>
+    : <> · {label}</>
+}
+
 function sortTracksByDate(tracks: VoyageTrack[]): VoyageTrack[] {
   return [...tracks].sort((a, b) => (a.date || a.addedAt).localeCompare(b.date || b.addedAt))
 }
@@ -615,7 +640,7 @@ function SillonDetail({
                             <span className="sd-film__icon">🎬</span>
                             <div className="sd-film__info">
                               <span className="sd-film__name">{f.name}</span>
-                              <span className="sd-film__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}</span>
+                              <span className="sd-film__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}<FilmResolution film={f} /></span>
                             </div>
                             <div className="sd-film__actions">
                               <button type="button" className="sd-icon sd-icon--play" onClick={() => handlePlayFilm(f)} title="Lire le film">▶</button>
@@ -675,7 +700,7 @@ function SillonDetail({
                         <span className="sd-film__icon">🎬</span>
                         <div className="sd-film__info">
                           <span className="sd-film__name">{f.name}</span>
-                          <span className="sd-film__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}</span>
+                          <span className="sd-film__meta">{formatDate(f.createdAt)} · {formatSize(f.sizeBytes)}<FilmResolution film={f} /></span>
                         </div>
                         <div className="sd-film__actions">
                           <button type="button" className="sd-icon sd-icon--play" onClick={() => handlePlayFilm(f)} title="Lire le film">▶</button>

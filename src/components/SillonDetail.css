@@ -101,6 +101,8 @@
 .sd-film__info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .sd-film__name { font-size: .95rem; font-weight: 500; color: var(--sd-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sd-film__meta { font-size: .82rem; color: var(--sd-muted); }
+/* « 1440p · YouTube » : film créé en qualité YouTube (cf. filmQuality.ts). */
+.sd-film__hd { font-weight: 700; color: var(--sd-brick); }
 .sd-film__actions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .sd-icon { width: 44px; height: 40px; display: grid; place-items: center; border-radius: 9px; cursor: pointer; font: inherit;
   color: var(--sd-ink); background: #F7F5F1; border: 1px solid rgba(43,41,39,0.1); }

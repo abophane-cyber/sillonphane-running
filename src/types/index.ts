@@ -302,6 +302,7 @@ export interface VoyageFilm {
   createdAt: string      // ISO
   durationSec?: number
   sizeBytes?: number
+  height?: number        // hauteur d'image (1080, 1440…), lue dans le fichier à l'enregistrement
   unseen?: boolean       // créé mais pas encore lu ni téléchargé → surligné dans la liste des films
 }
 

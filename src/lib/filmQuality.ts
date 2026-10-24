@@ -25,3 +25,25 @@ export function setFilmHd(on: boolean): void {
 export function filmCodecs(hd: boolean): string[] {
   return hd ? ['avc1.4d0032', 'avc1.4d0033', 'avc1.640032'] : ['avc1.4d0029', 'avc1.4d0028', 'avc1.42001e']
 }
+
+/** Hauteur d'image d'un film (lue dans ses métadonnées), ou undefined si illisible. */
+export function videoHeight(blob: Blob): Promise<number | undefined> {
+  return new Promise(resolve => {
+    const url = URL.createObjectURL(blob)
+    const v = document.createElement('video')
+    const done = (h?: number) => { clearTimeout(t); v.removeAttribute('src'); v.load(); URL.revokeObjectURL(url); resolve(h) }
+    const t = setTimeout(() => done(), 8000)
+    v.preload = 'metadata'
+    v.muted = true
+    v.onloadedmetadata = () => done(v.videoHeight || undefined)
+    v.onerror = () => done()
+    v.src = url
+  })
+}
+
+/** « 1440p », « 1080p »… ; hauteur proche (encodeur arrondi à 16) ramenée au format standard. */
+export function filmResolutionLabel(height: number): string {
+  if (height >= 2000) return '4K'
+  for (const h of [1440, 1080, 720, 480]) if (Math.abs(height - h) <= 16) return `${h}p`
+  return `${height}p`
+}
