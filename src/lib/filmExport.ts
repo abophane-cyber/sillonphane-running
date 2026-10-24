@@ -1362,9 +1362,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // H.264 uniquement : HEVC est encodable sur certains navigateurs (Safari) mais pas décodable
     // par la plupart des autres (Chrome/Firefox/Android) — un film exporté en HEVC lisait
     // silencieusement dans le vide (aucune erreur, juste rien qui se joue) sur ces appareils.
-    // Muxer SANS `frameRate` : avec, mp4-muxer prend une échelle de temps de 30 (1 unité par image) ; le Lecteur
-    // multimédia, Films et TV et Chrome (décodage Windows) figeaient alors l'image par moments, pas VLC. Sans, échelle
-    // de 57 600 (1 920 unités par image à 30 i/s), le même flux remis en boîte par ffmpeg (échelle 15 360) était fluide.
+    // Muxer sans `frameRate` : échelle de temps par défaut de mp4-muxer (57 600, soit 1 920 unités par image à 30 i/s)
+    // au lieu de 30, plus courante. (Soupçonnée à tort de figer la lecture sous Windows : le film se lisait en fait
+    // bien, les à-coups venaient d'une machine occupée par ailleurs.)
     for (const codec of filmCodecs(HD > 1)) {
       try {
         const base = { codec, width: PX_W, height: PX_H, framerate: fps, latencyMode: 'quality' as const }

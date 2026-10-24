@@ -2384,7 +2384,7 @@ async function exportFilm3dImpl(
   }
 
   if (hasWC) {
-    // Muxer sans `frameRate` (échelle de temps de 30 -> images figées sous Windows), cf. filmExport.ts.
+    // Muxer sans `frameRate` : échelle de temps par défaut (57 600), cf. filmExport.ts.
     for (const codec of filmCodecs(HD > 1)) {
       try {
         const base = { codec, width: PX_W, height: PX_H, framerate: fps, latencyMode: 'quality' as const }
