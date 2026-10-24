@@ -1362,6 +1362,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // H.264 uniquement : HEVC est encodable sur certains navigateurs (Safari) mais pas décodable
     // par la plupart des autres (Chrome/Firefox/Android) — un film exporté en HEVC lisait
     // silencieusement dans le vide (aucune erreur, juste rien qui se joue) sur ces appareils.
+    // Muxer SANS `frameRate` : avec, mp4-muxer prend une échelle de temps de 30 (1 unité par image) ; le Lecteur
+    // multimédia, Films et TV et Chrome (décodage Windows) figeaient alors l'image par moments, pas VLC. Sans, échelle
+    // de 57 600 (1 920 unités par image à 30 i/s), le même flux remis en boîte par ffmpeg (échelle 15 360) était fluide.
     for (const codec of filmCodecs(HD > 1)) {
       try {
         const base = { codec, width: PX_W, height: PX_H, framerate: fps, latencyMode: 'quality' as const }
@@ -1369,7 +1372,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
         const vbrCfg: VideoEncoderConfig = { ...base, bitrate, bitrateMode: 'variable' }
         const qpOk = await VideoEncoder.isConfigSupported(qpCfg).then(s => !!s.supported, () => false)
         if (qpOk || (await VideoEncoder.isConfigSupported(vbrCfg)).supported) {
-          muxer   = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: PX_W, height: PX_H, frameRate: fps }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
+          muxer   = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: PX_W, height: PX_H }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
           encoder = new VideoEncoder({ output: (c, m) => { rc.onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film] encoder:', e); encoderError = e } })
           encoder.configure(qpOk ? qpCfg : vbrCfg)
           useQP = qpOk

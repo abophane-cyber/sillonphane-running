@@ -2384,6 +2384,7 @@ async function exportFilm3dImpl(
   }
 
   if (hasWC) {
+    // Muxer sans `frameRate` (échelle de temps de 30 -> images figées sous Windows), cf. filmExport.ts.
     for (const codec of filmCodecs(HD > 1)) {
       try {
         const base = { codec, width: PX_W, height: PX_H, framerate: fps, latencyMode: 'quality' as const }
@@ -2391,7 +2392,7 @@ async function exportFilm3dImpl(
         const vbrCfg: VideoEncoderConfig = { ...base, bitrate, bitrateMode: 'variable' }
         const qpOk = await VideoEncoder.isConfigSupported(qpCfg).then(s => !!s.supported, () => false)
         if (qpOk || (await VideoEncoder.isConfigSupported(vbrCfg)).supported) {
-          muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: PX_W, height: PX_H, frameRate: fps }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
+          muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: PX_W, height: PX_H }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
           encoder = new VideoEncoder({ output: (c, m) => { rc.onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film3d] encoder:', e); encoderError = e } })
           encoder.configure(qpOk ? qpCfg : vbrCfg)
           useQP = qpOk
