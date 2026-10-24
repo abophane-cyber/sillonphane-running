@@ -200,9 +200,9 @@ const ABBREV_FULL: Record<string, string> = {
   RPT: 'Rond-point', PARV: 'Parvis', VC: 'Voie communale',
 }
 const PARTICLES = new Set(['DE', 'DES', 'DU', 'LA', 'LE', 'LES', 'ET', 'SUR', 'EN', 'AUX', 'AU', 'SOUS'])
-/** Lettres des grandes voies et des places (StreetLabel.major) : orangé, cerné de sombre quel que soit le fond. Les autres
+/** Lettres des grandes voies et des places (StreetLabel.major) : jaune vif (l'orangé se fondait dans les toits des vues aériennes), cerné de sombre quel que soit le fond. Les autres
  * rues : blanc, ou noir sur fond clair. Même graphie pour toutes. */
-export const MAJOR_STREET_INK = '#ffc27a'
+export const MAJOR_STREET_INK = '#ffd84a'
 
 /** Voies majeures (rang, cf. StreetLabel.major) : boulevards, avenues, routes, places, quais, cours. */
 const MAJOR = /^(BD|AV|RTE|PL|QU|QUAI|CRS|PONT)\s/
@@ -670,7 +670,7 @@ function drawPlaceCircle(
     const l = backgroundLuma(bg ?? { src: ctx.canvas, scale: 1 }, glyphs, size)
     if (l != null) label.fix.dark = l > LIGHT_BG_LUMA
   }
-  // Places en orangé comme les grandes voies (lettres et anneau), cernées de sombre quel que soit le fond.
+  // Places en jaune comme les grandes voies (lettres et anneau), cernées de sombre quel que soit le fond.
   const ink = MAJOR_STREET_INK, halo = 'rgba(0,0,0,0.6)'
   ctx.globalAlpha = alpha * 0.97
   // Fin anneau extérieur, discret : le nom est écrit à l'intérieur, comme un tampon posé sur la place.

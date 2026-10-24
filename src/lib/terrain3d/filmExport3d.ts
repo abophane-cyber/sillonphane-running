@@ -2300,7 +2300,7 @@ async function exportFilm3dImpl(
       ctx2d.strokeStyle = 'rgba(0,0,0,0.6)'; ctx2d.lineWidth = g.size * 0.17
       ctx2d.strokeText(chars[i], 0, 0)
       ctx2d.shadowColor = 'transparent'
-      ctx2d.fillStyle = major ? MAJOR_STREET_INK : '#ffffff' // grandes voies en orangé, comme le film 2D
+      ctx2d.fillStyle = major ? MAJOR_STREET_INK : '#ffffff' // grandes voies en jaune, comme le film 2D
       ctx2d.fillText(chars[i], 0, 0)
     }
     ctx2d.restore()
