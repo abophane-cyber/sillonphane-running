@@ -1164,14 +1164,18 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   letter-spacing: 0.1em; color: var(--color-text-muted); line-height: 1;
 }
 
-/* Case « Qualité YouTube » : légende posée sur le trait du bas (comme le titre sur celui du haut). */
+/* Case « Qualité YouTube » : à gauche des boutons Film 2D / 3D, en tuile comme eux. */
 .controls__film-hd {
-  position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
-  display: flex; align-items: center; gap: 4px; white-space: nowrap;
-  padding: 0 5px; background: var(--color-surface);
-  font-size: 10px; color: var(--color-text-muted); line-height: 1; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 6px 10px; border: 1px solid rgba(255,255,255,0.18); border-radius: 8px;
+  cursor: pointer; white-space: nowrap; transition: border-color 0.2s ease, background 0.2s ease;
 }
-.controls__film-hd input { width: 11px; height: 11px; margin: 0; cursor: pointer; }
+.controls__film-hd:hover { border-color: rgba(255,255,255,0.35); }
+.controls__film-hd--on { border-color: var(--color-accent); background: rgba(90,149,92,0.18); }
+.controls__film-hd-title { font-size: 11px; font-weight: 600; color: var(--color-text-muted); }
+.controls__film-hd--on .controls__film-hd-title { color: var(--color-text); }
+.controls__film-hd-box { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.controls__film-hd input { width: 18px; height: 18px; margin: 0; cursor: pointer; accent-color: var(--color-accent); }
 
 /* Encadrés de section regroupant plusieurs sous-groupes (Navigation, Création…) */
 .controls__section {

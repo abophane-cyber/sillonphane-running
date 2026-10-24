@@ -302,6 +302,24 @@ export function AnimationControls({
             <div className={`controls__section controls__section--film${readyToCreate ? ' controls__section--emphasize' : ''}`}>
               <span className="controls__section-title">Film</span>
               <div className="controls__section-row">
+              {FILM_HD_AVAILABLE && (
+                <>
+                  <label
+                    className={`controls__film-hd${filmHd ? ' controls__film-hd--on' : ''}`}
+                    title="Film en 2560×1440 : plus net sur YouTube, environ deux fois plus lourd et plus long à créer"
+                  >
+                    <span className="controls__film-hd-title">Qualité YouTube</span>
+                    <span className="controls__film-hd-box">
+                      <input
+                        type="checkbox" checked={filmHd} disabled={filmBusy}
+                        onChange={e => { setFilmHd(e.target.checked); setFilmHdState(e.target.checked) }}
+                      />
+                      1440p
+                    </span>
+                  </label>
+                  <div className="controls__divider" />
+                </>
+              )}
               {onRecord && (
                 <div className="controls__subgroup controls__subgroup--tile" ref={filmGroupRef}>
                   {encoderBroken && !encoderWarnDismissed && !filmBusy && (
@@ -378,18 +396,6 @@ export function AnimationControls({
                 </div>
               )}
               </div>
-              {FILM_HD_AVAILABLE && (
-                <label
-                  className="controls__film-hd"
-                  title="Film en 2560×1440 : plus net sur YouTube, environ deux fois plus lourd et plus long à créer"
-                >
-                  <input
-                    type="checkbox" checked={filmHd} disabled={filmBusy}
-                    onChange={e => { setFilmHd(e.target.checked); setFilmHdState(e.target.checked) }}
-                  />
-                  Qualité YouTube (1440p)
-                </label>
-              )}
             </div>
           )}
 
