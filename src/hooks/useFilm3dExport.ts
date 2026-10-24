@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import { addFilmToVoyage } from '../lib/voyageDB'
+import { getFilmHd } from '../lib/filmQuality'
 import { ANIM_SETTINGS } from './useAnimationSettings'
 import { beginExportKeepAlive } from '../lib/exportKeepAlive'
 import { localitiesToPanels3d, weatherToScenario, formatTrailDate } from '../lib/terrain3d/appAdapters'
@@ -167,6 +168,7 @@ export function useFilm3dExport() {
         fin,
         openingOnly: ouverture || undefined,
         fps: 30,
+        hd: getFilmHd(),
         onProgress: p => {
           setFilm3dProgress(Math.max(0, p.ratio)); setFilm3dPhase(p.phase)
           if (p.etaS != null && Number.isFinite(p.etaS)) {

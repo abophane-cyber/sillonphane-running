@@ -4,6 +4,7 @@ import { exportFilm, PREFETCH_PROGRESS_BUDGET, type EventCartouche } from '../li
 import { beginExportKeepAlive } from '../lib/exportKeepAlive'
 import { makeExportEta } from '../lib/exportEta'
 import { addFilmToVoyage } from '../lib/voyageDB'
+import { getFilmHd } from '../lib/filmQuality'
 import { animDurationS, ANIM_ZOOM } from './useAnimationSettings'
 import { formatTrailDate } from '../lib/terrain3d/appAdapters'
 import type { LocalityInfo } from './useLocality'
@@ -171,6 +172,7 @@ export function useFilmRecording() {
         durationS,
         zoom: ANIM_ZOOM,
         fps: FPS,
+        hd: getFilmHd(),
         onProgress: r => { setFilmProgress(Math.max(0, r)); setFilmEtaS(eta.update(r)) },
         signal: abort.signal,
         debugSkipCharacter: filmDebug,

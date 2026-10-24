@@ -50,6 +50,7 @@ import { borneBoxes, drawBorneLayer, drawEndCard, drawEventCartouche, eventCarto
 import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
 import { ESSAI_FILM_S, FIN_FILM_S } from '../filmEssai'
+import { FILM_HD_AVAILABLE, FILM_HD_SCALE, filmCodecs } from '../filmQuality'
 import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
 
 /** Adresse du site, signée en fin de film (comme le film 2D). */
@@ -181,8 +182,10 @@ export interface FilmExport3dOptions {
   /** Banc d'essai : seule l'ouverture est rendue (jusqu'à l'arrivée de la caméra sur le départ, plus 1 s). */
   openingOnly?:   boolean
   fps?:           number
-  /** Plafond de débit vidéo (Mb/s) au-dessus de la qualité constante. Défaut 16 (voir QP_CAP_BPS). */
+  /** Plafond de débit vidéo (Mb/s) au-dessus de la qualité constante. Défaut 16, 24 en qualité YouTube (voir QP_CAP_BPS). */
   videoMaxMbps?:  number
+  /** Qualité YouTube (cf. filmQuality.ts) : 2560×1440, même mise en page qu'en 1920×1080 ; ignoré sur mobile. */
+  hd?:            boolean
   /** Bande-son optionnelle (musique de fond / ambiance / fichier utilisateur). Mux AAC, chemin WebCodecs uniquement. */
   audio?:         FilmAudioSpec
   /** `etaS` : temps restant estimé (s), affiné en continu (voir « Estimation du temps restant »). */
@@ -552,6 +555,12 @@ async function exportFilm3dImpl(
       (e instanceof Error ? e.message : String(e)), { cause: e })
   }
   const glCanvas = renderer.domElement
+  // Qualité YouTube : scène et habillage restent dans le repère OUT_W × OUT_H (cadrages, tailles de texte, largeur du
+  // ruban), rendus HD fois plus grands (PX_W × PX_H). Le renderer étant partagé, sa taille est refixée à chaque film.
+  const HD = opts.hd && FILM_HD_AVAILABLE ? FILM_HD_SCALE : 1
+  const PX_W = Math.round(OUT_W * HD), PX_H = Math.round(OUT_H * HD)
+  renderer.setPixelRatio(HD)
+  renderer.setSize(OUT_W, OUT_H, false)
 
   const scene = new THREE.Scene()
 
@@ -2261,7 +2270,7 @@ async function exportFilm3dImpl(
       const o = toScreen(q)
       const ux0 = toScreen(q.clone().addScaledVector(g.u, -d * m)), ux1 = toScreen(q.clone().addScaledVector(g.u, d * m))
       const vy0 = toScreen(q.clone().addScaledVector(g.v, -d * m)), vy1 = toScreen(q.clone().addScaledVector(g.v, d * m))
-      ctx2d.setTransform((ux1.x - ux0.x) / (2 * d), (ux1.y - ux0.y) / (2 * d), (vy1.x - vy0.x) / (2 * d), (vy1.y - vy0.y) / (2 * d), o.x, o.y)
+      ctx2d.setTransform(HD * (ux1.x - ux0.x) / (2 * d), HD * (ux1.y - ux0.y) / (2 * d), HD * (vy1.x - vy0.x) / (2 * d), HD * (vy1.y - vy0.y) / (2 * d), HD * o.x, HD * o.y)
       ctx2d.shadowColor = 'rgba(0,0,0,0.65)'; ctx2d.shadowBlur = 3
       ctx2d.strokeStyle = 'rgba(0,0,0,0.6)'; ctx2d.lineWidth = g.size * 0.17
       ctx2d.strokeText(chars[i], 0, 0)
@@ -2283,8 +2292,9 @@ async function exportFilm3dImpl(
   const trackM = TRACK_M
 
   const composite = document.createElement('canvas')
-  composite.width = OUT_W; composite.height = OUT_H
+  composite.width = PX_W; composite.height = PX_H
   const ctx2d = composite.getContext('2d')!
+  ctx2d.setTransform(HD, 0, 0, HD, 0, 0)
   // Encart du haut (même dessin que le film 2D) : profil du GPX, D+, pente, chrono (réel, prévu ou estimé).
   const prof = opts.profilePoints ?? []
   const profDist = [0]
@@ -2327,7 +2337,7 @@ async function exportFilm3dImpl(
   // Profil Main (pas High) : sur certaines machines le High retombe en encodage logiciel.
   // Mesuré (boucle de 8 km, 42 s) : QP 25 -> 45 Mo, sans blocs ; VBR 8 Mb/s -> 42 Mo, blocs.
   const VIDEO_QP = 25 // 0 (sans perte) … 51 ; ~23-26 = très propre en 1080p
-  const FALLBACK_BITRATE = 14_000_000
+  const FALLBACK_BITRATE = HD > 1 ? 24_000_000 : 14_000_000
   const bitrate = Math.min(FALLBACK_BITRATE, opts.videoMaxMbps && opts.videoMaxMbps > 0 ? opts.videoMaxMbps * 1e6 : Infinity)
   let useQP = false
   // Plafond de débit par-dessus la qualité constante (≈ x264 « CRF + maxrate ») : si le débit des
@@ -2335,7 +2345,8 @@ async function exportFilm3dImpl(
   // d'ensemble, survol rapide de villes), la qualité baisse d'un cran ; elle remonte vers
   // VIDEO_QP, jamais au-delà, dès que le débit redescend. Pas plus d'un cran toutes les
   // QP_STEP_EVERY images : pas de saut de qualité visible.
-  const QP_CAP_BPS = opts.videoMaxMbps && opts.videoMaxMbps > 0 ? opts.videoMaxMbps * 1e6 : 16_000_000
+  // Qualité YouTube : 24 Mb/s (≈ ×1,8 pixels ; YouTube recommande 16 Mb/s en 1440p, le relief survolé en demande plus).
+  const QP_CAP_BPS = opts.videoMaxMbps && opts.videoMaxMbps > 0 ? opts.videoMaxMbps * 1e6 : HD > 1 ? 24_000_000 : 16_000_000
   const QP_MAX = 42 // assez haut pour tenir un plafond bas (test à 5 Mb/s) ; à 16 Mb/s on reste bien en dessous
   const QP_WINDOW_S = 2
   const QP_STEP_EVERY = 6
@@ -2369,18 +2380,18 @@ async function exportFilm3dImpl(
   }
 
   if (hasWC) {
-    for (const codec of ['avc1.4d0029', 'avc1.4d0028', 'avc1.42001e']) {
+    for (const codec of filmCodecs(HD > 1)) {
       try {
-        const base = { codec, width: OUT_W, height: OUT_H, framerate: fps, latencyMode: 'quality' as const }
+        const base = { codec, width: PX_W, height: PX_H, framerate: fps, latencyMode: 'quality' as const }
         const qpCfg: VideoEncoderConfig = { ...base, bitrateMode: 'quantizer' }
         const vbrCfg: VideoEncoderConfig = { ...base, bitrate, bitrateMode: 'variable' }
         const qpOk = await VideoEncoder.isConfigSupported(qpCfg).then(s => !!s.supported, () => false)
         if (qpOk || (await VideoEncoder.isConfigSupported(vbrCfg)).supported) {
-          muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: OUT_W, height: OUT_H, frameRate: fps }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
+          muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: PX_W, height: PX_H, frameRate: fps }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
           encoder = new VideoEncoder({ output: (c, m) => { onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film3d] encoder:', e); encoderError = e } })
           encoder.configure(qpOk ? qpCfg : vbrCfg)
           useQP = qpOk
-          noteEncoderSetup(`film 3D, ${codec} ${qpOk ? 'QP' : 'VBR'} ${OUT_W}×${OUT_H}`)
+          noteEncoderSetup(`film 3D, ${codec} ${qpOk ? 'QP' : 'VBR'} ${PX_W}×${PX_H}`)
           useWC = true; break
         }
       } catch { /* codec suivant */ }

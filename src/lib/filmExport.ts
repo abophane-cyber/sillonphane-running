@@ -32,6 +32,7 @@ import { getTrackPacing, headingToScreen } from './trackPacing'
 import { CAPTION_HOLD_S, captionStreets, type StreetRun } from './routeStreets'
 import { PLACE_HOLD_S, boxesHit, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from './mapLabels'
 import { FIN_FILM_S, isPromoFilm } from './filmEssai'
+import { FILM_HD_SCALE, filmCodecs } from './filmQuality'
 
 export interface FilmExportOptions {
   points:            GpxPoint[]
@@ -82,6 +83,8 @@ export interface FilmExportOptions {
   durationS:         number // Défaut: 30s (correspond à la Preview)
   zoom:              number
   fps?:              number  // défaut 30
+  /** Qualité YouTube (cf. filmQuality.ts) : 2560×1440, même mise en page qu'en 1920×1080 ; ignoré sur mobile. */
+  hd?:               boolean
   /** Bande-son optionnelle (musique de fond / ambiance / fichier utilisateur). Mux AAC, chemin WebCodecs uniquement. */
   audio?:            FilmAudioSpec
   onProgress?:       (ratio: number) => void
@@ -543,7 +546,9 @@ export function drawBorneLayer(
   place: (it: Borne | Ravito) => { x: number; y: number } | null,
   scale: number, alpha = 1, coveredM = Infinity, overview = false,
 ): Box[] {
-  const outW = ctx.canvas.width, outH = ctx.canvas.height
+  // Taille du cadre dans le repère de dessin (image agrandie en qualité YouTube, cf. filmQuality.ts).
+  const ks = ctx.getTransform().a || 1
+  const outW = ctx.canvas.width / ks, outH = ctx.canvas.height / ks
   const placed: Box[] = []
   if (alpha <= 0) return placed
   const s = Math.max(1, scale)
@@ -1150,6 +1155,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const { points, distances, totalDistance, durationS = 30, zoom: zoomRaw, fps = 30, onProgress, signal } = opts
   // Sur smartphone, vue rapprochée : altitude divisée par 2 (+1 niveau de zoom)
   const zoom = filmZoom(zoomRaw)
+  // Qualité YouTube : tout reste dessiné dans le repère OUT_W × OUT_H (cadrages, tailles de texte), sur une image
+  // HD fois plus grande (PX_W × PX_H) ; la carte hors-écran rend à la même échelle (pixelRatio).
+  const HD = opts.hd && !IS_MOBILE ? FILM_HD_SCALE : 1
+  const PX_W = Math.round(OUT_W * HD), PX_H = Math.round(OUT_H * HD)
   if (points.length < 2) return new Blob()
   await loadOpeningFont() // police des étiquettes de POI (mapLabels.ts), avant leur pré-rendu
   // Tracé lissé (bruit GPS) pour le ruban dessiné et la position du randonneur — mêmes distances
@@ -1228,7 +1237,7 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     center: [points[0].lon, points[0].lat],
     zoom,
     bearing: 0, pitch: 0,
-    ...({ preserveDrawingBuffer: true, pixelRatio: 1, antialias: true } as object),
+    ...({ preserveDrawingBuffer: true, pixelRatio: HD, antialias: true } as object),
     attributionControl: false,
     fadeDuration: 0,
     maxTileCacheSize: 5000,
@@ -1259,8 +1268,9 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   const hikers3d = hikers.length > 0
 
   const canvas = document.createElement('canvas')
-  canvas.width = OUT_W; canvas.height = OUT_H
+  canvas.width = PX_W; canvas.height = PX_H
   const ctx = canvas.getContext('2d')!
+  ctx.setTransform(HD, 0, 0, HD, 0, 0)
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
 
@@ -1317,12 +1327,13 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // Profil Main@4.1 : le niveau 4.0 plafonne à 20 Mb/s, les lecteurs stricts saccadent au-delà.
   // Repli : VBR à FALLBACK_BITRATE si le mode quantizer n'est pas proposé par le navigateur.
   const VIDEO_QP = 25
-  const FALLBACK_BITRATE = 10_000_000
+  const FALLBACK_BITRATE = HD > 1 ? 18_000_000 : 10_000_000
   const bitrate = FALLBACK_BITRATE
   let useQP = false
   // 10 Mb/s (16 au départ, comme le 3D) : la carte topo en défilement reste collée au plafond sur tout le
   // film, la taille du fichier en découle directement (16 Mb/s -> ~112 Mo pour 50 s, jugé trop lourd).
-  const QP_CAP_BPS = 10_000_000
+  // Qualité YouTube : plafond relevé à 18 Mb/s (≈ ×1,8 pixels ; YouTube recommande 16 Mb/s en 1440p).
+  const QP_CAP_BPS = HD > 1 ? 18_000_000 : 10_000_000
   const rc = createQpRateControl({ fps, baseQp: VIDEO_QP, maxQp: 42, capBps: QP_CAP_BPS })
   // GOP ~1,6 s comme le 3D : le GOP court (15) servait à « reconverger » en CBR ; en qualité
   // constante il ne ferait que gaspiller le budget du plafond en images-clés.
@@ -1351,18 +1362,18 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
     // H.264 uniquement : HEVC est encodable sur certains navigateurs (Safari) mais pas décodable
     // par la plupart des autres (Chrome/Firefox/Android) — un film exporté en HEVC lisait
     // silencieusement dans le vide (aucune erreur, juste rien qui se joue) sur ces appareils.
-    for (const codec of ['avc1.4d0029', 'avc1.4d0028', 'avc1.42001e']) {
+    for (const codec of filmCodecs(HD > 1)) {
       try {
-        const base = { codec, width: OUT_W, height: OUT_H, framerate: fps, latencyMode: 'quality' as const }
+        const base = { codec, width: PX_W, height: PX_H, framerate: fps, latencyMode: 'quality' as const }
         const qpCfg: VideoEncoderConfig = { ...base, bitrateMode: 'quantizer' }
         const vbrCfg: VideoEncoderConfig = { ...base, bitrate, bitrateMode: 'variable' }
         const qpOk = await VideoEncoder.isConfigSupported(qpCfg).then(s => !!s.supported, () => false)
         if (qpOk || (await VideoEncoder.isConfigSupported(vbrCfg)).supported) {
-          muxer   = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: OUT_W, height: OUT_H, frameRate: fps }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
+          muxer   = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: PX_W, height: PX_H, frameRate: fps }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
           encoder = new VideoEncoder({ output: (c, m) => { rc.onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film] encoder:', e); encoderError = e } })
           encoder.configure(qpOk ? qpCfg : vbrCfg)
           useQP = qpOk
-          noteEncoderSetup(`film 2D, ${codec} ${qpOk ? 'QP' : 'VBR'} ${OUT_W}×${OUT_H}`)
+          noteEncoderSetup(`film 2D, ${codec} ${qpOk ? 'QP' : 'VBR'} ${PX_W}×${PX_H}`)
           useWC = true; break
         }
       } catch { /**/ }

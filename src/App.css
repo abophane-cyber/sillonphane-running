@@ -1164,6 +1164,15 @@ button.btn-marker-gender:hover { opacity: 1; transform: scale(1.15); }
   letter-spacing: 0.1em; color: var(--color-text-muted); line-height: 1;
 }
 
+/* Case « Qualité YouTube » : légende posée sur le trait du bas (comme le titre sur celui du haut). */
+.controls__film-hd {
+  position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 4px; white-space: nowrap;
+  padding: 0 5px; background: var(--color-surface);
+  font-size: 10px; color: var(--color-text-muted); line-height: 1; cursor: pointer;
+}
+.controls__film-hd input { width: 11px; height: 11px; margin: 0; cursor: pointer; }
+
 /* Encadrés de section regroupant plusieurs sous-groupes (Navigation, Création…) */
 .controls__section {
   display: flex; align-items: flex-end; gap: 14px;

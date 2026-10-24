@@ -9,6 +9,7 @@ import { FilmIcon } from './FilmIcon'
 import { RibbonIcon } from './RibbonIcon'
 import { AppLogoIcon } from './AppLogoIcon'
 import { probeVideoEncoder } from '../lib/encoderProbe'
+import { FILM_HD_AVAILABLE, getFilmHd, setFilmHd } from '../lib/filmQuality'
 import { diag } from '../lib/diag'
 
 type ActivityMode = 'randonneur'
@@ -100,6 +101,7 @@ export function AnimationControls({
   // films ne pourront pas être créés sur ce navigateur.
   const [encoderBroken, setEncoderBroken] = useState(false)
   const [encoderWarnDismissed, setEncoderWarnDismissed] = useState(false)
+  const [filmHd, setFilmHdState] = useState(getFilmHd)
   useEffect(() => {
     if (!onRecord && !onRecord3d) return
     let cancelled = false
@@ -376,6 +378,18 @@ export function AnimationControls({
                 </div>
               )}
               </div>
+              {FILM_HD_AVAILABLE && (
+                <label
+                  className="controls__film-hd"
+                  title="Film en 2560×1440 : plus net sur YouTube, environ deux fois plus lourd et plus long à créer"
+                >
+                  <input
+                    type="checkbox" checked={filmHd} disabled={filmBusy}
+                    onChange={e => { setFilmHd(e.target.checked); setFilmHdState(e.target.checked) }}
+                  />
+                  Qualité YouTube (1440p)
+                </label>
+              )}
             </div>
           )}
 
