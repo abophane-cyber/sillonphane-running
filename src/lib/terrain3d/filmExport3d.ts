@@ -1549,6 +1549,17 @@ async function exportFilm3dImpl(
     const sprite = makeLocSprite(pnl.name, pnl.style, anchor, panelAnchorParams[idx], pnl.ele) // orienté au point posé
     return { sprite, t: panelT, isCol: pnl.style === 'col' }
   })
+  // Lieux connus (POI) : effacés POI_HIDE_AFTER_S après le passage de la tête du ruban (fondu de POI_FADE_S), et de
+  // nouveau affichés à l'approche d'un passage suivant (boucle, aller-retour) ; ceux du départ et de l'arrivée
+  // (passage à moins de POI_KEEP_M d'un bout du parcours) restent affichés. Sinon ils s'empilaient en haut de l'image
+  // (« Nouveau Siècle » sur « Opéra de Lille »).
+  const POI_HIDE_AFTER_S = 2, POI_FADE_S = 0.5, POI_KEEP_M = 400
+  const poiFade = panelSprites.map((p, idx) => {
+    const passes = panelPasses[idx]
+    const keep = p.sprite.userData.poi !== true
+      || passes.some(u => u * TRACK_M < POI_KEEP_M || (1 - u) * TRACK_M < POI_KEEP_M)
+    return { passes, keep, next: 0, passedAt: -1, alpha: 1 }
+  })
   function makeEndpointPanel(name: string, anchor: THREE.Vector3, t: number, colEle?: number, lieudit?: boolean): Label {
     const isCol = colEle != null
     return makeLocSprite(name, isCol ? 'col' : lieudit ? 'lieudit' : 'standard', anchor, t, colEle)
@@ -1985,7 +1996,19 @@ async function exportFilm3dImpl(
       updateTipCap(lookT * RIBBON_SEGMENTS, lookT)
       runnerAtEnd = lookT >= 1
       headFrac = lookT
-      for (const { sprite, t: panelT } of panelSprites) if (t >= panelT - PANEL_LEAD) sprite.visible = true
+      panelSprites.forEach(({ sprite, t: panelT }, i) => {
+        if (t < panelT - PANEL_LEAD) return
+        const f = poiFade[i]
+        if (!f.keep) {
+          while (f.next < f.passes.length && lookT >= f.passes[f.next]) { f.passedAt = elapsed; f.next++ }
+          const approaching = f.next < f.passes.length && t >= f.passes[f.next] - PANEL_LEAD
+          f.alpha = f.passedAt < 0 || approaching ? 1 : 1 - Math.min(1, Math.max(0, (elapsed - f.passedAt - POI_HIDE_AFTER_S) / POI_FADE_S))
+          const m = sprite.material as THREE.Material
+          if (f.alpha < 1 && m.alphaTest !== 0) { m.alphaTest = 0; m.needsUpdate = true } // sinon le fondu « coupe » net à 0,4
+          m.opacity = f.alpha
+        }
+        sprite.visible = f.alpha > 0
+      })
       // Nom du départ écrit en haut de l'écran à l'ouverture (cf. drawStartHeader) : pas au sol pendant le survol,
       // où il chevauchait le repère voisin (« Lille » sur « Porte de Paris »). Il revient sur la vue d'ensemble.
       if (departurePanel) departurePanel.visible = false
@@ -2060,10 +2083,11 @@ async function exportFilm3dImpl(
       // Localités : fondu de sortie. Cols : restent affichés sur la vue d'ensemble (comme le film 2D+),
       // avec le départ et l'arrivée.
       const panelA = 1 - Math.min(1, u / 0.35)
-      for (const { sprite, isCol } of panelSprites) {
-        ;(sprite.material as THREE.Material).opacity = isCol ? 1 : panelA
-        sprite.visible = isCol || panelA > 0
-      }
+      panelSprites.forEach(({ sprite, isCol }, i) => {
+        const a = isCol ? 1 : panelA * poiFade[i].alpha // lieu connu déjà effacé : ne revient pas
+        ;(sprite.material as THREE.Material).opacity = a
+        sprite.visible = a > 0
+      })
       if (departurePanel) departurePanel.visible = true
       if (arrivalPanel) {
         arrivalPanel.visible = true
