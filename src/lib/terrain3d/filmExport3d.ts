@@ -23,7 +23,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js'
 import { Water } from 'three/examples/jsm/objects/Water.js'
 import { Muxer, ArrayBufferTarget } from 'mp4-muxer'
 import { CAPTION_HOLD_S, CAPTION_MIN_M } from '../routeStreets'
-import { LABEL_FONT, PLACE_HOLD_S, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
+import { LABEL_FONT, MAJOR_STREET_INK, PLACE_HOLD_S, clearOffset, drawStreetAlongPath, renderGroundLabel, STREET_LEAD_S, streetLabel, streetLabelAlpha, type Box } from '../mapLabels'
 import {
   buildFilmAudioTrack, encodeFilmAudio, filmAudioSupported, hasFilmAudio,
   MUXER_AUDIO_CONFIG, type FilmAudioSpec,
@@ -2266,7 +2266,7 @@ async function exportFilm3dImpl(
    *  rectangle qu'il occupe à l'écran (null : derrière la caméra). Lettres jamais plus basses à l'écran que 80 % de
    *  `size` : vue de loin ou de biais (allée qui file vers l'horizon), la perspective les aplatissait jusqu'à les rendre
    *  illisibles ; le nom est alors agrandi au sol (×3 au plus), sans jamais redescendre sous sa taille de départ. */
-  function drawGroundStreet(g: GroundStreet, text: string, alpha: number): Box | null {
+  function drawGroundStreet(g: GroundStreet, text: string, alpha: number, major = false): Box | null {
     const chars = [...text]
     const half = g.textW / 2
     let m = g.mPerPx
@@ -2300,7 +2300,7 @@ async function exportFilm3dImpl(
       ctx2d.strokeStyle = 'rgba(0,0,0,0.6)'; ctx2d.lineWidth = g.size * 0.17
       ctx2d.strokeText(chars[i], 0, 0)
       ctx2d.shadowColor = 'transparent'
-      ctx2d.fillStyle = '#ffffff'
+      ctx2d.fillStyle = major ? MAJOR_STREET_INK : '#ffffff' // grandes voies en orangé, comme le film 2D
       ctx2d.fillText(chars[i], 0, 0)
     }
     ctx2d.restore()
@@ -2563,7 +2563,7 @@ async function exportFilm3dImpl(
           !st.label.place && (st.to - st.from) * trackM >= CAPTION_MIN_M && m >= st.from * trackM - mps, !st.label.place)
         if (!st.label.place && st.label.fix) {
           st.ground ??= groundStreet(st)
-          box = st.ground ? drawGroundStreet(st.ground, st.label.text, a) : null
+          box = st.ground ? drawGroundStreet(st.ground, st.label.text, a, st.label.major) : null
         }
         if (st.label.why !== st.lastWhy) { st.lastWhy = st.label.why; logSt(st.label.why ?? '-') }
         if (box && st.label.place) placeOcc.push(box)

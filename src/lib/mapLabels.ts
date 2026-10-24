@@ -200,6 +200,10 @@ const ABBREV_FULL: Record<string, string> = {
   RPT: 'Rond-point', PARV: 'Parvis', VC: 'Voie communale',
 }
 const PARTICLES = new Set(['DE', 'DES', 'DU', 'LA', 'LE', 'LES', 'ET', 'SUR', 'EN', 'AUX', 'AU', 'SOUS'])
+/** Lettres des grandes voies (StreetLabel.major, hors places) : orangé, cerné de sombre quel que soit le fond. Les autres
+ * rues : blanc, ou noir sur fond clair. Même graphie pour toutes. */
+export const MAJOR_STREET_INK = '#ffa64d'
+
 /** Voies majeures (rang, cf. StreetLabel.major) : boulevards, avenues, routes, places, quais, cours. */
 const MAJOR = /^(BD|AV|RTE|PL|QU|QUAI|CRS|PONT)\s/
 
@@ -528,7 +532,8 @@ export function drawStreetAlongPath(
     const l = backgroundLuma(bg ?? { src: ctx.canvas, scale: 1 }, glyphs, size)
     if (l != null) label.fix.dark = l > LIGHT_BG_LUMA
   }
-  const dark = label.fix.dark === true
+  const orange = label.major && !label.place
+  const dark = label.fix.dark === true && !orange
   ctx.globalAlpha = alpha * 0.95
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
   for (const g of glyphs) {
@@ -539,7 +544,7 @@ export function drawStreetAlongPath(
     ctx.strokeStyle = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2.6 * k
     ctx.strokeText(g.ch, 0, 0)
     ctx.shadowColor = 'transparent'
-    ctx.fillStyle = dark ? '#111111' : '#ffffff'
+    ctx.fillStyle = orange ? MAJOR_STREET_INK : dark ? '#111111' : '#ffffff'
     ctx.fillText(g.ch, 0, 0)
     ctx.restore()
   }
