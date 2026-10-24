@@ -1406,6 +1406,10 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
   // Fondu d'apparition/disparition des panneaux (au lieu d'un pop-in/pop-out net à showFrame/
   // hideFrame). Les panneaux départ/arrivée (hideFrame: Infinity) ne font que l'entrée.
   const SIGN_FADE_FRAMES = Math.max(1, Math.round(0.4 * fps))
+  // Lieux connus (POI) : effacés dès 2 s après le passage (ils s'empilaient en haut de l'image), sauf ceux du départ et
+  // de l'arrivée (passage à moins de POI_KEEP_M d'un bout du parcours), affichés jusqu'au bout. Comme le film 3D.
+  const POI_STAY_FRAMES = Math.round(2 * fps) + SIGN_FADE_FRAMES
+  const POI_KEEP_M = 400
   interface LocalityEvent { name: string; lon: number; lat: number; style: SignStyle; ele?: number; showFrame: number; hideFrame: number; arriveFrame: number }
 
   const depName = opts.startName?.trim().toLowerCase() ?? ''
@@ -1443,11 +1447,14 @@ async function exportFilmImpl(opts: FilmExportOptions, onEncoderFail: () => void
       }
     }
     const style: SignStyle = loc.type === 'col' ? 'col' : loc.placeType === 'poi' ? 'poi' : loc.placeType === 'ravito' ? 'ravito' : isLieuditPlaceType(loc.placeType) ? 'lieudit' : 'standard'
-    return passes.map(m => {
+    // Lieu connu du départ ou de l'arrivée : un seul panneau, affiché dès le premier passage et jusqu'au bout.
+    const keepPoi = style === 'poi' && passes.some(m => m < POI_KEEP_M || totalDistance - m < POI_KEEP_M)
+    return (keepPoi ? passes.slice(0, 1) : passes).map(m => {
       const triggerProgress = Math.min(m / totalDistance, 1)
       const arriveFrame = walkWarp ? Math.round(walkWarp.timeAtM(triggerProgress * totalDistance) * fps) : Math.round(triggerProgress * estTotalFrames)
       const showFrame = Math.max(0, arriveFrame - SIGN_LEAD_FRAMES)
-      return { name: loc.name, lon: loc.lon, lat: loc.lat, style, ele: loc.ele, showFrame, hideFrame: arriveFrame + SIGN_STAY_FRAMES, arriveFrame }
+      const hideFrame = style !== 'poi' ? arriveFrame + SIGN_STAY_FRAMES : keepPoi ? Infinity : arriveFrame + POI_STAY_FRAMES
+      return { name: loc.name, lon: loc.lon, lat: loc.lat, style, ele: loc.ele, showFrame, hideFrame, arriveFrame }
     })
   })
 
