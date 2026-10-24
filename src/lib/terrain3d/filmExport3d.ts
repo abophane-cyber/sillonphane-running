@@ -51,6 +51,7 @@ import { drawElevOverlay } from '../drawElevOverlay'
 import type { Borne, EndCard, Ravito } from '../raceSplits'
 import { ESSAI_FILM_S, FIN_FILM_S } from '../filmEssai'
 import { FILM_HD_AVAILABLE, FILM_HD_SCALE, filmCodecs } from '../filmQuality'
+import { createQpRateControl } from '../qpRateControl'
 import { drawOpening, loadOpeningFont, openingDiveK, openingFrameShift, openingHudAlpha, openingText, OPENING_FRAME_SHIFT, OPENING_S, type OpeningPt } from '../filmOpening'
 
 /** Adresse du site, signée en fin de film (comme le film 2D). */
@@ -2364,33 +2365,12 @@ async function exportFilm3dImpl(
   const FALLBACK_BITRATE = HD > 1 ? 24_000_000 : 14_000_000
   const bitrate = Math.min(FALLBACK_BITRATE, opts.videoMaxMbps && opts.videoMaxMbps > 0 ? opts.videoMaxMbps * 1e6 : Infinity)
   let useQP = false
-  // Plafond de débit par-dessus la qualité constante (≈ x264 « CRF + maxrate ») : si le débit des
-  // QP_WINDOW_S dernières secondes dépasse QP_CAP_BPS (passages très chargés : montée vers la vue
-  // d'ensemble, survol rapide de villes), la qualité baisse d'un cran ; elle remonte vers
-  // VIDEO_QP, jamais au-delà, dès que le débit redescend. Pas plus d'un cran toutes les
-  // QP_STEP_EVERY images : pas de saut de qualité visible.
+  // Plafond de débit par-dessus la qualité constante (≈ x264 « CRF + maxrate », cf. qpRateControl.ts, partagé avec le
+  // film 2D) : passages très chargés (montée vers la vue d'ensemble, survol rapide de villes) -> qualité baissée.
   // Qualité YouTube : 24 Mb/s (≈ ×1,8 pixels ; YouTube recommande 16 Mb/s en 1440p, le relief survolé en demande plus).
   const QP_CAP_BPS = opts.videoMaxMbps && opts.videoMaxMbps > 0 ? opts.videoMaxMbps * 1e6 : HD > 1 ? 24_000_000 : 16_000_000
   const QP_MAX = 42 // assez haut pour tenir un plafond bas (test à 5 Mb/s) ; à 16 Mb/s on reste bien en dessous
-  const QP_WINDOW_S = 2
-  const QP_STEP_EVERY = 6
-  let curQP = VIDEO_QP
-  let qpMaxUsed = VIDEO_QP
-  let lastQpStep = 0
-  const chunkBytes: number[] = []
-  const onChunk = (c: EncodedVideoChunk) => {
-    chunkBytes.push(c.byteLength)
-    if (chunkBytes.length > QP_WINDOW_S * fps) chunkBytes.shift()
-  }
-  function nextQP(f: number): number {
-    if (f - lastQpStep < QP_STEP_EVERY || chunkBytes.length < fps / 2) return curQP
-    let sum = 0
-    for (const b of chunkBytes) sum += b
-    const bps = (sum * 8 * fps) / chunkBytes.length
-    if (bps > QP_CAP_BPS && curQP < QP_MAX) { curQP++; lastQpStep = f; qpMaxUsed = Math.max(qpMaxUsed, curQP) }
-    else if (bps < QP_CAP_BPS * 0.75 && curQP > VIDEO_QP) { curQP--; lastQpStep = f }
-    return curQP
-  }
+  const rc = createQpRateControl({ fps, baseQp: VIDEO_QP, maxQp: QP_MAX, capBps: QP_CAP_BPS })
 
   // ── Bande-son (chemin WebCodecs uniquement) : mixée sur toute la durée du cycle ──
   let audioBuffer: AudioBuffer | null = null
@@ -2412,7 +2392,7 @@ async function exportFilm3dImpl(
         const qpOk = await VideoEncoder.isConfigSupported(qpCfg).then(s => !!s.supported, () => false)
         if (qpOk || (await VideoEncoder.isConfigSupported(vbrCfg)).supported) {
           muxer = new Muxer({ target: new ArrayBufferTarget(), video: { codec: 'avc', width: PX_W, height: PX_H, frameRate: fps }, ...(audioBuffer ? { audio: MUXER_AUDIO_CONFIG } : {}), fastStart: 'in-memory' })
-          encoder = new VideoEncoder({ output: (c, m) => { onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film3d] encoder:', e); encoderError = e } })
+          encoder = new VideoEncoder({ output: (c, m) => { rc.onChunk(c); muxer!.addVideoChunk(c, m) }, error: e => { console.error('[film3d] encoder:', e); encoderError = e } })
           encoder.configure(qpOk ? qpCfg : vbrCfg)
           useQP = qpOk
           noteEncoderSetup(`film 3D, ${codec} ${qpOk ? 'QP' : 'VBR'} ${PX_W}×${PX_H}`)
@@ -2672,7 +2652,7 @@ async function exportFilm3dImpl(
         const vf = new VideoFrame(composite, { timestamp: Math.round(f * 1_000_000 / fps) })
         encoder.encode(vf, {
           keyFrame: f % GOP === 0 || f === motionStartFrame,
-          ...(useQP ? { avc: { quantizer: nextQP(f) } } : {}),
+          ...(useQP ? { avc: { quantizer: rc.next(f) } } : {}),
         }); vf.close()
       } catch (e) { console.error('[film3d] VideoFrame:', e) }
       // On ATTEND l'encodeur s'il prend du retard, au lieu de laisser la file gonfler et de tout
@@ -2719,7 +2699,7 @@ async function exportFilm3dImpl(
         console.warn('[film3d] encodage bande-son échoué (film livré muet) :', e)
       }
     }
-    if (useQP) console.info(`[film3d] qualité constante QP ${VIDEO_QP}, QP max atteint ${qpMaxUsed} (plafond ${QP_CAP_BPS / 1e6} Mb/s)`)
+    if (useQP) console.info(`[film3d] qualité constante QP ${VIDEO_QP}, QP max atteint ${rc.maxUsed} (plafond ${QP_CAP_BPS / 1e6} Mb/s)`)
     muxer.finalize()
     return new Blob([(muxer.target as ArrayBufferTarget).buffer], { type: 'video/mp4' })
   }
