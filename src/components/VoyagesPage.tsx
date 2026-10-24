@@ -22,7 +22,7 @@ import { AppLogoIcon } from './AppLogoIcon'
 import { isRecordedGpx } from '../lib/gpx'
 import { readActivityFile } from '../lib/activityImport'
 import { filmFileKind, saveFileWithPicker } from '../lib/saveFile'
-import { filmResolutionLabel, videoHeight } from '../lib/filmQuality'
+import { FILM_HD_AVAILABLE, filmResolutionLabel, videoHeight } from '../lib/filmQuality'
 import { dateParts } from '../lib/sillonDisplay'
 import { BookAside, BookIcon, DotsIcon, MountainIcon, PencilIcon, PlusIcon, RunnerIcon, TrashIcon } from './SillonDetailParts'
 import './SillonDetail.css'
@@ -329,8 +329,12 @@ function SillonDetail({
     if (playingUrl) { URL.revokeObjectURL(playingUrl); setPlayingUrl(null) }
     setPlayerError(null)
     try {
-      const blob = await getFilmBlob(film.id)
-      if (!blob) { alert('Vidéo non disponible.'); return }
+      const stored = await getFilmBlob(film.id)
+      if (!stored) { alert('Vidéo non disponible.'); return }
+      // Sur ordinateur, film copié en mémoire avant lecture : le lecteur ne dépend plus de la base pendant la
+      // lecture (un Blob de la base devenu illisible figeait la vidéo au bout de 3-4 s, cf. openDB). Pas sur mobile,
+      // où un film de plusieurs centaines de Mo en mémoire risquerait de faire fermer l'appli.
+      const blob = FILM_HD_AVAILABLE ? new Blob([await stored.arrayBuffer()], { type: stored.type || 'video/mp4' }) : stored
       setPlayingUrl(URL.createObjectURL(blob))
     } catch (e) {
       // Sans ce try/catch, une erreur ici (accès IndexedDB, blob corrompu…) échouait

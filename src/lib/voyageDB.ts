@@ -13,7 +13,27 @@ const STORE_PHOTO_BLOBS = 'photo-blobs'  // clé = photoId, valeur = Blob image
 const STORE_TRACK_PDF_CACHE = 'track-pdf-cache'  // clé = trackId, valeur = { trackId, contentVersion, blob }
 const STORE_COVER_PDF_CACHE = 'cover-pdf-cache'  // clé = voyageId, valeur = { voyageId, contentVersion, blob }
 
+// Connexion UNIQUE, gardée ouverte : une connexion par appel, sans référence, était fermée par le navigateur au
+// premier ramasse-miettes — et un Blob lu par elle (film en cours de lecture dans Mes sillons, lu morceau par morceau
+// par le lecteur) devenait illisible : la vidéo se figeait au bout de 3-4 s. Rouverte si elle se ferme
+// (mise à jour de la base par un autre onglet, fermeture par le navigateur).
+let dbPromise: Promise<IDBDatabase> | null = null
+
 function openDB(): Promise<IDBDatabase> {
+  if (!dbPromise) {
+    dbPromise = openDBConnection().then(db => {
+      const reset = () => { if (dbPromise === p) dbPromise = null }
+      db.onversionchange = () => { db.close(); reset() }
+      db.onclose = reset
+      return db
+    })
+    const p = dbPromise
+    p.catch(() => { if (dbPromise === p) dbPromise = null })
+  }
+  return dbPromise
+}
+
+function openDBConnection(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION)
     req.onupgradeneeded = e => {
