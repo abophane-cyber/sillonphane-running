@@ -2520,7 +2520,6 @@ async function exportFilm3dImpl(
       else if (ovU < 1) draw(1, Math.max(0, 1 - ovU / 0.35), Infinity)
       else draw(OVERVIEW_BORNE_SCALE, Math.max(0, Math.min(1, (simElapsed - PHASE3_END - OVERVIEW_RISE_S - OVERVIEW_CLEAN_S) / 0.5)), Infinity, true)
     }
-    drawRunner(ctx2d, simElapsed, lastOverlay.profileT, 1 / fps)
     // Rue empruntée, en haut de l'écran : après l'effacement du nom de départ, jusqu'à la fin du survol.
     const inFlight = simElapsed >= PHASE1_END && simElapsed < PHASE3_END
     // Rectangles pris pendant le survol (comme le film 2D) : bornes fixes ; places : évitent les bornes ; rues : glissent
@@ -2571,6 +2570,8 @@ async function exportFilm3dImpl(
         else if (box) streetOcc.push(box)
       }
     }
+    // Coureuse APRÈS les noms de rue peints au sol : elle passe devant eux (le nom de l'avenue lui traversait les jambes).
+    drawRunner(ctx2d, simElapsed, lastOverlay.profileT, 1 / fps)
     // Lieux connus : toujours à la même hauteur au-dessus de leur repère (remontés jusqu'à 220 px pour dégager bornes et
     // places, ils montaient et descendaient pendant le survol).
     // Noms de commune et de lieu-dit couchés au sol sur une borne (« LILLE » sous la médaille du 10 km) : écartés à
