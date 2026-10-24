@@ -200,9 +200,10 @@ const ABBREV_FULL: Record<string, string> = {
   RPT: 'Rond-point', PARV: 'Parvis', VC: 'Voie communale',
 }
 const PARTICLES = new Set(['DE', 'DES', 'DU', 'LA', 'LE', 'LES', 'ET', 'SUR', 'EN', 'AUX', 'AU', 'SOUS'])
-/** Lettres des grandes voies et des places (StreetLabel.major) : jaune vif (l'orangé se fondait dans les toits des vues aériennes), cerné de sombre quel que soit le fond. Les autres
- * rues : blanc, ou noir sur fond clair. Même graphie pour toutes. */
-export const MAJOR_STREET_INK = '#ffd84a'
+/** Lettres des rues (hors grandes voies et places, cf. StreetLabel.major) : jaune vif, cerné de sombre quel que soit le
+ * fond (orangé essayé : il se fondait dans les toits des vues aériennes). Grandes voies et places : blanc, ou noir sur
+ * fond clair. Même graphie pour toutes. */
+export const STREET_INK = '#ffd84a'
 
 /** Voies majeures (rang, cf. StreetLabel.major) : boulevards, avenues, routes, places, quais, cours. */
 const MAJOR = /^(BD|AV|RTE|PL|QU|QUAI|CRS|PONT)\s/
@@ -532,8 +533,8 @@ export function drawStreetAlongPath(
     const l = backgroundLuma(bg ?? { src: ctx.canvas, scale: 1 }, glyphs, size)
     if (l != null) label.fix.dark = l > LIGHT_BG_LUMA
   }
-  const orange = label.major && !label.place
-  const dark = label.fix.dark === true && !orange
+  const yellow = !label.major
+  const dark = label.fix.dark === true && !yellow
   ctx.globalAlpha = alpha * 0.95
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'
   for (const g of glyphs) {
@@ -544,7 +545,7 @@ export function drawStreetAlongPath(
     ctx.strokeStyle = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'; ctx.lineWidth = 2.6 * k
     ctx.strokeText(g.ch, 0, 0)
     ctx.shadowColor = 'transparent'
-    ctx.fillStyle = orange ? MAJOR_STREET_INK : dark ? '#111111' : '#ffffff'
+    ctx.fillStyle = yellow ? STREET_INK : dark ? '#111111' : '#ffffff'
     ctx.fillText(g.ch, 0, 0)
     ctx.restore()
   }
@@ -670,8 +671,9 @@ function drawPlaceCircle(
     const l = backgroundLuma(bg ?? { src: ctx.canvas, scale: 1 }, glyphs, size)
     if (l != null) label.fix.dark = l > LIGHT_BG_LUMA
   }
-  // Places en jaune comme les grandes voies (lettres et anneau), cernées de sombre quel que soit le fond.
-  const ink = MAJOR_STREET_INK, halo = 'rgba(0,0,0,0.6)'
+  // Places comme les grandes voies : blanc, ou noir sur fond clair (les rues, elles, sont en jaune).
+  const dark = label.fix.dark === true
+  const ink = dark ? '#111111' : '#ffffff', halo = dark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.6)'
   ctx.globalAlpha = alpha * 0.97
   // Fin anneau extérieur, discret : le nom est écrit à l'intérieur, comme un tampon posé sur la place.
   const rr = r + size * 0.8
